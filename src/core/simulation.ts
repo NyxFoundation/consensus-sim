@@ -20,7 +20,7 @@ import { makeRng } from './rng'
 import type { Rng } from './rng'
 import type { NodeId, NodeRole, Slot, Time, ValidatorInfo } from './types'
 import type { LayerContext, LayerFactory, LayerInstance, LayerSnapshot, LayerView } from '../protocol/layer'
-import type { Envelope, ProtocolMessage } from '../protocol/messages'
+import type { Envelope, LayerId, MessageKind, ProtocolMessage } from '../protocol/messages'
 import type { Block, GasperConfig } from '../protocol/gasper/types'
 import { epochOf } from '../protocol/gasper/types'
 
@@ -51,6 +51,30 @@ type EventPayload =
 
 const NO_LOWER_LAYERS: readonly LayerView[] = []
 
+/**
+ * One broadcast and how far it has spread.
+ *
+ * Without this the views could only show outcomes — a block exists, a head
+ * changed — and the slot would read as nothing happening followed by a sudden
+ * jump. Propagation is the part of a slot that is actually continuous, and it
+ * is where latency and partitions become visible rather than merely inferable.
+ */
+interface MutablePublication {
+  readonly id: number
+  readonly time: Time
+  readonly slot: Slot
+  readonly from: NodeId
+  readonly layer: LayerId
+  readonly kind: MessageKind
+  /** Nodes that hold it so far, counting the sender. */
+  delivered: number
+}
+
+export type Publication = Readonly<MutablePublication>
+
+/** Bounds the log; a few slots of history is all any view asks for. */
+const PUBLICATION_HISTORY = 4096
+
 /** Assigns roles over a shuffled index list so offline nodes are not clustered. */
 function assignRoles(count: number, offlineRatio: number, rng: Rng): readonly NodeRole[] {
   const offlineCount = Math.min(count, Math.floor(count * offlineRatio))
@@ -75,6 +99,9 @@ export class Simulation {
   private currentTime: Time = 0
   private currentSlot: Slot = 0
   private messagesInFlight = 0
+  private readonly publications: MutablePublication[] = []
+  private readonly publicationsById = new Map<number, MutablePublication>()
+  private nextPublicationId = 0
 
   constructor(
     readonly config: SimulationConfig,
@@ -148,6 +175,11 @@ export class Simulation {
     return top === undefined ? null : top.snapshot()
   }
 
+  /** Everything broadcast during `slot`, with its current delivery count. */
+  publicationsInSlot(slot: Slot): readonly Publication[] {
+    return this.publications.filter((publication) => publication.slot === slot)
+  }
+
   private handle(payload: EventPayload): void {
     switch (payload.kind) {
       case 'slot':
@@ -195,10 +227,31 @@ export class Simulation {
     }
   }
 
+  private openPublication(from: NodeId, message: ProtocolMessage): MutablePublication {
+    const publication: MutablePublication = {
+      id: this.nextPublicationId++,
+      time: this.currentTime,
+      slot: this.currentSlot,
+      from,
+      layer: message.layer,
+      kind: message.kind,
+      delivered: 0,
+    }
+
+    this.publications.push(publication)
+    this.publicationsById.set(publication.id, publication)
+    if (this.publications.length > PUBLICATION_HISTORY) {
+      const evicted = this.publications.shift()
+      if (evicted !== undefined) this.publicationsById.delete(evicted.id)
+    }
+    return publication
+  }
+
   private broadcast(from: NodeId, message: ProtocolMessage): void {
     if (message.kind === 'block') this.blocks.set(message.block.root, message.block)
 
-    const envelope: Envelope = { from, message }
+    const publication = this.openPublication(from, message)
+    const envelope: Envelope = { from, message, publicationId: publication.id }
     // The sender applies its own message with no delay, as gossip clients do.
     this.applyToNode(from, envelope)
 
@@ -217,6 +270,9 @@ export class Simulation {
   private applyToNode(to: NodeId, envelope: Envelope): void {
     const node = this.nodes[to]
     if (node === undefined) return
+
+    const publication = this.publicationsById.get(envelope.publicationId)
+    if (publication !== undefined) publication.delivered += 1
 
     const slot = Math.floor(this.currentTime / this.config.gasper.slotDurationMs)
     node.layers.forEach((layer, layerIndex) => {

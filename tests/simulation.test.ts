@@ -19,7 +19,7 @@ const FAST: GasperParams = {
  * flight. Measuring at a quiet point makes a head split mean a real split.
  */
 function runFor(params: GasperParams, slots: number): Simulation {
-  const sim = createGasperSimulation(params)
+  const { sim } = createGasperSimulation(params)
   sim.advanceTo(slots * params.slotDurationMs + params.slotDurationMs * 0.75)
   return sim
 }

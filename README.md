@@ -83,11 +83,18 @@ Goldfish solves with view-merge. Comparing the two is the first experiment this 
 
 ## Views
 
+- **Slot timeline** — the inside of the current slot: when the proposal fired, when the committee
+  voted, and how far each has spread. Propagation is the part of a slot that is actually continuous,
+  and it is where latency and partitions stop being a parameter and become watchable — raise the
+  delay and the meter is still filling when the voting deadline arrives.
 - **Fork tree** — slot on x, one row per branch. Drawn from the *observed node's* snapshot, not from
-  a global truth, so during a partition it shows what that node believes.
-- **Validator grid** — one cell per node, coloured by the head it currently believes in. Hues are
-  shared with the fork tree, so a cell's colour identifies a block. A partition splits the grid into
-  blocks of colour; a protocol that re-converges faster visibly returns to one colour sooner.
+  a global truth, so during a partition it shows what that node believes. Colour carries state
+  (finalized / justified / canonical / orphaned), not identity.
+- **Validator grid** — one cell per node, coloured by whether it agrees with the observed node.
+  Agreement is the quietest thing on screen: a converged network is one flat neutral that does not
+  repaint. Colour appears only for genuinely contested heads, so the amount of movement tracks the
+  amount of information. This slot's committee is outlined, which is where Gasper's
+  one-committee-per-slot structure becomes visible.
 
 Changing any protocol parameter restarts the run. Comparing the first ten slots at N=64 against the
 next ten at N=128 would not mean anything, so a parameter edit starts a new experiment.

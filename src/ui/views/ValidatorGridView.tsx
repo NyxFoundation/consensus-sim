@@ -25,6 +25,14 @@ interface Props {
   readonly kinds: readonly CellKind[]
   readonly offline: readonly boolean[]
   readonly observer: number
+  /**
+   * This slot's attesters. Marking them puts Gasper's one-committee-per-slot
+   * structure on screen — the coupling Decoupled Consensus sets out to remove,
+   * and otherwise invisible in a view of heads.
+   */
+  readonly committee: ReadonlySet<number>
+  /** Changes once per slot, and the committee is a function of it. */
+  readonly slot: number
   readonly palette: Palette
   readonly onSelect: (node: number) => void
 }
@@ -43,16 +51,27 @@ function gridGeometry(count: number, width: number, height: number): Geometry {
   return { cols, rows, cell: Math.min(usableWidth / cols, usableHeight / rows) }
 }
 
-export function ValidatorGridView({ kinds, offline, observer, palette, onSelect }: Props) {
+export function ValidatorGridView({
+  kinds,
+  offline,
+  observer,
+  committee,
+  slot,
+  palette,
+  onSelect,
+}: Props) {
   // The render callback is keyed on a signature rather than on array identity,
-  // so a converged network redraws zero times per second instead of sixty.
+  // so a converged network redraws once per slot instead of sixty times a
+  // second — and the once-per-slot redraw is the committee rotating, which is
+  // motion that means something.
   const signature = useMemo(
-    () => `${kinds.join('')}|${offline.map((v) => (v ? 1 : 0)).join('')}|${observer}|${palette.surface}`,
-    [kinds, offline, observer, palette.surface],
+    () =>
+      `${kinds.join('')}|${offline.map((v) => (v ? 1 : 0)).join('')}|${observer}|${slot}|${palette.surface}`,
+    [kinds, offline, observer, slot, palette.surface],
   )
 
-  const dataRef = useRef({ kinds, offline, observer, palette })
-  dataRef.current = { kinds, offline, observer, palette }
+  const dataRef = useRef({ kinds, offline, observer, committee, palette })
+  dataRef.current = { kinds, offline, observer, committee, palette }
 
   const render = useCallback<RenderFn>(
     (ctx, width, height) => {
@@ -82,6 +101,12 @@ export function ValidatorGridView({ kinds, offline, observer, palette, onSelect 
         } else {
           ctx.fillStyle = cellColor(kind, data.palette)
           ctx.fillRect(x, y, size, size)
+        }
+
+        if (data.committee.has(index)) {
+          ctx.strokeStyle = data.palette.inkSecondary
+          ctx.lineWidth = 1
+          ctx.strokeRect(x + 0.5, y + 0.5, size - 1, size - 1)
         }
 
         if (index === data.observer) {

@@ -58,12 +58,24 @@ export function toSimulationConfig(params: GasperParams): SimulationConfig {
   }
 }
 
-export function createGasperSimulation(params: GasperParams): Simulation {
+/**
+ * The schedule comes back alongside the simulation rather than hiding inside
+ * it. Duties are Gasper's business, not the driver's, and the views need to
+ * show who proposes and who is on this slot's committee — the 1/32 structure
+ * that Decoupled Consensus exists to break, and which is invisible if the only
+ * things drawn are blocks and heads.
+ */
+export interface GasperScenario {
+  readonly sim: Simulation
+  readonly schedule: GasperSchedule
+}
+
+export function createGasperSimulation(params: GasperParams): GasperScenario {
   const config = toSimulationConfig(params)
   // Duty assignment draws from its own stream so that changing, say, the
   // network model does not reshuffle committees and invalidate a comparison.
   const schedule = new GasperSchedule(config.gasper, makeRng(config.seed).fork('duties'))
   const layer = createGasperLayer({ config: config.gasper, schedule })
 
-  return new Simulation(config, [layerFactory(layer)], genesisBlock())
+  return { sim: new Simulation(config, [layerFactory(layer)], genesisBlock()), schedule }
 }
