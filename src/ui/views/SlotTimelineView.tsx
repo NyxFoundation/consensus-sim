@@ -29,7 +29,7 @@ const AXIS_Y = 30
 const ROW_HEIGHT = 26
 const METER_HEIGHT = 9
 
-interface Props {
+export interface SlotTimelineProps {
   readonly slot: number
   readonly slotStartMs: number
   readonly slotDurationMs: number
@@ -43,7 +43,7 @@ interface Props {
   readonly palette: Palette
 }
 
-interface Meter {
+export interface Meter {
   readonly label: string
   /** Simulated time the event fired, or null when it has not fired yet. */
   readonly startedAt: number | null
@@ -51,7 +51,7 @@ interface Meter {
   readonly detail: string
 }
 
-function blockMeter(props: Props): Meter {
+export function blockMeter(props: SlotTimelineProps): Meter {
   const blocks = props.publications.filter((p) => p.kind === 'block')
   const first = blocks[0]
   if (first === undefined) {
@@ -73,7 +73,7 @@ function blockMeter(props: Props): Meter {
   }
 }
 
-function voteMeter(props: Props): Meter {
+export function voteMeter(props: SlotTimelineProps): Meter {
   const votes = props.publications.filter((p) => p.kind === 'attestation')
   const first = votes[0]
   if (first === undefined) {
@@ -90,7 +90,12 @@ function voteMeter(props: Props): Meter {
   }
 }
 
-function drawAxis(ctx: CanvasRenderingContext2D, props: Props, width: number, height: number): void {
+function drawAxis(
+  ctx: CanvasRenderingContext2D,
+  props: SlotTimelineProps,
+  width: number,
+  height: number,
+): void {
   const { palette, slotDurationMs, attestationOffsetMs } = props
   const track = width - LABEL_WIDTH - RIGHT_GUTTER
   const xOf = (offset: number) => LABEL_WIDTH + (offset / slotDurationMs) * track
@@ -123,7 +128,7 @@ function drawAxis(ctx: CanvasRenderingContext2D, props: Props, width: number, he
 function drawMeter(
   ctx: CanvasRenderingContext2D,
   meter: Meter,
-  props: Props,
+  props: SlotTimelineProps,
   width: number,
   y: number,
 ): void {
@@ -162,7 +167,7 @@ function drawMeter(
 
 function drawPlayhead(
   ctx: CanvasRenderingContext2D,
-  props: Props,
+  props: SlotTimelineProps,
   width: number,
   height: number,
 ): void {
@@ -181,7 +186,7 @@ function drawPlayhead(
   ctx.restore()
 }
 
-export function SlotTimelineView(props: Props) {
+export function SlotTimelineView(props: SlotTimelineProps) {
   const render = useCallback<RenderFn>(
     (ctx, width, height) => {
       ctx.fillStyle = props.palette.surface
