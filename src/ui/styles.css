@@ -188,7 +188,17 @@ input[type='number'] {
   min-height: 0;
 }
 
-/* Hugs its content rather than filling a row. */
+/*
+ * Hugs its content rather than filling a row, and refuses to shrink below it.
+ * `.panel` sets `min-height: 0` so the canvas panels can give up space; on a
+ * content-sized panel that same rule lets the grid squeeze it under pressure
+ * and `overflow: hidden` then clips what is left, which cost this one 50 of its
+ * 77 pixels.
+ */
+.panel-flat {
+  min-height: max-content;
+}
+
 .panel-flat .canvas-host {
   flex: none;
 }
