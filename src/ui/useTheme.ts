@@ -1,9 +1,14 @@
 /**
  * Theme selection and the reduced-motion preference.
  *
- * The explicit choice wins over the OS setting in both directions; the OS is
- * only the initial value. `prefers-reduced-motion` is honoured everywhere it can
- * be — the fork tree falls back from a continuous drift to discrete slot steps.
+ * Light is the default regardless of the OS setting. That is deliberate rather
+ * than an oversight: the dark surface with bright marks is a plausible cause of
+ * the eye strain this visual language was rebuilt to fix, so the calmer surface
+ * is what a first visit gets. The toggle is one click away for anyone who wants
+ * the other one.
+ *
+ * `prefers-reduced-motion` *is* honoured from the OS — it states a need, not a
+ * taste, so there is nothing to override.
  */
 
 import { useEffect, useState } from 'react'
@@ -19,9 +24,7 @@ export function useThemeMode(): {
   readonly palette: Palette
   toggle(): void
 } {
-  const [mode, setMode] = useState<ThemeMode>(() =>
-    systemPrefers('(prefers-color-scheme: dark)') ? 'dark' : 'light',
-  )
+  const [mode, setMode] = useState<ThemeMode>('light')
 
   useEffect(() => {
     document.documentElement.dataset['theme'] = mode
