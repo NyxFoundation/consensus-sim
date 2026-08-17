@@ -195,7 +195,9 @@ input[type='number'] {
  * and `overflow: hidden` then clips what is left, which cost this one 50 of its
  * 77 pixels.
  */
-.panel-flat {
+/* Two classes, so this wins on specificity rather than on being further down
+   the file than `.panel` - which it is not. */
+.panel.panel-flat {
   min-height: max-content;
 }
 
