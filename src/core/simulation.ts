@@ -66,11 +66,23 @@ interface MutablePublication {
   readonly from: NodeId
   readonly layer: LayerId
   readonly kind: MessageKind
+  /** How many nodes it is addressed to. */
+  readonly audience: number
   /** Nodes that hold it so far, counting the sender. */
   delivered: number
+  /**
+   * When each tenth of the audience was first reached, so the spread can be
+   * plotted against the slot's clock rather than as a bare fraction. Storing
+   * deciles rather than every delivery keeps this eleven numbers per broadcast
+   * instead of one per node.
+   */
+  readonly milestones: (Time | null)[]
+  nextMilestone: number
 }
 
 export type Publication = Readonly<MutablePublication>
+
+const MILESTONE_STEPS = 10
 
 /** Bounds the log; a few slots of history is all any view asks for. */
 const PUBLICATION_HISTORY = 4096
@@ -235,7 +247,10 @@ export class Simulation {
       from,
       layer: message.layer,
       kind: message.kind,
+      audience: this.nodes.length,
       delivered: 0,
+      milestones: Array.from({ length: MILESTONE_STEPS + 1 }, () => null),
+      nextMilestone: 0,
     }
 
     this.publications.push(publication)
@@ -245,6 +260,19 @@ export class Simulation {
       if (evicted !== undefined) this.publicationsById.delete(evicted.id)
     }
     return publication
+  }
+
+  private recordDelivery(publication: MutablePublication): void {
+    publication.delivered += 1
+
+    while (
+      publication.nextMilestone <= MILESTONE_STEPS &&
+      publication.delivered >=
+        Math.ceil((publication.nextMilestone * publication.audience) / MILESTONE_STEPS)
+    ) {
+      publication.milestones[publication.nextMilestone] = this.currentTime
+      publication.nextMilestone += 1
+    }
   }
 
   private broadcast(from: NodeId, message: ProtocolMessage): void {
@@ -272,7 +300,7 @@ export class Simulation {
     if (node === undefined) return
 
     const publication = this.publicationsById.get(envelope.publicationId)
-    if (publication !== undefined) publication.delivered += 1
+    if (publication !== undefined) this.recordDelivery(publication)
 
     const slot = Math.floor(this.currentTime / this.config.gasper.slotDurationMs)
     node.layers.forEach((layer, layerIndex) => {
