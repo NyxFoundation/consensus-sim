@@ -10,7 +10,6 @@
 
 import { useMemo, useState } from 'react'
 import { ControlPanel } from './controls/ControlPanel'
-import { HeadDistribution } from './HeadDistribution'
 import { Legend } from './Legend'
 import type { LegendItem } from './Legend'
 import { StatsBar } from './StatsBar'
@@ -18,11 +17,10 @@ import { ForkTreeView } from './views/ForkTreeView'
 import { SlotTimelineView } from './views/SlotTimelineView'
 import { useSimulation } from './useSimulation'
 import { usePrefersReducedMotion, useThemeMode } from './useTheme'
-import { useHeadAssignment } from './headPalette'
-import type { CellKind } from './headPalette'
+import { computeDivergence } from './divergence'
+import { useCampColors } from './campColors'
 import { DEFAULT_SETTINGS, toParams } from './settings'
 import { shortHash } from '../core/hash'
-import type { Hash } from '../core/hash'
 import { epochOf } from '../protocol/gasper/types'
 
 /**
@@ -47,11 +45,8 @@ export function App() {
   const snapshot = sim.snapshotOf(observerId)
   const heads = sim.nodes.map((node) => sim.viewOf(node.validator.nodeId)?.head ?? '')
 
-  const assignment = useHeadAssignment(sim, heads, snapshot?.head ?? '')
-  const contested = useMemo(
-    () => new Map<Hash, CellKind>(assignment.dissent.map((entry) => [entry.head, entry.kind])),
-    [assignment.dissent],
-  )
+  const divergence = computeDivergence(sim.blocks, heads, snapshot?.head ?? '')
+  const contested = useCampColors(sim, divergence.camps)
 
   const committeeSize = useMemo(() => schedule.committeeAt(sim.slot).length, [schedule, sim.slot])
   const proposer = schedule.proposerAt(sim.slot)
@@ -62,10 +57,11 @@ export function App() {
     { label: 'justified', outline: true, color: palette.statusWarning },
     { label: 'finalized', outline: true, color: palette.statusGood },
     { label: 'orphan', outline: true, color: palette.inkMuted },
-    ...assignment.dissent.map((entry) => ({
-      label: `争点 ${shortHash(entry.head)}`,
+    ...divergence.camps.map((camp) => ({
+      label: `別の枝 ${shortHash(camp.head)}`,
       outline: true,
-      color: palette.series[entry.kind - 1] ?? palette.otherSeries,
+      color: palette.series[(contested.get(camp.head) ?? 4) - 1] ?? palette.otherSeries,
+      count: camp.count,
     })),
   ]
 
@@ -142,21 +138,9 @@ export function App() {
               epoch={epochOf(sim.slot, settings.slotsPerEpoch)}
               blockCount={sim.blocks.size}
               pendingMessages={sim.pendingMessages}
-              distinctHeads={new Set(heads).size}
+              divergence={divergence}
               observer={observerId}
             />
-
-            <section className="panel panel-flat">
-              <h2>
-                head の分布 <small>ネットワークが何派に割れているか</small>
-              </h2>
-              <HeadDistribution
-                assignment={assignment}
-                observerHead={snapshot.head}
-                palette={palette}
-                nodeCount={sim.nodes.length}
-              />
-            </section>
 
             <section className="panel panel-timeline">
               <h2>

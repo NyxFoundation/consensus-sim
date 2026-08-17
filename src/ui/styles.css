@@ -172,7 +172,7 @@ input[type='number'] {
      short viewport it absorbed every shortfall and collapsed to a couple of
      pixels - a panel present in the DOM and invisible on screen. Below the
      floors the column scrolls, which is the honest failure. */
-  grid-template-rows: auto auto auto minmax(150px, 184px) minmax(240px, 1fr);
+  grid-template-rows: auto auto minmax(150px, 184px) minmax(240px, 1fr);
   min-width: 0;
   /* Without this the automatic minimum size is the content height, the fr row
      cannot shrink, and the column overflows the viewport - which pushed the
@@ -186,135 +186,6 @@ input[type='number'] {
 /* Fixed height: the timeline is one slot wide however long the run gets. */
 .panel-timeline {
   min-height: 0;
-}
-
-/*
- * Hugs its content rather than filling a row, and refuses to shrink below it.
- * `.panel` sets `min-height: 0` so the canvas panels can give up space; on a
- * content-sized panel that same rule lets the grid squeeze it under pressure
- * and `overflow: hidden` then clips what is left, which cost this one 50 of its
- * 77 pixels.
- */
-/* Two classes, so this wins on specificity rather than on being further down
-   the file than `.panel` - which it is not. */
-.panel.panel-flat {
-  min-height: max-content;
-}
-
-.panel-flat .canvas-host {
-  flex: none;
-}
-
-.distribution {
-  padding: 9px 12px 2px;
-}
-
-.distribution-bar {
-  display: flex;
-  gap: 2px;
-  height: 22px;
-  border-radius: 4px;
-  overflow: hidden;
-}
-
-.distribution-bar span {
-  display: block;
-  min-width: 2px;
-}
-
-.distribution .legend {
-  border-top: none;
-  padding: 6px 0 4px;
-}
-
-.toolbar {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.toolbar button {
-  background: var(--control-bg);
-  color: var(--ink-primary);
-  border: 1px solid var(--border);
-  border-radius: 5px;
-  padding: 5px 12px;
-  cursor: pointer;
-  font-size: 12px;
-}
-
-.toolbar button:hover {
-  border-color: var(--accent);
-}
-
-.theme-toggle {
-  margin-left: auto;
-}
-
-.toolbar-field {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--ink-secondary);
-  font-size: 11px;
-}
-
-.toolbar-field input[type='number'] {
-  width: 72px;
-}
-
-.toolbar-speed {
-  min-width: 190px;
-}
-
-.toolbar-speed input[type='range'] {
-  width: 96px;
-}
-
-.toolbar-value {
-  font-family: ui-monospace, monospace;
-  color: var(--ink-primary);
-  min-width: 42px;
-}
-
-.stats-bar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1px;
-  background: var(--border);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  overflow: hidden;
-}
-
-.stat {
-  flex: 1 1 92px;
-  background: var(--surface);
-  padding: 6px 10px;
-}
-
-.stat-label {
-  display: block;
-  color: var(--ink-muted);
-  font-size: 10px;
-}
-
-.stat-value {
-  display: block;
-  font-family: ui-monospace, monospace;
-  font-size: 14px;
-}
-
-/* Status is carried by the word, not by the fill alone. */
-.stat-note {
-  display: block;
-  font-size: 10px;
-  color: var(--ink-secondary);
-}
-
-.stat-warn {
-  box-shadow: inset 3px 0 0 var(--status-warning);
 }
 
 .panel {

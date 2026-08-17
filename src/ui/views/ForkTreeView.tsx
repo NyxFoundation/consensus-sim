@@ -17,7 +17,7 @@ import type { RenderFn } from '../CanvasSurface'
 import { roundedRectPath } from '../colors'
 import { buildForkLayout } from './forkLayout'
 import type { LaidOutBlock, LaidOutEdge } from './forkLayout'
-import type { CellKind } from '../headPalette'
+import type { CampSlot } from '../campColors'
 import type { Palette } from '../theme'
 import type { Hash } from '../../core/hash'
 import type { Block, GasperSnapshot } from '../../protocol/gasper/types'
@@ -34,12 +34,13 @@ interface Props {
   readonly visibleSlots: number
   readonly palette: Palette
   /** Contested heads and the categorical slot each was given. */
-  readonly contested: ReadonlyMap<Hash, CellKind>
+  readonly contested: ReadonlyMap<Hash, CampSlot>
 }
 
 /**
- * Stroke priority. A contested head outranks its own state, because "nodes
- * disagree here" is the live event and finality is not going anywhere.
+ * Stroke priority. The tip of a conflicting branch outranks its own state,
+ * because "the network is forked here" is the live event and finality is not
+ * going anywhere.
  */
 function strokeFor(item: LaidOutBlock, props: Props): string {
   const { palette, snapshot, contested } = props
