@@ -22,6 +22,19 @@ npm run typecheck
 npm run build      # static output in dist/
 ```
 
+To check what it looks like *while running* — which the tests cannot, since they never paint:
+
+```bash
+npx playwright install chromium     # once
+npm run build && npm run preview &
+npm run verify:visual -- http://localhost:4173/ /tmp/shots
+```
+
+It reports whether the clock is actually advancing, then captures the app at rest, under high
+latency, mid-partition, after healing, and in dark mode. It exists because a stylesheet edit once
+deleted the toolbar and stats rules and shipped: every test passed, the build was clean, and only
+a screenshot showed the page had come apart.
+
 There is no backend. `dist/` is a static bundle.
 
 > On machines with a low inotify instance limit, `npm run dev` may fail with `EMFILE: too many open
