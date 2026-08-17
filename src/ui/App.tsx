@@ -9,14 +9,21 @@
 
 import { useMemo, useState } from 'react'
 import { ControlPanel } from './controls/ControlPanel'
+import { Legend } from './Legend'
+import type { LegendItem } from './Legend'
 import { StatsBar } from './StatsBar'
 import { ForkTreeView } from './views/ForkTreeView'
 import { ValidatorGridView } from './views/ValidatorGridView'
 import { useSimulation } from './useSimulation'
+import { usePrefersReducedMotion, useThemeMode } from './useTheme'
+import { useHeadAssignment } from './headPalette'
+import type { CellKind } from './headPalette'
 import { DEFAULT_SETTINGS, toParams } from './settings'
-import { epochOf } from './../protocol/gasper/types'
+import { shortHash } from '../core/hash'
+import type { Hash } from '../core/hash'
+import { epochOf } from '../protocol/gasper/types'
 
-const SPEEDS: readonly number[] = [1, 5, 20, 50, 100, 200]
+const SPEEDS: readonly number[] = [0.25, 0.5, 1, 2, 5, 10, 20, 50, 100, 200]
 
 export function App() {
   const [settings, setSettings] = useState(DEFAULT_SETTINGS)
@@ -24,13 +31,47 @@ export function App() {
   const [visibleSlots, setVisibleSlots] = useState(24)
 
   const params = useMemo(() => toParams(settings), [settings])
-  const { sim, running, speed, setRunning, setSpeed, stepSlot, reset } = useSimulation(params)
+  const { sim, running, speed, slotPosition, setRunning, setSpeed, stepSlot, reset } =
+    useSimulation(params)
+  const { mode, palette, toggle } = useThemeMode()
+  const reducedMotion = usePrefersReducedMotion()
 
   const observerId = Math.min(observer, sim.nodes.length - 1)
   const snapshot = sim.snapshotOf(observerId)
   const heads = sim.nodes.map((node) => sim.viewOf(node.validator.nodeId)?.head ?? '')
-  const roles = sim.nodes.map((node) => node.validator.role)
-  const distinctHeads = new Set(heads).size
+  const offline = sim.nodes.map((node) => node.validator.role === 'offline')
+  const offlineCount = offline.filter(Boolean).length
+
+  const assignment = useHeadAssignment(sim, heads, snapshot?.head ?? '')
+  const contested = useMemo(
+    () => new Map<Hash, CellKind>(assignment.dissent.map((entry) => [entry.head, entry.kind])),
+    [assignment.dissent],
+  )
+
+  const treeLegend: readonly LegendItem[] = [
+    { label: 'canonical', outline: true, color: palette.inkPrimary },
+    { label: 'justified', outline: true, color: palette.statusWarning },
+    { label: 'finalized', outline: true, color: palette.statusGood },
+    { label: 'orphan', outline: true, color: palette.inkMuted },
+    ...assignment.dissent.map((entry) => ({
+      label: `争点 ${shortHash(entry.head)}`,
+      outline: true,
+      color: palette.series[entry.kind - 1] ?? palette.otherSeries,
+    })),
+  ]
+
+  const gridLegend: readonly LegendItem[] = [
+    { label: '観測ノードと一致', color: palette.neutralCell, count: assignment.agreeCount },
+    ...assignment.dissent.map((entry) => ({
+      label: `head ${shortHash(entry.head)}`,
+      color: palette.series[entry.kind - 1] ?? palette.otherSeries,
+      count: entry.count,
+    })),
+    ...(assignment.otherCount > 0
+      ? [{ label: 'その他', color: palette.otherSeries, count: assignment.otherCount }]
+      : []),
+    ...(offlineCount > 0 ? [{ label: '非参加', hatch: true, count: offlineCount }] : []),
+  ]
 
   return (
     <div className="app">
@@ -54,15 +95,16 @@ export function App() {
             リセット
           </button>
 
-          <label className="toolbar-field">
-            速度
-            <select value={speed} onChange={(event) => setSpeed(Number(event.target.value))}>
-              {SPEEDS.map((value) => (
-                <option key={value} value={value}>
-                  ×{value}
-                </option>
-              ))}
-            </select>
+          <label className="toolbar-field toolbar-speed">
+            速度 <span className="toolbar-value">×{speed}</span>
+            <input
+              type="range"
+              min={0}
+              max={SPEEDS.length - 1}
+              step={1}
+              value={Math.max(0, SPEEDS.indexOf(speed))}
+              onChange={(event) => setSpeed(SPEEDS[Number(event.target.value)] ?? 1)}
+            />
           </label>
 
           <label className="toolbar-field">
@@ -87,6 +129,10 @@ export function App() {
               onChange={(event) => setVisibleSlots(Number(event.target.value))}
             />
           </label>
+
+          <button type="button" className="theme-toggle" onClick={toggle}>
+            {mode === 'dark' ? '☀ ライト' : '☾ ダーク'}
+          </button>
         </div>
 
         {snapshot === null ? (
@@ -100,7 +146,7 @@ export function App() {
               epoch={epochOf(sim.slot, settings.slotsPerEpoch)}
               blockCount={sim.blocks.size}
               pendingMessages={sim.pendingMessages}
-              distinctHeads={distinctHeads}
+              distinctHeads={new Set(heads).size}
               observer={observerId}
             />
 
@@ -111,22 +157,27 @@ export function App() {
               <ForkTreeView
                 blocks={sim.blocks}
                 snapshot={snapshot}
-                currentSlot={sim.slot}
+                currentSlot={reducedMotion ? Math.floor(slotPosition) : slotPosition}
                 slotsPerEpoch={settings.slotsPerEpoch}
                 visibleSlots={visibleSlots}
+                palette={palette}
+                contested={contested}
               />
+              <Legend items={treeLegend} />
             </section>
 
             <section className="panel">
               <h2>
-                バリデータ・ビューグリッド <small>各ノードが head と信じるブロックの色</small>
+                バリデータ・ビューグリッド <small>観測ノードと head が一致するか</small>
               </h2>
               <ValidatorGridView
-                heads={heads}
-                roles={roles}
+                kinds={assignment.kinds}
+                offline={offline}
                 observer={observerId}
+                palette={palette}
                 onSelect={setObserver}
               />
+              <Legend items={gridLegend} />
             </section>
           </>
         )}

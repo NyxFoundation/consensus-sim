@@ -23,10 +23,12 @@ interface Props {
 interface Cell {
   readonly label: string
   readonly value: string
-  readonly warn?: boolean
+  /** Rendered as an icon + word, never as a colour on its own. */
+  readonly note?: string
 }
 
 export function StatsBar(props: Props) {
+  const diverged = props.distinctHeads > 1
   const cells: readonly Cell[] = [
     { label: '時刻', value: `${(props.timeMs / 1000).toFixed(1)}s` },
     { label: 'スロット', value: String(props.slot) },
@@ -37,15 +39,20 @@ export function StatsBar(props: Props) {
     { label: 'finalized', value: `epoch ${props.snapshot.finalized.epoch}` },
     { label: 'ブロック', value: String(props.blockCount) },
     { label: '配送中', value: String(props.pendingMessages) },
-    { label: '異なる head', value: String(props.distinctHeads), warn: props.distinctHeads > 1 },
+    {
+      label: '異なる head',
+      value: String(props.distinctHeads),
+      ...(diverged ? { note: '⚠ 分岐中' } : {}),
+    },
   ]
 
   return (
     <div className="stats-bar">
       {cells.map((cell) => (
-        <div className={cell.warn === true ? 'stat stat-warn' : 'stat'} key={cell.label}>
+        <div className={cell.note === undefined ? 'stat' : 'stat stat-warn'} key={cell.label}>
           <span className="stat-label">{cell.label}</span>
           <span className="stat-value">{cell.value}</span>
+          {cell.note !== undefined && <span className="stat-note">{cell.note}</span>}
         </div>
       ))}
     </div>

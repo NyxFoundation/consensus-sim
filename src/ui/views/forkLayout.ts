@@ -5,6 +5,11 @@
  * and go; a fork is always a vertical split at the slot where it happened.
  * Within a column the canonical block takes the top lane, which keeps the
  * chain the observed node believes in reading as a straight line.
+ *
+ * `currentSlot` may be fractional. Feeding it the simulation's exact position
+ * within the slot makes the tree drift smoothly instead of jumping a whole
+ * column at each boundary — the jump is what the eye objects to, and it does
+ * not get smaller by slowing the clock down, only rarer.
  */
 
 import type { Hash } from '../../core/hash'
@@ -17,6 +22,8 @@ export interface LaidOutBlock {
   readonly y: number
   readonly canonical: boolean
   readonly weight: Gwei
+  /** Fades to 0 across the leftmost column so blocks leave without popping. */
+  readonly opacity: number
 }
 
 export interface LaidOutEdge {
@@ -25,22 +32,26 @@ export interface LaidOutEdge {
   readonly toX: number
   readonly toY: number
   readonly canonical: boolean
+  readonly opacity: number
 }
 
 export interface ForkLayout {
   readonly blocks: readonly LaidOutBlock[]
   readonly edges: readonly LaidOutEdge[]
-  readonly minSlot: Slot
-  readonly maxSlot: Slot
+  readonly minSlot: number
+  readonly maxSlot: number
   readonly columnWidth: number
   readonly rowHeight: number
+  /** Pixel x of a slot boundary, for the epoch rules. */
+  xOfSlot(slot: Slot): number
 }
 
 export interface ForkLayoutInput {
   readonly blocks: ReadonlyMap<Hash, Block>
   readonly head: Hash
   readonly weights: ReadonlyMap<Hash, Gwei>
-  readonly currentSlot: Slot
+  /** May be fractional; pass `Math.floor(...)` for reduced motion. */
+  readonly currentSlot: number
   readonly visibleSlots: number
   readonly width: number
   readonly height: number
@@ -72,10 +83,7 @@ function canonicalRoots(blocks: ReadonlyMap<Hash, Block>, head: Hash): ReadonlyS
  * the fork disappears. Following the parent instead keeps a branch on its own
  * row for as long as it lives, so any divergence is visible as a split.
  */
-function assignLanes(
-  visible: readonly Block[],
-  canonical: ReadonlySet<Hash>,
-): Map<Hash, number> {
+function assignLanes(visible: readonly Block[], canonical: ReadonlySet<Hash>): Map<Hash, number> {
   const lanes = new Map<Hash, number>()
   let nextLane = 1
 
@@ -102,12 +110,17 @@ export function buildForkLayout(input: ForkLayoutInput): ForkLayout {
 
   const minSlot = Math.max(0, currentSlot - visibleSlots + 1)
   const maxSlot = Math.max(currentSlot, minSlot)
+  // Constant scale: dividing by the actual span would rescale the tree while
+  // the chain is shorter than the window, animating every block for no reason.
+  const columnWidth = (width - PADDING_X * 2) / Math.max(1, visibleSlots)
+  const xOfSlot = (slot: number) => PADDING_X + (slot - minSlot) * columnWidth
+
   const canonical = canonicalRoots(blocks, head)
-  const visible = [...blocks.values()].filter((block) => block.slot >= minSlot)
+  // One column of slack on the left so departing blocks can fade rather than pop.
+  const visible = [...blocks.values()].filter((block) => block.slot >= minSlot - 1)
   const lanes = assignLanes(visible, canonical)
 
   const laneCount = Math.max(1, ...[...lanes.values()].map((lane) => lane + 1))
-  const columnWidth = (width - PADDING_X * 2) / Math.max(1, maxSlot - minSlot + 1)
   const rowHeight = Math.min(
     MAX_ROW_HEIGHT,
     Math.max(MIN_ROW_HEIGHT, (height - PADDING_TOP * 2) / laneCount),
@@ -118,10 +131,11 @@ export function buildForkLayout(input: ForkLayoutInput): ForkLayout {
     const lane = lanes.get(block.root) ?? 0
     positions.set(block.root, {
       block,
-      x: PADDING_X + (block.slot - minSlot) * columnWidth + columnWidth / 2,
+      x: xOfSlot(block.slot) + columnWidth / 2,
       y: PADDING_TOP + lane * rowHeight + rowHeight / 2,
       canonical: canonical.has(block.root),
       weight: weights.get(block.root) ?? 0,
+      opacity: Math.max(0, Math.min(1, block.slot - minSlot + 1)),
     })
   }
 
@@ -132,6 +146,7 @@ export function buildForkLayout(input: ForkLayoutInput): ForkLayout {
     maxSlot,
     columnWidth,
     rowHeight,
+    xOfSlot,
   }
 }
 
@@ -152,6 +167,7 @@ function buildEdges(positions: ReadonlyMap<Hash, LaidOutBlock>): LaidOutEdge[] {
       toX: laidOut.x,
       toY: laidOut.y,
       canonical: laidOut.canonical && parentIsCanonical,
+      opacity: Math.min(laidOut.opacity, parentPosition?.opacity ?? laidOut.opacity),
     })
   }
   return edges

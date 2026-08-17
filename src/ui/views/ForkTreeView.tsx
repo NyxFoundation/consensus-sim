@@ -1,23 +1,30 @@
 /**
  * The fork tree as the observed node sees it.
  *
- * Weight, justification and finality are all read from one node's snapshot
- * rather than from a global truth, so during a partition this view shows what
- * *that* node believes — which is the honest thing to draw when the whole point
- * is that nodes disagree.
+ * Colour carries *state* — finalized, justified, canonical, orphaned — not block
+ * identity. Identity is already on the block: the slot number is written inside
+ * it. Spending a hue per block produced a rainbow that competed with the state
+ * signal and left the real information on a hairline outline.
+ *
+ * The one exception is a head that nodes actually disagree about: that block
+ * takes the same categorical slot its cells take in the validator grid, so the
+ * two panels name the same contested block with the same colour.
  */
 
 import { useCallback } from 'react'
 import { CanvasSurface } from '../CanvasSurface'
 import type { RenderFn } from '../CanvasSurface'
-import { colorForRoot, PALETTE } from '../colors'
+import { roundedRectPath } from '../colors'
 import { buildForkLayout } from './forkLayout'
 import type { LaidOutBlock, LaidOutEdge } from './forkLayout'
+import type { CellKind } from '../headPalette'
+import type { Palette } from '../theme'
 import type { Hash } from '../../core/hash'
 import type { Block, GasperSnapshot } from '../../protocol/gasper/types'
 
-const BLOCK_WIDTH = 30
-const BLOCK_HEIGHT = 20
+const BLOCK_WIDTH = 32
+const BLOCK_HEIGHT = 21
+const PADDING_X = 56
 
 interface Props {
   readonly blocks: ReadonlyMap<Hash, Block>
@@ -25,57 +32,61 @@ interface Props {
   readonly currentSlot: number
   readonly slotsPerEpoch: number
   readonly visibleSlots: number
+  readonly palette: Palette
+  /** Contested heads and the categorical slot each was given. */
+  readonly contested: ReadonlyMap<Hash, CellKind>
 }
 
-function roundedRect(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-  radius: number,
-): void {
-  ctx.beginPath()
-  ctx.moveTo(x + radius, y)
-  ctx.arcTo(x + width, y, x + width, y + height, radius)
-  ctx.arcTo(x + width, y + height, x, y + height, radius)
-  ctx.arcTo(x, y + height, x, y, radius)
-  ctx.arcTo(x, y, x + width, y, radius)
-  ctx.closePath()
+/**
+ * Stroke priority. A contested head outranks its own state, because "nodes
+ * disagree here" is the live event and finality is not going anywhere.
+ */
+function strokeFor(item: LaidOutBlock, props: Props): string {
+  const { palette, snapshot, contested } = props
+  const kind = contested.get(item.block.root)
+  if (kind !== undefined && kind > 0) return palette.series[kind - 1] ?? palette.otherSeries
+  if (item.block.root === snapshot.finalized.root) return palette.statusGood
+  if (item.block.root === snapshot.justified.root) return palette.statusWarning
+  return item.canonical ? palette.inkPrimary : palette.inkMuted
 }
 
-function drawEpochGrid(
+function drawEpochRules(
   ctx: CanvasRenderingContext2D,
   height: number,
-  minSlot: number,
-  maxSlot: number,
-  columnWidth: number,
+  layout: ReturnType<typeof buildForkLayout>,
   slotsPerEpoch: number,
+  palette: Palette,
 ): void {
   ctx.save()
-  ctx.strokeStyle = PALETTE.grid
-  ctx.fillStyle = PALETTE.muted
-  ctx.font = '11px ui-monospace, monospace'
+  ctx.strokeStyle = palette.gridline
+  ctx.fillStyle = palette.inkMuted
+  ctx.font = '11px system-ui, sans-serif'
   ctx.lineWidth = 1
 
-  for (let slot = minSlot; slot <= maxSlot; slot++) {
-    if (slot % slotsPerEpoch !== 0) continue
-    const x = 56 + (slot - minSlot) * columnWidth
+  const first = Math.ceil(layout.minSlot / slotsPerEpoch) * slotsPerEpoch
+  for (let slot = first; slot <= layout.maxSlot; slot += slotsPerEpoch) {
+    const x = layout.xOfSlot(slot)
+    if (x < PADDING_X - 8) continue
     ctx.beginPath()
-    ctx.moveTo(x, 14)
+    ctx.moveTo(x, 16)
     ctx.lineTo(x, height - 8)
     ctx.stroke()
-    ctx.fillText(`epoch ${slot / slotsPerEpoch}`, x + 4, 12)
+    ctx.fillText(`epoch ${slot / slotsPerEpoch}`, x + 5, 12)
   }
   ctx.restore()
 }
 
-function drawEdges(ctx: CanvasRenderingContext2D, edges: readonly LaidOutEdge[]): void {
+function drawEdges(
+  ctx: CanvasRenderingContext2D,
+  edges: readonly LaidOutEdge[],
+  palette: Palette,
+): void {
   ctx.save()
   ctx.lineCap = 'round'
   for (const edge of edges) {
-    ctx.strokeStyle = edge.canonical ? PALETTE.canonical : PALETTE.orphan
-    ctx.lineWidth = edge.canonical ? 2.2 : 1.2
+    ctx.globalAlpha = edge.opacity
+    ctx.strokeStyle = edge.canonical ? palette.baseline : palette.gridline
+    ctx.lineWidth = edge.canonical ? 2 : 1.25
     ctx.beginPath()
     ctx.moveTo(edge.fromX + BLOCK_WIDTH / 2, edge.fromY)
     const midX = (edge.fromX + edge.toX) / 2
@@ -85,62 +96,50 @@ function drawEdges(ctx: CanvasRenderingContext2D, edges: readonly LaidOutEdge[])
   ctx.restore()
 }
 
-function blockOutline(item: LaidOutBlock, snapshot: GasperSnapshot): string {
-  if (item.block.root === snapshot.finalized.root) return PALETTE.finalized
-  if (item.block.root === snapshot.justified.root) return PALETTE.justified
-  if (item.block.root === snapshot.proposerBoostRoot) return PALETTE.boost
-  return item.canonical ? PALETTE.canonical : PALETTE.border
-}
-
-function drawBlocks(
+function drawBlock(
   ctx: CanvasRenderingContext2D,
-  items: readonly LaidOutBlock[],
-  snapshot: GasperSnapshot,
+  item: LaidOutBlock,
+  props: Props,
+  maxWeight: number,
 ): void {
-  const maxWeight = Math.max(1, ...items.map((item) => item.weight))
+  const { palette, snapshot } = props
+  const left = item.x - BLOCK_WIDTH / 2
+  const top = item.y - BLOCK_HEIGHT / 2
 
-  ctx.save()
-  ctx.font = '10px ui-monospace, monospace'
-  ctx.textAlign = 'center'
-  ctx.textBaseline = 'middle'
+  ctx.globalAlpha = item.opacity * (item.canonical ? 1 : 0.62)
+  ctx.fillStyle = palette.blockFill
+  roundedRectPath(ctx, left, top, BLOCK_WIDTH, BLOCK_HEIGHT, 5)
+  ctx.fill()
 
-  for (const item of items) {
-    const left = item.x - BLOCK_WIDTH / 2
-    const top = item.y - BLOCK_HEIGHT / 2
+  ctx.strokeStyle = strokeFor(item, props)
+  ctx.lineWidth = item.canonical ? 1.75 : 1
+  ctx.stroke()
 
-    ctx.globalAlpha = item.canonical ? 1 : 0.55
-    ctx.fillStyle = colorForRoot(item.block.root, item.canonical ? 52 : 34)
-    roundedRect(ctx, left, top, BLOCK_WIDTH, BLOCK_HEIGHT, 5)
-    ctx.fill()
+  // Labels wear ink, never the mark's colour.
+  ctx.fillStyle = item.canonical ? palette.inkPrimary : palette.inkSecondary
+  ctx.fillText(String(item.block.slot), item.x, item.y)
 
-    ctx.strokeStyle = blockOutline(item, snapshot)
-    ctx.lineWidth = item.canonical ? 2 : 1
-    ctx.stroke()
+  // Subtree weight, kept recessive: it is context, not the headline.
+  ctx.globalAlpha = item.opacity * 0.4
+  ctx.fillStyle = palette.baseline
+  ctx.fillRect(left, top + BLOCK_HEIGHT + 3, (item.weight / maxWeight) * BLOCK_WIDTH, 1.5)
 
-    ctx.globalAlpha = 1
-    ctx.fillStyle = '#0b0e12'
-    ctx.fillText(String(item.block.slot), item.x, item.y)
-
-    // Weight bar: how much stake votes anywhere inside this subtree.
-    const barWidth = (item.weight / maxWeight) * BLOCK_WIDTH
-    ctx.fillStyle = PALETTE.canonical
-    ctx.globalAlpha = 0.7
-    ctx.fillRect(left, top + BLOCK_HEIGHT + 2, barWidth, 2)
-    ctx.globalAlpha = 1
+  if (item.block.root === snapshot.proposerBoostRoot) {
+    ctx.globalAlpha = item.opacity
+    ctx.fillStyle = palette.inkSecondary
+    ctx.fillText('+', item.x, top - 6)
   }
-  ctx.restore()
+  ctx.globalAlpha = 1
 }
 
-export function ForkTreeView({
-  blocks,
-  snapshot,
-  currentSlot,
-  slotsPerEpoch,
-  visibleSlots,
-}: Props) {
+export function ForkTreeView(props: Props) {
+  const { blocks, snapshot, currentSlot, slotsPerEpoch, visibleSlots, palette } = props
+
+  // The tree redraws every frame by design: it drifts continuously, so there is
+  // no steady state to hold. The grid, which does have one, is gated instead.
   const render = useCallback<RenderFn>(
     (ctx, width, height) => {
-      ctx.fillStyle = PALETTE.panel
+      ctx.fillStyle = palette.surface
       ctx.fillRect(0, 0, width, height)
 
       const layout = buildForkLayout({
@@ -153,11 +152,18 @@ export function ForkTreeView({
         height,
       })
 
-      drawEpochGrid(ctx, height, layout.minSlot, layout.maxSlot, layout.columnWidth, slotsPerEpoch)
-      drawEdges(ctx, layout.edges)
-      drawBlocks(ctx, layout.blocks, snapshot)
+      drawEpochRules(ctx, height, layout, slotsPerEpoch, palette)
+      drawEdges(ctx, layout.edges, palette)
+
+      const maxWeight = Math.max(1, ...layout.blocks.map((item) => item.weight))
+      ctx.font = '10px system-ui, sans-serif'
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      for (const item of layout.blocks) {
+        drawBlock(ctx, item, props, maxWeight)
+      }
     },
-    [blocks, snapshot, currentSlot, slotsPerEpoch, visibleSlots],
+    [blocks, snapshot, currentSlot, slotsPerEpoch, visibleSlots, palette, props],
   )
 
   return <CanvasSurface render={render} label="フォーク木" />

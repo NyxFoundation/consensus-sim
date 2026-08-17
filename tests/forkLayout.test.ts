@@ -63,6 +63,59 @@ describe('buildForkLayout', () => {
     expect(yOf(layout, B3.root)).not.toBe(yOf(layout, B1.root))
   })
 
+  it('should shift positions continuously for a fractional slot', () => {
+    const chain = new Map<Hash, Block>()
+    let parent = '0000000000000000'
+    for (let slot = 5; slot <= 8; slot++) {
+      const root = `s${slot}00000000000000`
+      chain.set(root, { root, slot, parent, proposer: slot })
+      parent = root
+    }
+    const head = 's800000000000000'
+    const at = (currentSlot: number) =>
+      buildForkLayout({
+        blocks: chain,
+        head,
+        weights: new Map<Hash, number>(),
+        currentSlot,
+        visibleSlots: 4,
+        width: 800,
+        height: 400,
+      })
+
+    const xAt = (currentSlot: number) =>
+      at(currentSlot).blocks.find((item) => item.block.root === head)?.x ?? 0
+
+    // Half a slot of simulated time moves the tree half a column, rather than
+    // holding still and then jumping a whole column at the boundary.
+    expect(xAt(8) - xAt(8.5)).toBeCloseTo(at(8).columnWidth / 2, 5)
+  })
+
+  it('should fade a block out as it leaves the left edge', () => {
+    const chain = new Map<Hash, Block>()
+    let parent = '0000000000000000'
+    for (let slot = 5; slot <= 8; slot++) {
+      const root = `s${slot}00000000000000`
+      chain.set(root, { root, slot, parent, proposer: slot })
+      parent = root
+    }
+    const layout = buildForkLayout({
+      blocks: chain,
+      head: 's800000000000000',
+      weights: new Map<Hash, number>(),
+      currentSlot: 8.5,
+      visibleSlots: 4,
+      width: 800,
+      height: 400,
+    })
+
+    const leaving = layout.blocks.find((item) => item.block.slot === 5)
+    const inside = layout.blocks.find((item) => item.block.slot === 7)
+
+    expect(leaving?.opacity).toBeCloseTo(0.5, 5)
+    expect(inside?.opacity).toBe(1)
+  })
+
   it('should keep a multi-block branch on one row', () => {
     const deepOrphan: Block = { root: 'b400000000000000', slot: 4, parent: ORPHAN.root, proposer: 4 }
     const blocks = new Map<Hash, Block>([
