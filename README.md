@@ -83,18 +83,23 @@ Goldfish solves with view-merge. Comparing the two is the first experiment this 
 
 ## Views
 
-- **Slot timeline** — the inside of the current slot: when the proposal fired, when the committee
-  voted, and how far each has spread. Propagation is the part of a slot that is actually continuous,
-  and it is where latency and partitions stop being a parameter and become watchable — raise the
-  delay and the meter is still filling when the voting deadline arrives.
+- **Head distribution** — one stacked bar: is the network split, into how many camps, how big. The
+  observed node's camp is neutral; only genuinely contested heads take a categorical colour, so a
+  converged network is a single flat bar.
+- **Slot propagation** — the inside of the current slot, plotted against its clock. x is time, y is
+  the share of nodes holding the message, and the mark is a curve that climbs. Raise the delay and
+  the curve is still climbing when it crosses the voting deadline, so the committee votes on a view
+  that has not finished arriving. Under a partition it goes flat part way up and only completes when
+  the partition heals.
 - **Fork tree** — slot on x, one row per branch. Drawn from the *observed node's* snapshot, not from
   a global truth, so during a partition it shows what that node believes. Colour carries state
   (finalized / justified / canonical / orphaned), not identity.
-- **Validator grid** — one cell per node, coloured by whether it agrees with the observed node.
-  Agreement is the quietest thing on screen: a converged network is one flat neutral that does not
-  repaint. Colour appears only for genuinely contested heads, so the amount of movement tracks the
-  amount of information. This slot's committee is outlined, which is where Gasper's
-  one-committee-per-slot structure becomes visible.
+
+An earlier version showed one cell per validator in a grid. It was removed rather than restyled: its
+positions carried no information — cell (row 3, column 5) meant "validator 37" only because that is
+where the wrap landed — so it was a bag of squares, not a chart. Per-node display earns its place
+again only when position means something (grouped by camp, or laid out by partition group) so that
+*correlation* becomes visible; arbitrary order cannot show correlation even in principle.
 
 Changing any protocol parameter restarts the run. Comparing the first ten slots at N=64 against the
 next ten at N=128 would not mean anything, so a parameter edit starts a new experiment.

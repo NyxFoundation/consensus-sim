@@ -20,11 +20,10 @@ import type { GasperSchedule } from '../protocol/gasper/schedule'
 const MAX_FRAME_MS = 100
 
 /**
- * Slow enough to watch by default. The old ×20 default put a slot boundary
- * every 600 ms, which is where "too fast to follow" turns into "uncomfortable
- * to look at".
+ * Real time. Anything faster runs a slot by before the propagation inside it
+ * can be followed, and the point of the slot views is that they can be read.
  */
-const DEFAULT_SPEED = 5
+const DEFAULT_SPEED = 1
 
 export interface SimulationController {
   readonly sim: Simulation

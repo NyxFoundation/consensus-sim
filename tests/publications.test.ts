@@ -56,9 +56,26 @@ describe('publication log', () => {
     expect(block?.delivered).toBe(1)
   })
 
+  it('should stamp every decile of a fully propagated broadcast', () => {
+    const sim = runTo(FAST, 4)
+    const block = sim.publicationsInSlot(2).find((p) => p.kind === 'block')
+
+    expect(block?.milestones.every((time) => time !== null)).toBe(true)
+  })
+
+  it('should stamp the deciles in non-decreasing order', () => {
+    const sim = runTo(FAST, 4)
+    const stamps = (sim.publicationsInSlot(2).find((p) => p.kind === 'block')?.milestones ??
+      []) as (number | null)[]
+
+    for (let i = 1; i < stamps.length; i++) {
+      expect(stamps[i] ?? 0).toBeGreaterThanOrEqual(stamps[i - 1] ?? 0)
+    }
+  })
+
   /**
    * The reason the timeline shows propagation at all: under a partition the
-   * meter visibly stalls part-filled instead of completing, which is the
+   * curve visibly stalls part way up instead of completing, which is the
    * difference between a parameter and something you can watch.
    */
   it('should stall delivery at the partition boundary', () => {
@@ -73,6 +90,22 @@ describe('publication log', () => {
     const block = sim.publicationsInSlot(5).find((p) => p.kind === 'block')
 
     expect(block?.delivered).toBe(FAST.validatorCount / 2)
+  })
+
+  it('should leave the upper deciles unstamped while a partition holds', () => {
+    const partitioned: GasperParams = {
+      ...FAST,
+      network: {
+        ...FAST.network,
+        partitions: [{ startMs: 4 * FAST.slotDurationMs, endMs: 12 * FAST.slotDurationMs, groupCount: 2 }],
+      },
+    }
+    const sim = runTo(partitioned, 6)
+    const stamps = sim.publicationsInSlot(5).find((p) => p.kind === 'block')?.milestones ?? []
+
+    // Half the audience: deciles up to 50% land, the rest wait for healing.
+    expect(stamps[5]).not.toBeNull()
+    expect(stamps[6]).toBeNull()
   })
 
   it('should complete delivery of the withheld copies once the partition heals', () => {

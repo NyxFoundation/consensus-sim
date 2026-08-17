@@ -1,20 +1,21 @@
 /**
- * The M1 shell: parameters on the left, fork tree and validator grid stacked on
- * the right, all four visible at once.
+ * The shell: parameters on the left, and on the right a column that reads top
+ * to bottom as numbers, then who agrees, then what is happening right now, then
+ * the chain that resulted.
  *
  * They are not tabs on purpose. The value of the tool is watching one slider
- * move the tree, the grid and the numbers together — split them across tabs and
- * the causal link is exactly what gets lost.
+ * move all of them together — split them across tabs and the causal link is
+ * exactly what gets lost.
  */
 
 import { useMemo, useState } from 'react'
 import { ControlPanel } from './controls/ControlPanel'
+import { HeadDistribution } from './HeadDistribution'
 import { Legend } from './Legend'
 import type { LegendItem } from './Legend'
 import { StatsBar } from './StatsBar'
 import { ForkTreeView } from './views/ForkTreeView'
 import { SlotTimelineView } from './views/SlotTimelineView'
-import { ValidatorGridView } from './views/ValidatorGridView'
 import { useSimulation } from './useSimulation'
 import { usePrefersReducedMotion, useThemeMode } from './useTheme'
 import { useHeadAssignment } from './headPalette'
@@ -24,7 +25,12 @@ import { shortHash } from '../core/hash'
 import type { Hash } from '../core/hash'
 import { epochOf } from '../protocol/gasper/types'
 
-const SPEEDS: readonly number[] = [0.25, 0.5, 1, 2, 5, 10, 20, 50, 100, 200]
+/**
+ * Capped at real time. Above it the slot goes by faster than the propagation
+ * inside it can be followed, which is the speed at which the simulation stops
+ * being something you can read.
+ */
+const SPEEDS: readonly number[] = [0.25, 0.5, 1]
 
 export function App() {
   const [settings, setSettings] = useState(DEFAULT_SETTINGS)
@@ -40,8 +46,6 @@ export function App() {
   const observerId = Math.min(observer, sim.nodes.length - 1)
   const snapshot = sim.snapshotOf(observerId)
   const heads = sim.nodes.map((node) => sim.viewOf(node.validator.nodeId)?.head ?? '')
-  const offline = sim.nodes.map((node) => node.validator.role === 'offline')
-  const offlineCount = offline.filter(Boolean).length
 
   const assignment = useHeadAssignment(sim, heads, snapshot?.head ?? '')
   const contested = useMemo(
@@ -49,10 +53,7 @@ export function App() {
     [assignment.dissent],
   )
 
-  const committee = useMemo(
-    () => new Set(schedule.committeeAt(sim.slot)),
-    [schedule, sim.slot],
-  )
+  const committeeSize = useMemo(() => schedule.committeeAt(sim.slot).length, [schedule, sim.slot])
   const proposer = schedule.proposerAt(sim.slot)
   const proposerActive = sim.nodes[proposer]?.validator.role !== 'offline'
 
@@ -66,20 +67,6 @@ export function App() {
       outline: true,
       color: palette.series[entry.kind - 1] ?? palette.otherSeries,
     })),
-  ]
-
-  const gridLegend: readonly LegendItem[] = [
-    { label: '観測ノードと一致', color: palette.neutralCell, count: assignment.agreeCount },
-    ...assignment.dissent.map((entry) => ({
-      label: `head ${shortHash(entry.head)}`,
-      color: palette.series[entry.kind - 1] ?? palette.otherSeries,
-      count: entry.count,
-    })),
-    ...(assignment.otherCount > 0
-      ? [{ label: 'その他', color: palette.otherSeries, count: assignment.otherCount }]
-      : []),
-    ...(offlineCount > 0 ? [{ label: '非参加', hatch: true, count: offlineCount }] : []),
-    { label: '今スロットの委員会', outline: true, color: palette.inkSecondary, count: committee.size },
   ]
 
   return (
@@ -159,9 +146,21 @@ export function App() {
               observer={observerId}
             />
 
+            <section className="panel panel-flat">
+              <h2>
+                head の分布 <small>ネットワークが何派に割れているか</small>
+              </h2>
+              <HeadDistribution
+                assignment={assignment}
+                observerHead={snapshot.head}
+                palette={palette}
+                nodeCount={sim.nodes.length}
+              />
+            </section>
+
             <section className="panel panel-timeline">
               <h2>
-                スロット内タイムライン <small>提案と投票が広がっていく様子</small>
+                スロット内の伝播 <small>提案と投票がノードに届くまで</small>
               </h2>
               <SlotTimelineView
                 slot={sim.slot}
@@ -171,7 +170,7 @@ export function App() {
                 nowMs={sim.time}
                 proposer={proposer}
                 proposerActive={proposerActive}
-                committeeSize={committee.size}
+                committeeSize={committeeSize}
                 publications={sim.publicationsInSlot(sim.slot)}
                 nodeCount={sim.nodes.length}
                 palette={palette}
@@ -192,22 +191,6 @@ export function App() {
                 contested={contested}
               />
               <Legend items={treeLegend} />
-            </section>
-
-            <section className="panel">
-              <h2>
-                バリデータ・ビューグリッド <small>観測ノードと head が一致するか</small>
-              </h2>
-              <ValidatorGridView
-                kinds={assignment.kinds}
-                offline={offline}
-                observer={observerId}
-                committee={committee}
-                slot={sim.slot}
-                palette={palette}
-                onSelect={setObserver}
-              />
-              <Legend items={gridLegend} />
             </section>
           </>
         )}
