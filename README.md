@@ -10,6 +10,8 @@ under delay and partition, and you can watch that disagreement form and resolve.
 **Status: M1.** Gasper (LMD-GHOST + Casper FFG) runs end to end, with the fork tree and the
 validator-view grid live. UI text is Japanese; code and commits are English.
 
+**Live: <https://adust09.github.io/consensus-sim/>** — deployed from `main` on every push.
+
 ## Running
 
 ```bash
