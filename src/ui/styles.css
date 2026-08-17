@@ -188,6 +188,96 @@ input[type='number'] {
   min-height: 0;
 }
 
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.toolbar button {
+  background: var(--control-bg);
+  color: var(--ink-primary);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 5px 12px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.toolbar button:hover {
+  border-color: var(--accent);
+}
+
+.theme-toggle {
+  margin-left: auto;
+}
+
+.toolbar-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink-secondary);
+  font-size: 11px;
+}
+
+.toolbar-field input[type='number'] {
+  width: 72px;
+}
+
+.toolbar-speed {
+  min-width: 190px;
+}
+
+.toolbar-speed input[type='range'] {
+  width: 96px;
+}
+
+.toolbar-value {
+  font-family: ui-monospace, monospace;
+  color: var(--ink-primary);
+  min-width: 42px;
+}
+
+.stats-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.stat {
+  flex: 1 1 92px;
+  background: var(--surface);
+  padding: 6px 10px;
+}
+
+.stat-label {
+  display: block;
+  color: var(--ink-muted);
+  font-size: 10px;
+}
+
+.stat-value {
+  display: block;
+  font-family: ui-monospace, monospace;
+  font-size: 14px;
+}
+
+/* Status is carried by the word, not by the fill alone. */
+.stat-note {
+  display: block;
+  font-size: 10px;
+  color: var(--ink-secondary);
+}
+
+.stat-warn {
+  box-shadow: inset 3px 0 0 var(--status-warning);
+}
+
 .panel {
   display: flex;
   flex-direction: column;

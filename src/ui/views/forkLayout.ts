@@ -125,6 +125,10 @@ export function buildForkLayout(input: ForkLayoutInput): ForkLayout {
     MAX_ROW_HEIGHT,
     Math.max(MIN_ROW_HEIGHT, (height - PADDING_TOP * 2) / laneCount),
   )
+  // Rows are capped, so a chain with one or two branches used the top sliver of
+  // the panel and left the rest blank. Centring the lanes that exist puts the
+  // tree where the eye already is, and a fork opens symmetrically around it.
+  const lanesTop = Math.max(PADDING_TOP, (height - laneCount * rowHeight) / 2)
 
   const positions = new Map<Hash, LaidOutBlock>()
   for (const block of visible) {
@@ -132,7 +136,7 @@ export function buildForkLayout(input: ForkLayoutInput): ForkLayout {
     positions.set(block.root, {
       block,
       x: xOfSlot(block.slot) + columnWidth / 2,
-      y: PADDING_TOP + lane * rowHeight + rowHeight / 2,
+      y: lanesTop + lane * rowHeight + rowHeight / 2,
       canonical: canonical.has(block.root),
       weight: weights.get(block.root) ?? 0,
       opacity: Math.max(0, Math.min(1, block.slot - minSlot + 1)),
