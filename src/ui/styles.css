@@ -168,12 +168,17 @@ input[type='number'] {
 
 .main {
   display: grid;
-  grid-template-rows: auto auto auto 184px minmax(0, 1fr);
+  /* Floors, not fixed heights. The fr row is the only flexible one, so on a
+     short viewport it absorbed every shortfall and collapsed to a couple of
+     pixels - a panel present in the DOM and invisible on screen. Below the
+     floors the column scrolls, which is the honest failure. */
+  grid-template-rows: auto auto auto minmax(150px, 184px) minmax(240px, 1fr);
   min-width: 0;
   /* Without this the automatic minimum size is the content height, the fr row
      cannot shrink, and the column overflows the viewport - which pushed the
      last panel off screen entirely. */
   min-height: 0;
+  overflow-y: auto;
   gap: 10px;
   padding: 12px;
 }
