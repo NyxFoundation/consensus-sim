@@ -168,10 +168,15 @@ input[type='number'] {
 
 .main {
   display: grid;
-  grid-template-rows: auto auto minmax(0, 3fr) minmax(0, 2fr);
+  grid-template-rows: auto auto 136px minmax(0, 3fr) minmax(0, 2fr);
   min-width: 0;
   gap: 10px;
   padding: 12px;
+}
+
+/* Fixed height: the timeline is one slot wide however long the run gets. */
+.panel-timeline {
+  min-height: 0;
 }
 
 .toolbar {

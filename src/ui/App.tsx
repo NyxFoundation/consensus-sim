@@ -13,6 +13,7 @@ import { Legend } from './Legend'
 import type { LegendItem } from './Legend'
 import { StatsBar } from './StatsBar'
 import { ForkTreeView } from './views/ForkTreeView'
+import { SlotTimelineView } from './views/SlotTimelineView'
 import { ValidatorGridView } from './views/ValidatorGridView'
 import { useSimulation } from './useSimulation'
 import { usePrefersReducedMotion, useThemeMode } from './useTheme'
@@ -31,7 +32,7 @@ export function App() {
   const [visibleSlots, setVisibleSlots] = useState(24)
 
   const params = useMemo(() => toParams(settings), [settings])
-  const { sim, running, speed, slotPosition, setRunning, setSpeed, stepSlot, reset } =
+  const { sim, schedule, running, speed, slotPosition, setRunning, setSpeed, stepSlot, reset } =
     useSimulation(params)
   const { mode, palette, toggle } = useThemeMode()
   const reducedMotion = usePrefersReducedMotion()
@@ -47,6 +48,13 @@ export function App() {
     () => new Map<Hash, CellKind>(assignment.dissent.map((entry) => [entry.head, entry.kind])),
     [assignment.dissent],
   )
+
+  const committee = useMemo(
+    () => new Set(schedule.committeeAt(sim.slot)),
+    [schedule, sim.slot],
+  )
+  const proposer = schedule.proposerAt(sim.slot)
+  const proposerActive = sim.nodes[proposer]?.validator.role !== 'offline'
 
   const treeLegend: readonly LegendItem[] = [
     { label: 'canonical', outline: true, color: palette.inkPrimary },
@@ -71,6 +79,7 @@ export function App() {
       ? [{ label: 'その他', color: palette.otherSeries, count: assignment.otherCount }]
       : []),
     ...(offlineCount > 0 ? [{ label: '非参加', hatch: true, count: offlineCount }] : []),
+    { label: '今スロットの委員会', outline: true, color: palette.inkSecondary, count: committee.size },
   ]
 
   return (
@@ -150,6 +159,25 @@ export function App() {
               observer={observerId}
             />
 
+            <section className="panel panel-timeline">
+              <h2>
+                スロット内タイムライン <small>提案と投票が広がっていく様子</small>
+              </h2>
+              <SlotTimelineView
+                slot={sim.slot}
+                slotStartMs={sim.slot * settings.slotDurationMs}
+                slotDurationMs={settings.slotDurationMs}
+                attestationOffsetMs={Math.round(settings.slotDurationMs / 3)}
+                nowMs={sim.time}
+                proposer={proposer}
+                proposerActive={proposerActive}
+                committeeSize={committee.size}
+                publications={sim.publicationsInSlot(sim.slot)}
+                nodeCount={sim.nodes.length}
+                palette={palette}
+              />
+            </section>
+
             <section className="panel">
               <h2>
                 フォーク木 <small>観測ノード #{observerId} のビュー</small>
@@ -174,6 +202,8 @@ export function App() {
                 kinds={assignment.kinds}
                 offline={offline}
                 observer={observerId}
+                committee={committee}
+                slot={sim.slot}
                 palette={palette}
                 onSelect={setObserver}
               />

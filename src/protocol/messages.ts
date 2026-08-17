@@ -10,11 +10,19 @@
 import type { NodeId } from '../core/types'
 import type { GasperMessage } from './gasper/types'
 
+/**
+ * Every variant carries `layer` and `kind`. The engine reads only those two
+ * discriminants — enough to record what was published and how far it spread,
+ * without the driver having to know what a block or an attestation is.
+ */
 export type ProtocolMessage = GasperMessage
 
 export type LayerId = ProtocolMessage['layer']
+export type MessageKind = ProtocolMessage['kind']
 
 export interface Envelope {
   readonly from: NodeId
   readonly message: ProtocolMessage
+  /** Identifies the broadcast this copy belongs to, for propagation counting. */
+  readonly publicationId: number
 }

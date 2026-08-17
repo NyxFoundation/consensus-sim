@@ -13,6 +13,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createGasperSimulation } from '../setup'
 import type { GasperParams } from '../setup'
 import type { Simulation } from '../core/simulation'
+import type { GasperSchedule } from '../protocol/gasper/schedule'
 
 /** Longest wall-clock gap folded into one advance, so a backgrounded tab does
  * not resume by simulating minutes of chain in a single frame. */
@@ -27,6 +28,8 @@ const DEFAULT_SPEED = 5
 
 export interface SimulationController {
   readonly sim: Simulation
+  /** Duty assignment for the run, for showing proposer and committee. */
+  readonly schedule: GasperSchedule
   /** Increments on every advance; views depend on it to redraw. */
   readonly frame: number
   readonly running: boolean
@@ -41,7 +44,7 @@ export interface SimulationController {
 
 export function useSimulation(params: GasperParams): SimulationController {
   const [generation, setGeneration] = useState(0)
-  const sim = useMemo(() => createGasperSimulation(params), [params, generation])
+  const { sim, schedule } = useMemo(() => createGasperSimulation(params), [params, generation])
 
   const [running, setRunning] = useState(true)
   const [speed, setSpeed] = useState(DEFAULT_SPEED)
@@ -78,6 +81,7 @@ export function useSimulation(params: GasperParams): SimulationController {
 
   return {
     sim,
+    schedule,
     frame,
     running,
     speed,
