@@ -8,6 +8,7 @@
 
 import { shortHash } from '../core/hash'
 import type { GasperSnapshot } from '../protocol/gasper/types'
+import type { Divergence } from './divergence'
 
 interface Props {
   readonly snapshot: GasperSnapshot
@@ -16,7 +17,7 @@ interface Props {
   readonly epoch: number
   readonly blockCount: number
   readonly pendingMessages: number
-  readonly distinctHeads: number
+  readonly divergence: Divergence
   readonly observer: number
 }
 
@@ -28,7 +29,8 @@ interface Cell {
 }
 
 export function StatsBar(props: Props) {
-  const diverged = props.distinctHeads > 1
+  const { camps, onChain } = props.divergence
+  const forked = camps.length > 0
   const cells: readonly Cell[] = [
     { label: '時刻', value: `${(props.timeMs / 1000).toFixed(1)}s` },
     { label: 'スロット', value: String(props.slot) },
@@ -39,10 +41,14 @@ export function StatsBar(props: Props) {
     { label: 'finalized', value: `epoch ${props.snapshot.finalized.epoch}` },
     { label: 'ブロック', value: String(props.blockCount) },
     { label: '配送中', value: String(props.pendingMessages) },
+    // Distinct head hashes would count a node that is merely one block behind
+    // as a disagreement; only branches that contain neither the other count.
     {
-      label: '異なる head',
-      value: String(props.distinctHeads),
-      ...(diverged ? { note: '⚠ 分岐中' } : {}),
+      label: '分岐',
+      value: forked ? `${camps.length + 1}派` : 'なし',
+      ...(forked
+        ? { note: `⚠ ${[onChain, ...camps.map((camp) => camp.count)].join(' / ')}` }
+        : {}),
     },
   ]
 

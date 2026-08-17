@@ -83,9 +83,6 @@ Goldfish solves with view-merge. Comparing the two is the first experiment this 
 
 ## Views
 
-- **Head distribution** — one stacked bar: is the network split, into how many camps, how big. The
-  observed node's camp is neutral; only genuinely contested heads take a categorical colour, so a
-  converged network is a single flat bar.
 - **Slot propagation** — the inside of the current slot, plotted against its clock. x is time, y is
   the share of nodes holding the message, and the mark is a curve that climbs. Raise the delay and
   the curve is still climbing when it crosses the voting deadline, so the committee votes on a view
@@ -95,11 +92,23 @@ Goldfish solves with view-merge. Comparing the two is the first experiment this 
   a global truth, so during a partition it shows what that node believes. Colour carries state
   (finalized / justified / canonical / orphaned), not identity.
 
-An earlier version showed one cell per validator in a grid. It was removed rather than restyled: its
-positions carried no information — cell (row 3, column 5) meant "validator 37" only because that is
-where the wrap landed — so it was a bag of squares, not a chart. Per-node display earns its place
-again only when position means something (grouped by camp, or laid out by partition group) so that
-*correlation* becomes visible; arbitrary order cannot show correlation even in principle.
+Whether the network is forked is one stat cell, not a panel: **分岐**, reading `なし` or `2派` with
+the camp sizes. A fork is rare, and a display that is idle almost all the time does not earn a panel.
+
+Two earlier attempts at that panel are worth recording so they are not rebuilt.
+
+A grid of one cell per validator was removed because its *positions carried no information* — cell
+(row 3, column 5) meant "validator 37" only because that is where the wrap landed. It was a bag of
+squares, not a chart. Per-node display earns its place again only when position means something
+(grouped by camp, or laid out by partition group) so that *correlation* becomes visible; arbitrary
+order cannot show correlation even in principle.
+
+A stacked bar of head distribution replaced it and was also removed, for a worse reason: it counted
+**distinct head hashes**, so a node that had simply not received the newest block yet — one block
+behind on the same chain — was counted as a rival camp. Every slot handed the previous head a fresh
+categorical colour, the palette was exhausted in three slots, and the bar flashed a colour and then
+stayed grey forever. Divergence is an *ancestry* question: heads on branches neither of which
+contains the other. `src/ui/divergence.ts` answers it that way.
 
 Changing any protocol parameter restarts the run. Comparing the first ten slots at N=64 against the
 next ten at N=128 would not mean anything, so a parameter edit starts a new experiment.
