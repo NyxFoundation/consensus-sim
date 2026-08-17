@@ -18,12 +18,21 @@ import type { Simulation } from '../core/simulation'
  * not resume by simulating minutes of chain in a single frame. */
 const MAX_FRAME_MS = 100
 
+/**
+ * Slow enough to watch by default. The old ×20 default put a slot boundary
+ * every 600 ms, which is where "too fast to follow" turns into "uncomfortable
+ * to look at".
+ */
+const DEFAULT_SPEED = 5
+
 export interface SimulationController {
   readonly sim: Simulation
   /** Increments on every advance; views depend on it to redraw. */
   readonly frame: number
   readonly running: boolean
   readonly speed: number
+  /** Simulated position on the slot axis, including the fraction within a slot. */
+  readonly slotPosition: number
   setRunning(running: boolean): void
   setSpeed(speed: number): void
   stepSlot(): void
@@ -35,7 +44,7 @@ export function useSimulation(params: GasperParams): SimulationController {
   const sim = useMemo(() => createGasperSimulation(params), [params, generation])
 
   const [running, setRunning] = useState(true)
-  const [speed, setSpeed] = useState(20)
+  const [speed, setSpeed] = useState(DEFAULT_SPEED)
   const [frame, setFrame] = useState(0)
   const lastRef = useRef(0)
 
@@ -67,5 +76,15 @@ export function useSimulation(params: GasperParams): SimulationController {
     setFrame(0)
   }, [])
 
-  return { sim, frame, running, speed, setRunning, setSpeed, stepSlot, reset }
+  return {
+    sim,
+    frame,
+    running,
+    speed,
+    slotPosition: sim.time / params.slotDurationMs,
+    setRunning,
+    setSpeed,
+    stepSlot,
+    reset,
+  }
 }
