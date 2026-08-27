@@ -13,3 +13,4 @@ export * from "./protocol";
 export * from "./simulation";
 export * from "./intervention";
 export * from "./scenario";
+export * from "./scenarioCodec";

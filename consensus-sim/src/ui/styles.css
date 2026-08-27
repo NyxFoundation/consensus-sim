@@ -526,6 +526,23 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* ---- scenario panel ---- */
+
+.scenario-panel {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 8px 16px 10px;
+}
+
+.file-input-hidden {
+  display: none;
+}
+
+.scenario-status {
+  color: var(--ink-secondary);
+  font-size: 12px;
+}
+
 /* ---- network mode ---- */
 
 .validator-grid {

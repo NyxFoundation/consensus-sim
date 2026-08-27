@@ -17,6 +17,7 @@ import type { Perspective } from './modes/ChainMode'
 import { GlobalMode } from './modes/GlobalMode'
 import { NetworkMode } from './modes/NetworkMode'
 import { InterventionPanel } from './InterventionPanel'
+import { ScenarioPanel } from './ScenarioPanel'
 import { useSimulation } from './useSimulation'
 import { useThemeMode } from './useTheme'
 
@@ -43,6 +44,8 @@ export function App() {
   const { current, config, delivery, cursor, runSlot } = session
   const inPast = cursor < runSlot
   const nextProposer = proposerForSlot(cursor + 1, config.validatorCount)
+  // A loaded scenario may have fewer validators than the current selection.
+  const safeSelected = Math.min(selectedValidator, config.validatorCount - 1)
 
   const changeValidatorCount = (count: number) => {
     session.setValidatorCount(count)
@@ -138,6 +141,7 @@ export function App() {
       </div>
 
       <InterventionPanel key={config.validatorCount} session={session} />
+      <ScenarioPanel session={session} />
 
       <main className="mode-body">
         {mode === 'chain' && (
@@ -146,7 +150,7 @@ export function App() {
             validatorCount={config.validatorCount}
             delivery={delivery}
             perspective={perspective}
-            selectedValidator={selectedValidator}
+            selectedValidator={safeSelected}
             onPerspectiveChange={setPerspective}
             onSelectValidator={setSelectedValidator}
           />
@@ -164,7 +168,7 @@ export function App() {
             validatorCount={config.validatorCount}
             delivery={delivery}
             perspective={perspective}
-            selectedValidator={selectedValidator}
+            selectedValidator={safeSelected}
             onPerspectiveChange={setPerspective}
             onSelectValidator={setSelectedValidator}
           />

@@ -21,6 +21,7 @@ import {
 import type {
   Delivery,
   Intervention,
+  Scenario,
   SimulationConfig,
   SimulationState,
 } from '../domain'
@@ -44,6 +45,9 @@ export interface SimulationSession {
   setInterventions(next: readonly Intervention[]): void
   /** Replaces the scenario (new validator count ⇒ new run from slot 0). */
   setValidatorCount(count: number): void
+  /** Replay a saved scenario: states recompute deterministically and the
+   * cursor lands on the saved run's final slot. */
+  loadScenario(scenario: Scenario, runSlot: number): void
 }
 
 const DEFAULT_SEED = 0
@@ -100,6 +104,15 @@ export function useSimulation(): SimulationSession {
     setCore(freshCore(count))
   }, [])
 
+  const loadScenario = useCallback((scenario: Scenario, runSlot: number) => {
+    setCore({
+      config: scenario.config,
+      interventions: scenario.interventions,
+      runSlot,
+      cursor: runSlot,
+    })
+  }, [])
+
   const current = states[cursor]
   if (current === undefined) throw new Error('simulation has no states')
 
@@ -116,6 +129,7 @@ export function useSimulation(): SimulationSession {
       setCursor,
       setInterventions,
       setValidatorCount,
+      loadScenario,
     }),
     [
       config,
@@ -129,6 +143,7 @@ export function useSimulation(): SimulationSession {
       setCursor,
       setInterventions,
       setValidatorCount,
+      loadScenario,
     ],
   )
 }

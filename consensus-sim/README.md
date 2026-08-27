@@ -17,7 +17,9 @@ delivery/directives axes) is complete and fully tested. The UI ships all
 three modes — chain (local / god perspectives), network (per-validator
 cards with hover views) and global (chain + network side by side) — plus
 the intervention panel (partition, stop/resume, equivocation, per-message
-delay/drop) and slot rewind; scenario save/load is next.
+delay/drop), slot rewind, and scenario save/reload/replay (localStorage
+list plus JSON export/import); the remaining work is the final
+no-manual-needed UX polish pass.
 
 ## Quickstart
 
@@ -47,6 +49,12 @@ interventions stay listed — healing, resuming or deleting one recomputes
 the whole displayed history deterministically. The ◀ / ▶ cursor rewinds to
 any past slot and reproduces that state exactly; advancing from a past slot
 truncates the discarded future.
+
+The シナリオ panel saves the current run — initial conditions (seed
+included) plus the intervention list and how far it advanced — to a
+browser-local list, and reloading replays it deterministically to the
+identical states. JSON エクスポート/インポート exchanges the same
+versioned format as a file.
 
 Sanity check:
 

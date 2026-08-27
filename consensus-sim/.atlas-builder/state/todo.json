@@ -375,7 +375,7 @@
     {
       "id": "T-011",
       "title": "シナリオの保存・再読込・再実行(初期条件+シード+介入列の永続化と決定的リプレイ)+テスト",
-      "status": "pending",
+      "status": "done",
       "priority": "must",
       "spec": [
         "S-011",
@@ -386,7 +386,26 @@
       },
       "batch_group": "phase4-scenario",
       "context_cost": 4,
-      "risk_level": "normal"
+      "risk_level": "normal",
+      "notes": "シナリオ = config(シード含む)+介入列+進行スロット(runSlot)。ドメインの scenarioCodec.ts が フォーマットタグ+バージョン付き JSON を発行し、パースは全構造を検証(未知 kind・範囲外バリデータ・不正スロット等を拒否)して読込物を構築物と同等に信頼可能にする。I/O は UI 層のみ: localStorage の保存リスト(壊れたエントリは黙って除外しリストを保全)+ JSON ファイルのエクスポート/インポート。再読込 = loadScenario で決定的リプレイ(scenarioStates 再計算、カーソルは保存時スロットへ)。",
+      "evidence": [
+        {
+          "type": "diff",
+          "summary": "src/domain/scenarioCodec.ts (SCENARIO_FORMAT/VERSION, serializeScenario, parseScenario with full tagged-union validation: integer/range checks, span ordering, partition-group duplication, message-ref shape, unknown-kind rejection). src/ui/scenarioStore.ts (localStorage list keyed consensus-sim.scenarios; corrupt entries dropped, never throws). src/ui/ScenarioPanel.tsx (保存 / 読込・再実行 / 削除 list + JSON エクスポート via Blob download + インポート via file input; status line surfaces codec errors). useSimulation.loadScenario(scenario, runSlot) replays and lands the cursor on the saved slot; App clamps the selected validator when a smaller validatorCount is loaded."
+        },
+        {
+          "type": "command",
+          "command": "npm test",
+          "exit_code": 0,
+          "summary": "vitest 13 files / 120 tests pass. tests/domain/scenarioCodec.test.ts (23): round-trip of every intervention kind, replayed states identical to the original run (votes/heads/finality/tree sizes per slot), format/version tagging, and 19 rejection cases (wrong format/version, out-of-range validatorCount, unknown intervention kind, out-of-range validator, toSlot<fromSlot, duplicate partition membership, bad message refs, empty observers). tests/ui/scenario.test.tsx (3): save -> mutate live scenario -> reload reproduces the saved run exactly (slot, tree, vote rows, intervention list restored); saved validator count restored across a 7-validator detour; list deletion."
+        },
+        {
+          "type": "command",
+          "command": "npm run typecheck && npm run build",
+          "exit_code": 0,
+          "summary": "tsc --noEmit and vite build both exit 0."
+        }
+      ]
     },
     {
       "id": "T-012",

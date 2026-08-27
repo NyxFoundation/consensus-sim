@@ -1,0 +1,138 @@
+/**
+ * Scenario panel (シナリオ): save the current run (config + interventions +
+ * how far it advanced), reload a saved one — replay is deterministic
+ * recomputation, so a reloaded scenario reproduces the identical run — and
+ * exchange scenarios as JSON files. Storage I/O lives here and in
+ * scenarioStore; all structural validation is the domain codec's.
+ */
+
+import { useRef, useState } from 'react'
+import { parseScenario, serializeScenario } from '../domain'
+import {
+  listScenarios,
+  loadStored,
+  removeScenario,
+  saveScenario,
+  type StoredScenario,
+} from './scenarioStore'
+import type { SimulationSession } from './useSimulation'
+
+export interface ScenarioPanelProps {
+  readonly session: SimulationSession
+}
+
+function entryLabel(e: StoredScenario): string {
+  const at = new Date(e.savedAt)
+  const stamp = Number.isNaN(at.getTime())
+    ? e.savedAt
+    : at.toLocaleString('ja-JP')
+  return `${stamp} — ${e.data.config.validatorCount} 体 / 介入 ${e.data.interventions.length} 件 / スロット ${e.data.runSlot}`
+}
+
+export function ScenarioPanel({ session }: ScenarioPanelProps) {
+  const [entries, setEntries] = useState<StoredScenario[]>(() => listScenarios())
+  const [status, setStatus] = useState('')
+  const fileInput = useRef<HTMLInputElement>(null)
+
+  const currentScenario = {
+    config: session.config,
+    interventions: session.interventions,
+  }
+
+  const save = () => {
+    saveScenario(currentScenario, session.runSlot)
+    setEntries(listScenarios())
+    setStatus('現在のシナリオを保存しました。')
+  }
+
+  const load = (entry: StoredScenario) => {
+    try {
+      const { scenario, runSlot } = loadStored(entry)
+      session.loadScenario(scenario, runSlot)
+      setStatus(`シナリオを再実行しました（スロット ${runSlot} まで再計算）。`)
+    } catch (e) {
+      setStatus(`読込に失敗しました: ${e instanceof Error ? e.message : String(e)}`)
+    }
+  }
+
+  const remove = (id: string) => {
+    removeScenario(id)
+    setEntries(listScenarios())
+  }
+
+  const exportJson = () => {
+    const data = serializeScenario(currentScenario, session.runSlot)
+    const blob = new Blob([JSON.stringify(data, null, 2)], {
+      type: 'application/json',
+    })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'consensus-sim-scenario.json'
+    a.click()
+    URL.revokeObjectURL(url)
+    setStatus('シナリオを JSON ファイルとして書き出しました。')
+  }
+
+  const importJson = async (file: File) => {
+    try {
+      const { scenario, runSlot } = parseScenario(JSON.parse(await file.text()))
+      session.loadScenario(scenario, runSlot)
+      setStatus(`ファイルからシナリオを再実行しました（スロット ${runSlot} まで再計算）。`)
+    } catch (e) {
+      setStatus(`インポートに失敗しました: ${e instanceof Error ? e.message : String(e)}`)
+    }
+  }
+
+  return (
+    <section className="scenario-panel" aria-label="シナリオ">
+      <h2 className="intervention-title">
+        シナリオ{' '}
+        <span className="intervention-note">
+          保存 = 初期条件（シード含む）+ 介入列。再読込は決定的リプレイ
+        </span>
+      </h2>
+
+      <div className="form-line">
+        <button type="button" onClick={save}>
+          現在のシナリオを保存
+        </button>
+        <button type="button" onClick={exportJson}>
+          JSON エクスポート
+        </button>
+        <button type="button" onClick={() => fileInput.current?.click()}>
+          JSON インポート
+        </button>
+        <input
+          ref={fileInput}
+          type="file"
+          accept="application/json"
+          className="file-input-hidden"
+          aria-label="シナリオ JSON ファイル"
+          onChange={(e) => {
+            const file = e.target.files?.[0]
+            if (file) void importJson(file)
+            e.target.value = ''
+          }}
+        />
+        {status && <span className="scenario-status">{status}</span>}
+      </div>
+
+      {entries.length > 0 && (
+        <ul className="intervention-list">
+          {entries.map((e) => (
+            <li key={e.id}>
+              <span className="intervention-desc">{entryLabel(e)}</span>
+              <button type="button" onClick={() => load(e)}>
+                読込・再実行
+              </button>
+              <button type="button" onClick={() => remove(e.id)}>
+                削除
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  )
+}
