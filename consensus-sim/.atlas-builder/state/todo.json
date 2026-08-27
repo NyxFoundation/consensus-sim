@@ -156,7 +156,7 @@
     {
       "id": "T-005",
       "title": "局所ビュー計算: メッセージ配送モデル(誰に何がいつ見えるか)と各バリデータのビュー(ブロック木・投票・head・justified/finalized)+ユニットテスト",
-      "status": "pending",
+      "status": "done",
       "priority": "must",
       "spec": [
         "S-005"
@@ -166,7 +166,32 @@
       },
       "batch_group": "phase1-core",
       "context_cost": 4,
-      "risk_level": "normal"
+      "risk_level": "normal",
+      "notes": "メッセージログ(発行時刻付き)を真実の源とし、局所ビューは Delivery 規則による純フィルタ。既定 instantDelivery は恒等ケース(全ビュー=神視点)。スロット内順序: 提案は slot-1 まで、投票はブロック slot まで+投票 slot-1 まで(同スロット投票は同時・順序非依存)。親未着ブロックは子孫ごと保留。分断・回復の発散/収束をドメイン層テストで確認済み(成功条件 4 の UI 検証は phase2)。",
+      "evidence": [
+        {
+          "type": "diff",
+          "summary": "src/domain/messages.ts (append-only MessageLog with publishedAt), src/domain/localView.ts (Delivery type, instantDelivery, viewOf filter with orphan-holding visibleTree, localFinalityOf/localHeadOf/observe), src/domain/simulation.ts reworked: proposer builds from its own view (slots < s), attesters vote from blocks ≤ s / votes ≤ s-1, per-validator end-of-slot heads from local views; god view retained as tree/votes/finality."
+        },
+        {
+          "type": "command",
+          "command": "npm test",
+          "exit_code": 0,
+          "summary": "17 files / 138 tests pass. tests/domain/localView.test.ts: instant-delivery views equal the god view (tree, votes, finality, heads); partition {0,1}|{2,3} diverges views and heads across camps while staying equal within a camp; heal at slot 9 reconverges all views and heads by slot 10; orphaned blocks (parent invisible) are excluded; partitioned scenarios recompute identically (determinism with custom delivery). Pre-existing simulation tests (finality timeline, rewind) pass unchanged."
+        },
+        {
+          "type": "command",
+          "command": "npm run typecheck",
+          "exit_code": 0,
+          "summary": "tsc --noEmit passes."
+        },
+        {
+          "type": "command",
+          "command": "npm run build",
+          "exit_code": 0,
+          "summary": "vite build succeeds."
+        }
+      ]
     },
     {
       "id": "T-006",

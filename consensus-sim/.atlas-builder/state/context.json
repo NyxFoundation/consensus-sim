@@ -6,11 +6,11 @@
     "stop_after_infra_fails": 2
   },
   "progress": {
-    "last_signature": "0c04e01a1b046dcdc42fddaa47a420efe65527d78ec53266afe368532b497fce",
+    "last_signature": "c6c9b044d5fa97e8c0b1a9a1e0800049fa3e672a27bc78e0cf9a6220e5a92960",
     "idle_cycles_since_progress": 0,
     "infra_fails_since_ok": 0,
-    "last_progress_at": "2026-08-27T23:22:36+09:00",
-    "last_checked_at": "2026-08-27T23:22:36+09:00",
+    "last_progress_at": "2026-08-27T23:27:03+09:00",
+    "last_checked_at": "2026-08-27T23:27:03+09:00",
     "usage_limited_since_ok": 0
   },
   "reset_policy": {
@@ -21,23 +21,24 @@
     "reset_after_decisions": 5
   },
   "counters": {
-    "context_usage_estimate": 0.2,
+    "context_usage_estimate": 0.15,
     "failed_attempts_since_reset": 0,
-    "changed_files_since_reset": 16,
-    "completed_todos_since_reset": 4,
-    "important_decisions_since_reset": 3,
+    "changed_files_since_reset": 20,
+    "completed_todos_since_reset": 5,
+    "important_decisions_since_reset": 4,
     "major_spec_rewrite_since_reset": false,
     "high_risk_change_completed": false
   },
   "handoff": {
-    "written_at": "2026-08-27T23:24:00+09:00",
-    "summary": "Cycle 2: completed T-003 (protocol skeleton) and T-004 (determinism + rewind) in src/domain. forkChoice.ts (LMD latest votes with order-independent equivocation tie-break, GHOST descent, smallest-index ties), finality.ts (SLOTS_PER_EPOCH=4, checkpointFor with empty-boundary fallback, supermajority=ceil(2n/3), justification fixpoint, adjacent-epoch 1-finality), protocol.ts (round-robin proposer, buildProposal, buildAttestation), simulation.ts (SimulationConfig{validatorCount,seed}, advanceSlot: propose→all attest→recompute finality/heads, stateAtSlot = pure recomputation = rewind). All shared-view/instant delivery for now. typecheck/test/build exit 0 (16 files, 128 tests). phase1-core remaining: T-005 only.",
+    "written_at": "2026-08-27T23:35:00+09:00",
+    "summary": "Cycles 1-3 finished phase1-core entirely: T-001..T-005 done, all with exit-0 evidence (currently 17 test files / 138 tests, typecheck+build green). src/domain now holds the complete abstract model: types.ts (View/Vote/Block reference types, anchor at slot 0), blockTree.ts (immutable tree), forkChoice.ts (LMD-GHOST, order-independent equivocation tie-break), finality.ts (SLOTS_PER_EPOCH=4, supermajority links, justification fixpoint, adjacent-epoch 1-finality), protocol.ts (round-robin proposer, buildProposal/buildAttestation), messages.ts (append-only MessageLog with publishedAt), localView.ts (Delivery rules, instantDelivery default, viewOf pure filter, observe → {view, finality, head}), simulation.ts (advanceSlot: propose from own view / attest from blocks≤s,votes≤s-1 / per-validator heads; stateAtSlot = pure recomputation = rewind). Partition divergence and post-heal convergence are proven at domain level in tests/domain/localView.test.ts. completed_todos_since_reset hit the reset threshold (5) — this handoff is written for a fresh session reading only the disk.",
     "next_actions": [
-      "Run T-005 (local views): introduce a message-visibility model (which validator has seen which block/vote as of which slot) so each validator gets its own View {validator, slot, blockTree, votes} and per-validator finality/heads genuinely diverge under future interventions. Refactor advanceSlot to compute per-validator views instead of the shared tree+votes, keeping stateAtSlot recomputation and all existing tests green (adjust the shared-head test to derive heads from per-validator views).",
-      "Design note for T-005: keep delivery instant-by-default (visibility = everything) so current behavior is the identity case; partitions/delays (T-009) then become visibility filters at slot boundaries, not engine changes.",
-      "After T-005, phase2 (T-006 UI shell) begins: replace the M1 UI; delete src/core, src/protocol, src/ui and their tests when the new UI lands, and rewrite README.md for the new design then.",
-      "Semantic choices recorded (discretion, not semantics changes of the reference types): SLOTS_PER_EPOCH=4; checkpoint epoch derived from block slot; same-slot equivocation resolved lexicographically for fork choice; anchor at slot 0, first proposal at slot 1.",
-      "Counters: completed_todos_since_reset=4 (reset threshold 5) — expect a context reset after the next completed Todo; write the handoff accordingly."
+      "Start phase2-ui with T-006 (UI shell: 3 modes chain/network/global + slot advance, Japanese UI text). Read src/ui (M1) once for salvageable patterns (theme/canvas handling), then REPLACE it: build the new shell on src/domain only via stateAtSlot/advanceSlot + observe(log, v, slot, count[, delivery]). Delete M1 code (src/core, src/protocol, src/ui, their tests in tests/*.test.ts at top level) as the new UI replaces it, and update README.md (it still describes M1/discrete-event design — it is agent-owned, rides the cycle commit).",
+      "T-007 (chain mode local/god toggle) and T-008 (network mode + global mode) follow; batch policy allows 2 per batch at cost 4 each.",
+      "UI must consume ONLY src/domain exports (keep tests/domain/purity.test.ts green; imports go one way UI→domain).",
+      "Interventions (T-009) later compile scenario intervention data into a Delivery rule + protocol overrides (equivocation/stop) — the engine already takes delivery as a parameter; do NOT redesign the engine for it.",
+      "Essence gate to remember: UI 見た目・情報設計の大きな方針転換 and ビューの型/プロトコル骨格の意味論変更 must go back to the human — building the first new UI per 成功条件 1-8 is in-scope discretion, but a later large redesign is not.",
+      "Recorded discretionary semantics (no human gate needed, already in notes/reflections): SLOTS_PER_EPOCH=4; checkpoint epoch from block slot; same-slot equivocation resolved lexicographically; anchor at slot 0 / first proposal slot 1; attestations of a slot are simultaneous (votes visible through s-1)."
     ],
     "open_questions": []
   }

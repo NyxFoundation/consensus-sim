@@ -2,13 +2,23 @@
 // fully deterministically (決定性): the state at any slot is a pure function
 // of the scenario, so rewind (巻き戻し) is recomputation from the anchor.
 //
-// At this stage every message is delivered to everyone instantly; the
-// per-validator message-visibility model (局所視点) and interventions plug in
-// on top of this driver in later Todos without changing its shape.
+// Protocol sequencing within a slot s (all order-independent by design):
+//   1. the proposer builds on its view of slots < s,
+//   2. every validator attests on blocks through s but votes through s-1,
+//   3. observers read end-of-slot views (blocks and votes through s).
+// Delivery decides who sees what; the default is instant broadcast, and
+// interventions later plug in as stricter Delivery rules.
 
 import { addBlock, createBlockTree, type BlockTree } from "./blockTree";
 import { computeFinality, type FinalityState } from "./finality";
-import { ghostHead } from "./forkChoice";
+import {
+  instantDelivery,
+  localFinalityOf,
+  localHeadOf,
+  viewOf,
+  type Delivery,
+} from "./localView";
+import { emptyLog, publishBlock, publishVotes, type MessageLog } from "./messages";
 import { buildAttestation, buildProposal, proposerForSlot } from "./protocol";
 import {
   ANCHOR_BLOCK_INDEX,
@@ -34,11 +44,15 @@ export interface SimulationConfig {
 /** The complete model state after advancing to `slot`. */
 export interface SimulationState {
   readonly slot: SlotIndex;
+  /** Every message ever published — the source of truth for all views. */
+  readonly log: MessageLog;
+  /** God view (神視点): every published block, regardless of delivery. */
   readonly tree: BlockTree;
   /** Every vote cast so far, in casting order (deterministic). */
   readonly votes: readonly Vote[];
+  /** Finality over the god view. */
   readonly finality: FinalityState;
-  /** Fork-choice head of each validator (identical while views are shared). */
+  /** Each validator's local fork-choice head (from its own view). */
   readonly heads: ReadonlyMap<ValidatorIndex, BlockIndex>;
   readonly nextBlockIndex: BlockIndex;
 }
@@ -53,6 +67,7 @@ export function initialState(config: SimulationConfig): SimulationState {
   );
   return {
     slot: START_SLOT,
+    log: emptyLog(),
     tree,
     votes: [],
     finality,
@@ -62,42 +77,57 @@ export function initialState(config: SimulationConfig): SimulationState {
 }
 
 /**
- * Advance one slot: the slot's proposer publishes a block on its head, then
- * every validator attests on the updated tree, then justification/finality
- * and every validator's head are recomputed.
+ * Advance one slot: the slot's proposer publishes a block built on its own
+ * view, every validator attests from its own view, then the god view and
+ * every validator's local head are recomputed.
  */
 export function advanceSlot(
   config: SimulationConfig,
   state: SimulationState,
+  delivery: Delivery = instantDelivery,
 ): SimulationState {
   const slot = state.slot + 1;
+  const validators = validatorIndices(config.validatorCount);
+
+  // 1. Proposal, from the proposer's view of everything before this slot.
   const proposer = proposerForSlot(slot, config.validatorCount);
+  const proposerView = viewOf(state.log, proposer, slot - 1, delivery);
+  const proposerFinality = localFinalityOf(proposerView, config.validatorCount);
   const proposal = buildProposal(
-    state.tree,
-    state.votes,
-    state.finality,
+    proposerView.blockTree,
+    proposerView.votes,
+    proposerFinality,
     slot,
     proposer,
     state.nextBlockIndex,
   );
-  const tree = addBlock(state.tree, proposal);
+  let log = publishBlock(state.log, proposal, slot);
 
-  const votes = [...state.votes];
-  for (const validator of validatorIndices(config.validatorCount)) {
-    // Attesters vote after seeing this slot's proposal (instant delivery).
-    const finalitySoFar = computeFinality(tree, votes, config.validatorCount);
-    votes.push(buildAttestation(tree, votes, finalitySoFar, slot, validator));
+  // 2. Attestations: blocks through this slot, votes through the previous
+  // one, so every attester of the slot votes simultaneously.
+  const attestations: Vote[] = [];
+  for (const validator of validators) {
+    const view = viewOf(log, validator, slot, delivery, slot - 1);
+    const finality = localFinalityOf(view, config.validatorCount);
+    attestations.push(
+      buildAttestation(view.blockTree, view.votes, finality, slot, validator),
+    );
   }
+  log = publishVotes(log, attestations, slot);
 
+  // 3. God view and per-validator end-of-slot heads.
+  const tree = addBlock(state.tree, proposal);
+  const votes = [...state.votes, ...attestations];
   const finality = computeFinality(tree, votes, config.validatorCount);
   const heads = new Map<ValidatorIndex, BlockIndex>(
-    validatorIndices(config.validatorCount).map((v) => [
-      v,
-      ghostHead(tree, votes, finality.justifiedHead),
-    ]),
+    validators.map((v) => {
+      const view = viewOf(log, v, slot, delivery);
+      return [v, localHeadOf(view, localFinalityOf(view, config.validatorCount))];
+    }),
   );
   return {
     slot,
+    log,
     tree,
     votes,
     finality,
@@ -114,13 +144,14 @@ export function advanceSlot(
 export function stateAtSlot(
   config: SimulationConfig,
   slot: SlotIndex,
+  delivery: Delivery = instantDelivery,
 ): SimulationState {
   if (!Number.isInteger(slot) || slot < START_SLOT) {
     throw new Error(`slot must be an integer ≥ ${START_SLOT}, got ${slot}`);
   }
   let state = initialState(config);
   while (state.slot < slot) {
-    state = advanceSlot(config, state);
+    state = advanceSlot(config, state, delivery);
   }
   return state;
 }
