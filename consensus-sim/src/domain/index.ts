@@ -5,3 +5,7 @@ export * from "./types";
 export * from "./blockTree";
 export * from "./view";
 export * from "./validatorSet";
+export * from "./forkChoice";
+export * from "./finality";
+export * from "./protocol";
+export * from "./simulation";

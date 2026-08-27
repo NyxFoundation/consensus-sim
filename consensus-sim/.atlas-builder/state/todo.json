@@ -86,7 +86,7 @@
     {
       "id": "T-003",
       "title": "簡約プロトコル骨格: プロポーザー提案・アテスター投票・GHOST 系 fork choice・justified/finalized 判定(source/target チェックポイント)+ユニットテスト",
-      "status": "pending",
+      "status": "done",
       "priority": "must",
       "spec": [
         "S-003"
@@ -96,12 +96,31 @@
       },
       "batch_group": "phase1-core",
       "context_cost": 4,
-      "risk_level": "normal"
+      "risk_level": "normal",
+      "notes": "SLOTS_PER_EPOCH=4 の最小エポック概念でチェックポイントを定義。equivocation の同スロット票は (head,source,target) 辞書順最小で決定的に解決(到着順非依存)。空境界スロットは直前ブロックへフォールバック。裁量内の意味論selection、source/target の解釈は参照型どおり。",
+      "evidence": [
+        {
+          "type": "diff",
+          "summary": "src/domain/forkChoice.ts (latestVotes LMD selection with order-independent equivocation tie-break, subtreeWeight, ghostHead with smallest-index tie-break), src/domain/finality.ts (epochOf/epochBoundarySlot/checkpointFor, supermajority=ceil(2n/3), computeFinality: supermajority links, justification fixpoint from anchor, adjacent-epoch 1-finality), src/domain/protocol.ts (round-robin proposerForSlot, buildProposal on GHOST head, buildAttestation with source=justified checkpoint, target=current epoch checkpoint)."
+        },
+        {
+          "type": "command",
+          "command": "npm test",
+          "exit_code": 0,
+          "summary": "tests/domain/forkChoice.test.ts (LMD latest-vote, equivocation order-independence, subtree weights, GHOST descent and tie-breaks) and tests/domain/finality.test.ts (epoch math, checkpoint fallback, threshold, once-per-link voter counting, adjacent-epoch finalization, skipped-epoch non-finalization, non-descendant link rejection) pass — 16 files, 128 tests total."
+        },
+        {
+          "type": "command",
+          "command": "npm run typecheck",
+          "exit_code": 0,
+          "summary": "tsc --noEmit passes."
+        }
+      ]
     },
     {
       "id": "T-004",
       "title": "決定性と巻き戻しのコア保証: シード付きシナリオ実行の再現性、任意過去スロットの状態再構築+ユニットテスト",
-      "status": "pending",
+      "status": "done",
       "priority": "must",
       "spec": [
         "S-004",
@@ -113,7 +132,26 @@
       },
       "batch_group": "phase1-core",
       "context_cost": 4,
-      "risk_level": "normal"
+      "risk_level": "normal",
+      "notes": "巻き戻しは可変履歴の再生ではなく錨からの純関数再計算(stateAtSlot)。seed はシナリオ同一性の一部として SimulationConfig に保持(現骨格に乱択なし、確率的ノブ導入時に使用)。現段階は全員即時配送の共有ビュー — 局所ビューと介入は T-005/T-009 でこのドライバの上に載る。",
+      "evidence": [
+        {
+          "type": "diff",
+          "summary": "src/domain/simulation.ts: SimulationConfig {validatorCount, seed}, SimulationState {slot, tree, votes, finality, heads, nextBlockIndex}, initialState (anchor only), advanceSlot (propose on GHOST head, all validators attest, recompute finality/heads), stateAtSlot (pure recomputation = rewind path)."
+        },
+        {
+          "type": "command",
+          "command": "npm test",
+          "exit_code": 0,
+          "summary": "tests/domain/simulation.test.ts: identical states from the same scenario (validatorCount 4/7/10), rewind recomputes exactly the states the run passed through, finality timeline justifiedHead 0→4 at slot 4, finalized 0→4 at slot 8→8 at slot 12, invalid slot rejection."
+        },
+        {
+          "type": "command",
+          "command": "npm run build",
+          "exit_code": 0,
+          "summary": "tsc --noEmit && vite build succeeds."
+        }
+      ]
     },
     {
       "id": "T-005",
