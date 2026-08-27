@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0.0",
+  "framework": {
+    "name": "Atlas Builder",
+    "version": "1.0.0",
+    "mode": "two_root_claude_code"
+  },
+  "paths": {
+    "control_root": ".",
+    "workspace_root": ".."
+  },
+  "invariants": {
+    "never_run_claude_from_workspace_root": true,
+    "overproject_agent_cwd": "./.atlas-builder",
+    "embedded_agent_live_launch": false,
+    "project_essence_is_human_only": true
+  }
+}

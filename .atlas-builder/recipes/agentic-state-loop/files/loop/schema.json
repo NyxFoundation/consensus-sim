@@ -1,0 +1,45 @@
+{
+  "schema_version": "1",
+  "recipe": {
+    "name": "agentic-state-loop",
+    "major": 2
+  },
+  "parameter_status": "ASL-PARAMETER-UNFILLED",
+  "_guide": [
+    "This file is the instance's parameter SSOT. Instantiation fills it from",
+    "the project's stated intent, then replaces parameter_status with",
+    "'filled'. While the ASL-PARAMETER-UNFILLED marker survives anywhere in",
+    "this file, `asl-loop state validate` errors and loop.sh refuses to run.",
+    "",
+    "documents: the domain state files under state/, each with a `seed`",
+    "  (initial content, written once by `asl-loop state ensure`) and a",
+    "  `schema` (JSON Schema subset: type, enum, const, pattern, required,",
+    "  properties, additionalProperties, items, minItems/maxItems,",
+    "  minimum/maximum). `pattern` uses the same restricted glob dialect as",
+    "  deny_patterns below (NOT a regex).",
+    "logs: extra append-only .jsonl files (runs.jsonl always exists).",
+    "policy: loop thresholds (positive integers).",
+    "protected_paths: target-relative paths/globs only a human may change —",
+    "  the guard hook denies agent writes, and cycle commits exclude them",
+    "  (a human resume checkpoint records them instead). fnmatch semantics.",
+    "deny_patterns: extra path patterns the guard hook denies to agent",
+    "  writes. Restricted glob dialect — literal characters, `*` (any run,",
+    "  including `/`), leading `^` (anchor to start), trailing `$` (anchor",
+    "  to end); substring-search semantics, no escapes. NOT a regex — see",
+    "  the recipe README's conversion table; validate warns on legacy-regex",
+    "  lookalikes.",
+    "deny_bash_patterns: extra command patterns the guard hook denies",
+    "  (same restricted glob dialect).",
+    "Delete this _guide array once the parameters are filled."
+  ],
+  "policy": {
+    "stop_after_idle_cycles": 3,
+    "stop_after_failed_runs": 2,
+    "max_session_cycles": 8
+  },
+  "documents": {},
+  "logs": ["journal.jsonl"],
+  "protected_paths": [],
+  "deny_patterns": [],
+  "deny_bash_patterns": []
+}

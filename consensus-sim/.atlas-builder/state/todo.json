@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0.0",
+  "batch_policy": {
+    "default_batch_size": 3,
+    "max_batch_size": 5,
+    "max_context_cost_per_batch": 8,
+    "prefer_same_batch_group": true,
+    "avoid_mixing_high_risk_items": true,
+    "avoid_mixing_executors": true
+  },
+  "active_batch": [],
+  "items": []
+}

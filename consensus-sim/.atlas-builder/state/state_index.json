@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0.0",
+  "canonical": {
+    "essence": "../../ESSENCE.md",
+    "project": "project.json",
+    "spec": "spec.json",
+    "todo": "todo.json",
+    "recommendations": "recommendations.json",
+    "blockers": "blockers.json",
+    "context": "context.json",
+    "validation": "validation.json",
+    "reflection": "reflection.jsonl",
+    "runs": "runs.jsonl",
+    "high_risk_changes": "high_risk_changes.jsonl",
+    "lessons": "lessons.jsonl"
+  },
+  "priority_order": [
+    "ESSENCE.md",
+    ".atlas-builder/state/spec.json",
+    ".atlas-builder/state/todo.json",
+    "implementation"
+  ]
+}

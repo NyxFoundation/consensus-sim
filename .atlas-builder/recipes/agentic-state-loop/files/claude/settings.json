@@ -1,0 +1,119 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "defaultMode": "dontAsk",
+    "disableBypassPermissionsMode": "disable",
+    "allow": [
+      "Read(.)",
+      "Bash(__ASL_LOOP_DIR__/bin/asl-loop state *)",
+      "Bash(git status *)",
+      "Bash(git diff *)",
+      "Bash(git log *)"
+    ],
+    "ask": [
+      "Edit(.claude/**)",
+      "Edit(CLAUDE.md)",
+      "Edit(__ASL_LOOP_DIR__/scripts/**)",
+      "Edit(__ASL_LOOP_DIR__/lean/**)",
+      "Edit(__ASL_LOOP_DIR__/schema.json)",
+      "Edit(__ASL_LOOP_DIR__/prompts/**)"
+    ],
+    "deny": [
+      "Edit(__ASL_LOOP_DIR__/state/**)",
+      "Edit(__ASL_LOOP_DIR__/bin/**)",
+      "Read(.env)",
+      "Read(.env.*)",
+      "Read(secrets/**)",
+      "Read(config/credentials.json)",
+      "Read(~/.ssh/**)",
+      "Read(~/.aws/**)",
+      "Read(~/.config/gcloud/**)",
+      "Read(~/.kube/**)",
+      "Read(~/.docker/config.json)",
+      "Read(~/.npmrc)",
+      "Read(~/.pypirc)",
+      "Read(~/.netrc)",
+      "Read(~/.claude/**)",
+      "Read(~/.claude.json)",
+      "Bash(rm -rf *)",
+      "Bash(sudo *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(git reset --hard *)",
+      "Bash(git clean -fd *)"
+    ]
+  },
+  "sandbox": {
+    "enabled": true,
+    "failIfUnavailable": true,
+    "autoAllowBashIfSandboxed": false,
+    "allowUnsandboxedCommands": false,
+    "filesystem": {
+      "denyRead": [
+        ".env",
+        ".env.*",
+        "secrets",
+        "config/credentials.json",
+        "~/.ssh",
+        "~/.aws",
+        "~/.config/gcloud",
+        "~/.kube",
+        "~/.docker/config.json",
+        "~/.npmrc",
+        "~/.pypirc",
+        "~/.netrc",
+        "~/.claude",
+        "~/.claude.json"
+      ],
+      "denyWrite": [
+        ".env",
+        ".env.*",
+        "secrets",
+        "config/credentials.json",
+        ".claude",
+        "CLAUDE.md",
+        "__ASL_LOOP_DIR__/scripts",
+        "__ASL_LOOP_DIR__/lean",
+        "__ASL_LOOP_DIR__/bin",
+        "__ASL_LOOP_DIR__/schema.json",
+        "__ASL_LOOP_DIR__/prompts"
+      ]
+    }
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/__ASL_LOOP_DIR__/bin/asl-loop hook session-start"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Edit|Write|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/__ASL_LOOP_DIR__/bin/asl-loop hook pre-tool"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash|Edit|Write|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/__ASL_LOOP_DIR__/bin/asl-loop hook post-tool"
+          }
+        ]
+      }
+    ]
+  }
+}

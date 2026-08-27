@@ -1,0 +1,98 @@
+{
+  "schema_version": "1",
+  "name": "agentic-state-loop",
+  "version": "2.0.0",
+  "runtime": "claude-code",
+  "description": "Harnessed autonomous agent loop: an agent executes each cycle, one cycle is at most one atomic Git commit, canonical state is schema-validated JSON (SSOT), and rule-based invariants are enforced mechanically by Claude Code hooks/permissions. The judgment/state engine is the vendored Lean binary asl-loop, built from source in the instance.",
+  "pointer_syntax": "recipe: agentic-state-loop@2",
+  "install": {
+    "loop_dir_default": ".loop",
+    "substitution_token": "__ASL_LOOP_DIR__",
+    "files": [
+      {
+        "source": "files/loop/",
+        "target": "<loop_dir>/",
+        "note": "the loop instance: scripts/, schema.json, prompts/, lean/ (source of the asl-loop engine binary — build it to <loop_dir>/bin/asl-loop with `just engine-build`; scripts, hooks and permissions all run this engine), tmp/, .gitignore."
+      },
+      {
+        "source": "files/claude/",
+        "target": ".claude/",
+        "note": "the enforcement harness: settings.json (hooks run <loop_dir>/bin/asl-loop hook <event>). If the target already has .claude/, merge (do not clobber) and re-verify every deny still holds."
+      },
+      {
+        "source": "files/justfile",
+        "target": "justfile",
+        "note": "human convenience layer; merge into an existing justfile instead of overwriting"
+      }
+    ],
+    "lock_file": "<loop_dir>/recipe.lock.json",
+    "lock_format": {
+      "recipe": "agentic-state-loop",
+      "version": "<this recipe.json version>",
+      "source_sha256": "<output of: bin/<tool> recipe hash agentic-state-loop, run in the control plane>",
+      "installed_at": "<ISO 8601 with offset>",
+      "parameters": {
+        "loop_dir": "<chosen directory name>"
+      }
+    }
+  },
+  "parameters": [
+    {
+      "name": "loop_dir",
+      "kind": "substitution",
+      "default": ".loop",
+      "fills": "every __ASL_LOOP_DIR__ token in the installed files",
+      "guidance": "Directory name of the loop instance inside the target. Keep the default unless it collides."
+    },
+    {
+      "name": "documents",
+      "kind": "authored",
+      "fills": "<loop_dir>/schema.json `documents`",
+      "guidance": "The domain state files: one entry per canonical JSON document with `seed` (initial content) and `schema` (JSON Schema subset). Derive the shape from what the product's loop must track — queues, ledgers, cursors, findings. Every document the cycle prompt tells the agent to update must be declared here so validate covers it."
+    },
+    {
+      "name": "policy",
+      "kind": "authored",
+      "fills": "<loop_dir>/schema.json `policy`",
+      "guidance": "stop_after_idle_cycles / stop_after_failed_runs / max_session_cycles as positive integers. Defaults are sane; tighten for expensive cycles."
+    },
+    {
+      "name": "logs",
+      "kind": "authored",
+      "fills": "<loop_dir>/schema.json `logs`",
+      "guidance": "Extra append-only .jsonl ledgers beside the built-in runs.jsonl (default: journal.jsonl, which the cycle prompt appends to). Appends go through `asl-loop state append-log`; only declared logs are writable that way."
+    },
+    {
+      "name": "protected_paths",
+      "kind": "authored",
+      "fills": "<loop_dir>/schema.json `protected_paths`",
+      "guidance": "Target-relative paths/globs only a human may change (the product's own canon files, if any). The guard hook denies agent writes and cycle commits exclude them; a human resume checkpoint records their diffs. Also mirror them as static deny entries in .claude/settings.json where practical."
+    },
+    {
+      "name": "deny_rules",
+      "kind": "authored",
+      "fills": "<loop_dir>/schema.json `deny_patterns` / `deny_bash_patterns`",
+      "guidance": "Extra mechanical fences derived from the project's stated prohibitions (e.g. a \"never touch legacy/\" constraint becomes the path pattern `^legacy/`; a \"no new dependencies\" constraint becomes an install-command pattern). Patterns are a restricted glob dialect — literal characters, `*`, leading `^`, trailing `$`, substring-search semantics — NOT regexes; see the recipe README's conversion table. `asl-loop state validate` warns on legacy-regex lookalikes."
+    },
+    {
+      "name": "domain_instructions",
+      "kind": "authored",
+      "fills": "<loop_dir>/prompts/cycle.md (the ASL-PARAMETER-UNFILLED comment)",
+      "guidance": "What one cycle of THIS product's work is: selection -> execution -> verification -> state update, written against the declared documents. Keep the surrounding harness constraints intact."
+    },
+    {
+      "name": "verify_allows",
+      "kind": "authored",
+      "fills": ".claude/settings.json `permissions.allow`",
+      "guidance": "Allow entries for the domain's verification commands the cycle prompt tells the agent to run (e.g. \"Bash(npm test*)\", \"Bash(pytest*)\"). Without them a non-interactive cycle auto-denies every verification command and step 5 of the cycle prompt cannot execute. Add only deterministic verification commands; never remove or weaken the deny set."
+    }
+  ],
+  "unfilled_marker": "ASL-PARAMETER-UNFILLED",
+  "post_install_checks": [
+    "grep ASL-PARAMETER-UNFILLED <loop_dir>/schema.json <loop_dir>/prompts/cycle.md returns nothing (the scripts define the marker constant; only the parameter surfaces must be clean) and no __ASL_LOOP_DIR__ token survives in any installed file",
+    "just engine-build succeeds (builds <loop_dir>/lean/ with lake and installs <loop_dir>/bin/asl-loop; network only for the pinned elan toolchain download) and <loop_dir>/bin/asl-loop version prints the engine version",
+    "<loop_dir>/bin/asl-loop state ensure && <loop_dir>/bin/asl-loop state validate exits 0",
+    "<loop_dir>/recipe.lock.json exists with the current source_sha256",
+    "Claude Code trust is accepted for the target root (hooks are otherwise not enforced)"
+  ]
+}

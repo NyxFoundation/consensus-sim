@@ -1,0 +1,21 @@
+# Secrets
+.env
+.env.*
+secrets/
+config/credentials.json
+
+# Claude local settings
+CLAUDE.local.md
+.claude/settings.local.json
+
+# Atlas Builder runtime
+.atlas-builder/tmp/
+
+# Common build outputs
+node_modules/
+dist/
+build/
+coverage/
+.pytest_cache/
+__pycache__/
+*.pyc

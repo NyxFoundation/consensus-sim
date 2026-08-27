@@ -1,0 +1,37 @@
+{
+  "schema_version": "1.0.0",
+  "phase": "must",
+  "stop_policy": {
+    "stop_after_idle_cycles": 3,
+    "stop_after_infra_fails": 2
+  },
+  "progress": {
+    "last_signature": null,
+    "idle_cycles_since_progress": 0,
+    "infra_fails_since_ok": 0,
+    "last_progress_at": null,
+    "last_checked_at": null
+  },
+  "reset_policy": {
+    "hard_threshold_context_usage": 0.8,
+    "reset_after_failed_attempts": 3,
+    "reset_after_changed_files": 25,
+    "reset_after_completed_todos": 5,
+    "reset_after_decisions": 5
+  },
+  "counters": {
+    "context_usage_estimate": 0.0,
+    "failed_attempts_since_reset": 0,
+    "changed_files_since_reset": 0,
+    "completed_todos_since_reset": 0,
+    "important_decisions_since_reset": 0,
+    "major_spec_rewrite_since_reset": false,
+    "high_risk_change_completed": false
+  },
+  "handoff": {
+    "written_at": null,
+    "summary": null,
+    "next_actions": [],
+    "open_questions": []
+  }
+}
