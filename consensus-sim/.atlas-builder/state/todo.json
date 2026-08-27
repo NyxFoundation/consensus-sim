@@ -313,7 +313,7 @@
     {
       "id": "T-009",
       "title": "介入一式: バリデータ集合の分断、停止/復帰、二重提案・二重投票、特定メッセージの遅延・欠落をスロット境界で指定する UI+モデル+テスト",
-      "status": "pending",
+      "status": "done",
       "priority": "must",
       "spec": [
         "S-009"
@@ -323,12 +323,31 @@
       },
       "batch_group": "phase3-interventions",
       "context_cost": 5,
-      "risk_level": "normal"
+      "risk_level": "normal",
+      "notes": "介入は純データ(シナリオの一部、T-011 で永続化)とし、既存エンジンの 2 軸にコンパイル: compileDelivery(分断/遅延/欠落 → Delivery 規則)+ directivesForSlot(停止/二重提案/二重投票 → SlotDirectives)。エンジン改変は互換拡張のみ: Delivery に第5引数 MessageRef(4引数関数は従来どおり適合)、advanceSlot に任意 directives。裁量の意味論(骨格・View/Vote 型は不変更): 分断は単調配送 (∃u∈[発行,現在] 非分断なら到達=解消で滞留分が流れる)、停止は発言停止で観測は継続、二重提案は同親の兄弟 2 ブロック、二重投票は正規票+その head の親への対抗票、遅延・欠落は送信者自身には適用されない。介入の削除・解消は全履歴を決定的に再計算(理解装置としての仕様)。",
+      "evidence": [
+        {
+          "type": "diff",
+          "summary": "Domain: src/domain/intervention.ts (6 intervention types + compileDelivery + directivesForSlot), src/domain/scenario.ts (Scenario, scenarioDelivery, advanceScenario, scenarioStates), messages.ts (MessageRef identity: block by index, vote by validator/slot/head), localView.ts (Delivery gains a 5th MessageRef argument, backward compatible), protocol.ts (buildEquivocalAttestation), simulation.ts (SlotDirectives: stopped/doublePropose/doubleVote; empty slot when the proposer is stopped). UI: src/ui/InterventionPanel.tsx (partition checkboxes, per-validator stop/resume toggles, double-propose/vote scheduling, message delay/drop with observer scoping, editable scheduled list with 解消/削除), App.tsx wires the panel and passes the compiled delivery into all three modes (ChainMode/NetworkMode local views now filter through the scenario delivery)."
+        },
+        {
+          "type": "command",
+          "command": "npm test",
+          "exit_code": 0,
+          "summary": "vitest 11 files / 94 tests pass. tests/domain/intervention.test.ts (15): partition divergence/pre-partition passthrough/heal release+reconvergence, stopped proposer empty slot, stopped attester silent until resume, stopped validator still observes, double propose sibling pair (non-proposer ignored), double vote conflicting pair, delay until slot, drop with observer scoping (sender exempt), full determinism of an intervention-laden scenario. tests/ui/interventions.test.tsx (7): partition via the panel diverges network cards and heal reconverges, stop/resume through toggles, double propose forks the tree in god view, double vote resolves to one LMD row, block drop rewrites history and deleting the intervention restores it."
+        },
+        {
+          "type": "command",
+          "command": "npm run typecheck && npm run build",
+          "exit_code": 0,
+          "summary": "tsc --noEmit and vite build both exit 0."
+        }
+      ]
     },
     {
       "id": "T-010",
       "title": "巻き戻し UI: 任意の過去スロットへ戻り、その時点の全バリデータ状態を表示に反映する",
-      "status": "pending",
+      "status": "done",
       "priority": "must",
       "spec": [
         "S-010"
@@ -338,7 +357,20 @@
       },
       "batch_group": "phase3-interventions",
       "context_cost": 3,
-      "risk_level": "normal"
+      "risk_level": "normal",
+      "notes": "巻き戻しは scenarioStates による錨からの純再計算で、UI はカーソル移動のみ。過去カーソルからの前進は 以降の履歴を破棄して続行(分岐比較は Essence 非対応事項のため truncate を採用、ボタンラベルで破棄を明示)。",
+      "evidence": [
+        {
+          "type": "diff",
+          "summary": "src/ui/useSimulation.ts reworked around (config, interventions, runSlot, cursor): states = scenarioStates(scenario, runSlot) via useMemo (pure recomputation), setCursor clamps to [0, runSlot], advance() from a past cursor truncates the future. App.tsx slot bar: ◀/▶ cursor steps, スロット n / 最新 m display, 最新へ jump, and the advance button relabels to ここから進める（以降の履歴を破棄） while in the past."
+        },
+        {
+          "type": "command",
+          "command": "npm test",
+          "exit_code": 0,
+          "summary": "tests/ui/interventions.test.tsx rewind cases: rewinding 5→2 shows exactly the slot-2 state (3 blocks) and 最新へ returns to slot 5 (6 blocks); advancing from cursor 2 truncates the run to slot 3. Domain-side exact-reproduction was already covered by tests/domain/simulation.test.ts and the new scenario determinism test."
+        }
+      ]
     },
     {
       "id": "T-011",

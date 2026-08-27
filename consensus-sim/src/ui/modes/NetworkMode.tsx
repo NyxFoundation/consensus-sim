@@ -11,8 +11,9 @@
  */
 
 import { useState } from 'react'
-import { latestVotes, observe } from '../../domain'
+import { instantDelivery, latestVotes, observe } from '../../domain'
 import type {
+  Delivery,
   LocalObservation,
   SimulationState,
   ValidatorIndex,
@@ -23,6 +24,8 @@ import { validatorColor } from '../validatorColor'
 export interface NetworkModeProps {
   readonly state: SimulationState
   readonly validatorCount: number
+  /** The scenario's delivery rule — local views are filtered through it. */
+  readonly delivery?: Delivery | undefined
 }
 
 function blockName(index: number): string {
@@ -47,11 +50,15 @@ function majorityHead(
   return best
 }
 
-export function NetworkMode({ state, validatorCount }: NetworkModeProps) {
+export function NetworkMode({
+  state,
+  validatorCount,
+  delivery = instantDelivery,
+}: NetworkModeProps) {
   const [inspected, setInspected] = useState<ValidatorIndex | undefined>()
 
   const observations = Array.from({ length: validatorCount }, (_, v) =>
-    observe(state.log, v, state.slot, validatorCount),
+    observe(state.log, v, state.slot, validatorCount, delivery),
   )
   const commonHead = majorityHead(observations)
 

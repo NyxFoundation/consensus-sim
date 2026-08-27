@@ -12,11 +12,12 @@ text is Japanese; code and documentation are English.
 
 **Status:** the domain layer (block tree, LMD-GHOST fork choice,
 justification/finality over source→target checkpoints, per-validator local
-views, deterministic slot driver) is complete and fully tested. The UI
-ships all three modes — chain (local / god perspectives), network
-(per-validator cards with hover views) and global (chain + network side by
-side) — with slot advancing; interventions, the rewind UI and scenario
-persistence are next.
+views, deterministic slot driver, interventions compiled onto the
+delivery/directives axes) is complete and fully tested. The UI ships all
+three modes — chain (local / god perspectives), network (per-validator
+cards with hover views) and global (chain + network side by side) — plus
+the intervention panel (partition, stop/resume, equivocation, per-message
+delay/drop) and slot rewind; scenario save/load is next.
 
 ## Quickstart
 
@@ -37,6 +38,15 @@ available from the header tabs:
   finalized / latest vote at a glance); hover a card to see that
   validator's own block tree.
 - **全体モード** — chain on the left, network on the right.
+
+The 介入 panel between the slot bar and the mode body injects disturbances
+at the next slot boundary: partition a validator set (分断), stop and
+resume validators (停止/復帰), schedule a double proposal or double vote
+(equivocation), and delay or drop one specific message. Scheduled
+interventions stay listed — healing, resuming or deleting one recomputes
+the whole displayed history deterministically. The ◀ / ▶ cursor rewinds to
+any past slot and reproduces that state exactly; advancing from a past slot
+truncates the discarded future.
 
 Sanity check:
 

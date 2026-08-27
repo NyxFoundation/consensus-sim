@@ -5,7 +5,14 @@
 import { type BlockTree } from "./blockTree";
 import { ghostHead } from "./forkChoice";
 import { checkpointFor, epochOf, type FinalityState } from "./finality";
-import type { Block, BlockIndex, SlotIndex, ValidatorIndex, Vote } from "./types";
+import {
+  ANCHOR_BLOCK_INDEX,
+  type Block,
+  type BlockIndex,
+  type SlotIndex,
+  type ValidatorIndex,
+  type Vote,
+} from "./types";
 
 /** Round-robin proposer schedule: deterministic and committee-free. */
 export function proposerForSlot(
@@ -47,4 +54,29 @@ export function buildAttestation(
   const head = ghostHead(tree, votes, finality.justifiedHead);
   const target = checkpointFor(tree, head, epochOf(slot));
   return { validator, slot, head, source: finality.justifiedHead, target };
+}
+
+/**
+ * The second vote of a double vote (二重投票): same validator and slot as the
+ * primary, but endorsing the primary head's parent — deterministic, and a
+ * genuine equivocation whenever the head is not the anchor. Returns
+ * undefined when no distinct alternative exists (head = anchor).
+ */
+export function buildEquivocalAttestation(
+  tree: BlockTree,
+  primary: Vote,
+): Vote | undefined {
+  const headBlock = tree.blocks.get(primary.head);
+  if (headBlock === undefined || headBlock.index === ANCHOR_BLOCK_INDEX) {
+    return undefined;
+  }
+  const altHead = headBlock.parent;
+  const target = checkpointFor(tree, altHead, epochOf(primary.slot));
+  return {
+    validator: primary.validator,
+    slot: primary.slot,
+    head: altHead,
+    source: primary.source,
+    target,
+  };
 }

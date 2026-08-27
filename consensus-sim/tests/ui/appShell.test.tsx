@@ -54,6 +54,14 @@ function buttonByText(label: string): Element | undefined {
   return all('button').find((b) => b.textContent?.includes(label))
 }
 
+/** The chain-mode validator selector button for V{v} (the intervention
+ * panel also renders per-validator buttons, so scope matters). */
+function chainValidatorButton(v: number): Element | undefined {
+  return all('.chain-mode .segmented button').find(
+    (b) => b.textContent?.includes(`V${v}`),
+  )
+}
+
 async function advance(times: number) {
   for (let i = 0; i < times; i++) await click(buttonByText('＋1 スロット進める'))
 }
@@ -105,7 +113,7 @@ describe('Chain mode perspectives (T-007)', () => {
   it('shows the selected validator local state and switches validators', async () => {
     await advance(4)
     expect(text('.panel h3')).toContain('V0 の局所状態')
-    await click(buttonByText('V2'))
+    await click(chainValidatorButton(2))
     expect(text('.panel h3')).toContain('V2 の局所状態')
     expect(text('.status-list')).toContain('head')
   })
@@ -191,7 +199,7 @@ describe('Global mode (T-008)', () => {
   it('keeps chain interactions working inside the global layout', async () => {
     await advance(4)
     await click(buttonByText('全体モード'))
-    await click(buttonByText('V2'))
+    await click(chainValidatorButton(2))
     expect(text('.chain-mode .panel h3')).toContain('V2 の局所状態')
     const cards = all('.validator-card')
     await hover(cards[1])

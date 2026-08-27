@@ -1,0 +1,252 @@
+// Interventions (介入): partitions, stops, equivocations and per-message
+// delay/drop, all expressed as scenario data and compiled onto the engine's
+// delivery/directives axes. Each case checks the intervention produces its
+// specified observable effect — and that the whole run stays deterministic.
+
+import { describe, expect, it } from "vitest";
+import {
+  advanceScenario,
+  scenarioStates,
+  type Intervention,
+  type Scenario,
+  type SimulationState,
+} from "../../src/domain";
+import {
+  latestVotes,
+  observe,
+  proposerForSlot,
+  scenarioDelivery,
+} from "../../src/domain";
+
+const scenario = (
+  interventions: Intervention[],
+  validatorCount = 4,
+): Scenario => ({
+  config: { validatorCount, seed: 0 },
+  interventions,
+});
+
+const statesAt = (s: Scenario, slot: number): SimulationState[] =>
+  scenarioStates(s, slot);
+
+describe("partition intervention (分断)", () => {
+  const partitioned = scenario([
+    { kind: "partition", fromSlot: 2, toSlot: 8, groups: [[0, 1]] },
+  ]);
+
+  it("diverges heads across camps and stays equal within a camp", () => {
+    const state = statesAt(partitioned, 8)[8];
+    if (!state) throw new Error("missing state");
+    expect(state.heads.get(0)).toBe(state.heads.get(1));
+    expect(state.heads.get(2)).toBe(state.heads.get(3));
+    expect(state.heads.get(0)).not.toBe(state.heads.get(2));
+  });
+
+  it("messages published before the partition are already through", () => {
+    const state = statesAt(partitioned, 3)[3];
+    if (!state) throw new Error("missing state");
+    // Block of slot 1 (published pre-partition) is visible to everyone.
+    const obs2 = observe(state.log, 2, state.slot, 4);
+    const slot1Blocks = [...obs2.view.blockTree.blocks.values()].filter(
+      (b) => b.slot === 1,
+    );
+    expect(slot1Blocks).toHaveLength(1);
+  });
+
+  it("healing releases held-back messages and reconverges all views", () => {
+    const state = statesAt(partitioned, 10)[10];
+    if (!state) throw new Error("missing state");
+    const heads = [...state.heads.values()];
+    expect(new Set(heads).size).toBe(1);
+    // After healing (toSlot 8), every camp's blocks are visible to everyone.
+    const obs0 = observe(state.log, 0, state.slot, 4);
+    expect(obs0.view.blockTree.blocks.size).toBe(state.tree.blocks.size);
+  });
+});
+
+describe("stop intervention (停止/復帰)", () => {
+  it("a stopped proposer leaves its slot empty", () => {
+    // Slot 1's proposer is V1 (round robin).
+    const s = scenario([
+      { kind: "stop", fromSlot: 1, toSlot: 1, validators: [1] },
+    ]);
+    const states = statesAt(s, 2);
+    expect(states[1]?.tree.blocks.size).toBe(1); // anchor only
+    expect(states[2]?.tree.blocks.size).toBe(2); // slot 2 proposes again
+  });
+
+  it("a stopped attester casts no votes until resumed", () => {
+    const s = scenario([
+      { kind: "stop", fromSlot: 1, toSlot: 2, validators: [2] },
+    ]);
+    const states = statesAt(s, 3);
+    const votersAt = (slot: number) =>
+      new Set(
+        (states[slot]?.votes ?? [])
+          .filter((v) => v.slot === slot)
+          .map((v) => v.validator),
+      );
+    expect(votersAt(1).has(2)).toBe(false);
+    expect(votersAt(2).has(2)).toBe(false);
+    expect(votersAt(3).has(2)).toBe(true); // resumed
+  });
+
+  it("a stopped validator still observes (silenced, not blinded)", () => {
+    const s = scenario([
+      { kind: "stop", fromSlot: 1, validators: [3] },
+    ]);
+    const state = statesAt(s, 4)[4];
+    if (!state) throw new Error("missing state");
+    const obs = observe(state.log, 3, state.slot, 4);
+    expect(obs.view.blockTree.blocks.size).toBe(state.tree.blocks.size);
+    expect(state.heads.get(3)).toBe(state.heads.get(0));
+  });
+});
+
+describe("equivocation interventions (二重提案・二重投票)", () => {
+  it("double propose publishes two sibling blocks in one slot", () => {
+    const s = scenario([
+      { kind: "double-propose", slot: 1, validator: proposerForSlot(1, 4) },
+    ]);
+    const state = statesAt(s, 1)[1];
+    if (!state) throw new Error("missing state");
+    const slot1 = [...state.tree.blocks.values()].filter((b) => b.slot === 1);
+    expect(slot1).toHaveLength(2);
+    expect(slot1[0]?.parent).toBe(slot1[1]?.parent);
+    expect(slot1[0]?.proposer).toBe(slot1[1]?.proposer);
+    // Attesters resolve the conflict deterministically (both are visible).
+    const nextState = advanceScenario(s, state);
+    expect(nextState.tree.blocks.size).toBe(4);
+  });
+
+  it("double propose by a non-proposer of that slot is ignored", () => {
+    const nonProposer = (proposerForSlot(1, 4) + 1) % 4;
+    const s = scenario([
+      { kind: "double-propose", slot: 1, validator: nonProposer },
+    ]);
+    const state = statesAt(s, 1)[1];
+    expect(
+      [...(state?.tree.blocks.values() ?? [])].filter((b) => b.slot === 1),
+    ).toHaveLength(2 - 1);
+  });
+
+  it("double vote casts two conflicting votes in one slot", () => {
+    const s = scenario([{ kind: "double-vote", slot: 3, validator: 0 }]);
+    const state = statesAt(s, 3)[3];
+    if (!state) throw new Error("missing state");
+    const v0AtSlot3 = state.votes.filter(
+      (v) => v.validator === 0 && v.slot === 3,
+    );
+    expect(v0AtSlot3).toHaveLength(2);
+    expect(v0AtSlot3[0]?.head).not.toBe(v0AtSlot3[1]?.head);
+    // LMD resolution of the equivocation is deterministic.
+    const resolved = latestVotes(state.votes).get(0);
+    expect(resolved).toBeDefined();
+  });
+
+  it("double vote at slot 1 (head = only child of anchor) still equivocates or degrades to one vote", () => {
+    const s = scenario([{ kind: "double-vote", slot: 1, validator: 2 }]);
+    const state = statesAt(s, 1)[1];
+    if (!state) throw new Error("missing state");
+    const votes = state.votes.filter((v) => v.validator === 2 && v.slot === 1);
+    // Head at slot 1 is B1 whose parent is the anchor — a distinct alt exists.
+    expect(votes).toHaveLength(2);
+    expect(new Set(votes.map((v) => v.head)).size).toBe(2);
+  });
+});
+
+describe("delay / drop interventions (遅延・欠落)", () => {
+  it("a delayed block is invisible to its targets until untilSlot", () => {
+    const s = scenario([
+      { kind: "delay", message: { kind: "block", block: 1 }, untilSlot: 3 },
+    ]);
+    const states = statesAt(s, 3);
+    const delivery = scenarioDelivery(s);
+    const sees = (slot: number, observer: number) => {
+      const st = states[slot];
+      if (!st) throw new Error("missing state");
+      return observe(st.log, observer, st.slot, 4, delivery)
+        .view.blockTree.blocks.has(1);
+    };
+    expect(sees(1, 0)).toBe(false);
+    expect(sees(2, 0)).toBe(false);
+    expect(sees(3, 0)).toBe(true);
+    // The sender (slot 1's proposer, V1) always sees its own block.
+    expect(sees(1, 1)).toBe(true);
+  });
+
+  it("a dropped block never arrives for its targets, and observers can be scoped", () => {
+    const s = scenario([
+      {
+        kind: "drop",
+        message: { kind: "block", block: 1 },
+        observers: [2, 3],
+      },
+    ]);
+    const state = statesAt(s, 4)[4];
+    if (!state) throw new Error("missing state");
+    const delivery = scenarioDelivery(s);
+    const sees = (observer: number) =>
+      observe(state.log, observer, state.slot, 4, delivery)
+        .view.blockTree.blocks.has(1);
+    expect(sees(0)).toBe(true);
+    expect(sees(1)).toBe(true); // sender
+    expect(sees(2)).toBe(false);
+    expect(sees(3)).toBe(false);
+  });
+
+  it("a dropped vote is excluded from the targets' views only", () => {
+    const s = scenario([]);
+    const base = statesAt(s, 2)[2];
+    if (!base) throw new Error("missing state");
+    const vote = base.votes.find((v) => v.validator === 3 && v.slot === 1);
+    if (!vote) throw new Error("expected V3's slot-1 vote");
+    const dropped = scenario([
+      {
+        kind: "drop",
+        message: {
+          kind: "vote",
+          validator: vote.validator,
+          slot: vote.slot,
+          head: vote.head,
+        },
+        observers: [0],
+      },
+    ]);
+    const state = statesAt(dropped, 2)[2];
+    if (!state) throw new Error("missing state");
+    const delivery = scenarioDelivery(dropped);
+    const votesSeen = (observer: number) =>
+      observe(state.log, observer, state.slot, 4, delivery).view.votes.filter(
+        (v) => v.validator === 3 && v.slot === 1,
+      ).length;
+    expect(votesSeen(0)).toBe(0);
+    expect(votesSeen(1)).toBe(1);
+  });
+});
+
+describe("scenario determinism (決定性)", () => {
+  it("the same intervention-laden scenario reproduces identical states", () => {
+    const interventions: Intervention[] = [
+      { kind: "partition", fromSlot: 2, toSlot: 6, groups: [[0, 1]] },
+      { kind: "stop", fromSlot: 3, toSlot: 4, validators: [2] },
+      { kind: "double-propose", slot: 5, validator: proposerForSlot(5, 4) },
+      { kind: "double-vote", slot: 6, validator: 1 },
+      { kind: "drop", message: { kind: "block", block: 2 }, observers: [3] },
+    ];
+    const a = statesAt(scenario(interventions), 10);
+    const b = statesAt(scenario(interventions), 10);
+    expect(a).toHaveLength(11);
+    for (let i = 0; i <= 10; i++) {
+      expect(a[i]?.tree.blocks.size).toBe(b[i]?.tree.blocks.size);
+      expect([...(a[i]?.heads ?? [])]).toEqual([...(b[i]?.heads ?? [])]);
+      expect(a[i]?.votes).toEqual(b[i]?.votes);
+      expect(a[i]?.finality).toEqual(b[i]?.finality);
+    }
+  });
+
+  it("scenarioStates(s, n)[i] is the state at slot i", () => {
+    const states = statesAt(scenario([]), 5);
+    expect(states.map((s) => s.slot)).toEqual([0, 1, 2, 3, 4, 5]);
+  });
+});

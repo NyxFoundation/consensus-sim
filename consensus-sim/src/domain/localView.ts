@@ -8,9 +8,12 @@ import { addBlock, createBlockTree, type BlockTree } from "./blockTree";
 import { computeFinality, type FinalityState } from "./finality";
 import { ghostHead } from "./forkChoice";
 import {
+  refOfBlock,
+  refOfVote,
   senderOfBlock,
   senderOfVote,
   type MessageLog,
+  type MessageRef,
   type PublishedBlock,
 } from "./messages";
 import type { BlockIndex, SlotIndex, ValidatorIndex } from "./types";
@@ -19,13 +22,16 @@ import type { View } from "./view";
 /**
  * Whether a message published by `sender` at `publishedAt` has reached
  * `observer` by `atSlot`. Must be a pure function of its arguments so that
- * views stay recomputable (決定性).
+ * views stay recomputable (決定性). `message` identifies the concrete
+ * message, so a rule can target one specifically (遅延・欠落); rules that
+ * only depend on sender/observer/time may simply ignore it.
  */
 export type Delivery = (
   sender: ValidatorIndex,
   publishedAt: SlotIndex,
   observer: ValidatorIndex,
   atSlot: SlotIndex,
+  message: MessageRef,
 ) => boolean;
 
 /** Instant broadcast: everything published up to `atSlot` is visible. */
@@ -68,13 +74,13 @@ export function viewOf(
   const blocks = log.blocks.filter(
     (m) =>
       m.publishedAt <= slot &&
-      delivery(senderOfBlock(m), m.publishedAt, observer, slot),
+      delivery(senderOfBlock(m), m.publishedAt, observer, slot, refOfBlock(m)),
   );
   const votes = log.votes
     .filter(
       (m) =>
         m.publishedAt <= votesThrough &&
-        delivery(senderOfVote(m), m.publishedAt, observer, slot),
+        delivery(senderOfVote(m), m.publishedAt, observer, slot, refOfVote(m)),
     )
     .map((m) => m.vote);
   return { validator: observer, slot, blockTree: visibleTree(blocks), votes };

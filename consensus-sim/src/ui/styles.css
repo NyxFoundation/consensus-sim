@@ -412,6 +412,120 @@ body {
   margin-right: 5px;
 }
 
+/* ---- slot cursor (巻き戻し) ---- */
+
+.slot-cursor {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cursor-step {
+  min-width: 28px;
+}
+
+.slot-run {
+  color: var(--ink-muted);
+}
+
+.cursor-latest {
+  font-size: 12px;
+}
+
+/* ---- intervention panel ---- */
+
+.intervention-panel {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 8px 16px 10px;
+}
+
+.intervention-title {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: var(--ink-secondary);
+}
+
+.intervention-note {
+  font-weight: 400;
+  font-size: 11px;
+  color: var(--ink-muted);
+}
+
+.intervention-forms {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 10px;
+}
+
+.intervention-group {
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+
+.intervention-group legend {
+  color: var(--ink-secondary);
+  font-size: 12px;
+  padding: 0 4px;
+}
+
+.validator-checks {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  margin-bottom: 6px;
+  color: var(--ink-secondary);
+}
+
+.check-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.form-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.slot-input {
+  width: 56px;
+}
+
+.stop-toggle.stopped {
+  border-color: var(--status-warning);
+  background: color-mix(in srgb, var(--status-warning) 18%, var(--control-bg));
+}
+
+.intervention-list {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.intervention-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.intervention-list li button {
+  font-size: 11px;
+}
+
+.intervention-desc {
+  font-variant-numeric: tabular-nums;
+}
+
 /* ---- network mode ---- */
 
 .validator-grid {

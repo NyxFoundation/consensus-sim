@@ -6,11 +6,11 @@
     "stop_after_infra_fails": 2
   },
   "progress": {
-    "last_signature": "f61bbf8b1d27b56afde968e8c154ee20311f7b7459cbe59191dadd63500cb7d1",
+    "last_signature": "5b9ffb15b1a5d018dd371f8ccf1fdf4e8bc789bb6893d7ca50164e9c62cc3f57",
     "idle_cycles_since_progress": 0,
     "infra_fails_since_ok": 0,
-    "last_progress_at": "2026-08-27T23:43:16+09:00",
-    "last_checked_at": "2026-08-27T23:43:16+09:00",
+    "last_progress_at": "2026-08-27T23:56:48+09:00",
+    "last_checked_at": "2026-08-27T23:56:48+09:00",
     "usage_limited_since_ok": 0
   },
   "reset_policy": {
@@ -21,23 +21,23 @@
     "reset_after_decisions": 5
   },
   "counters": {
-    "context_usage_estimate": 0.15,
+    "context_usage_estimate": 0.35,
     "failed_attempts_since_reset": 0,
-    "changed_files_since_reset": 6,
-    "completed_todos_since_reset": 1,
-    "important_decisions_since_reset": 0,
+    "changed_files_since_reset": 24,
+    "completed_todos_since_reset": 3,
+    "important_decisions_since_reset": 1,
     "major_spec_rewrite_since_reset": false,
     "high_risk_change_completed": false
   },
   "handoff": {
-    "written_at": "2026-08-27T23:43:00+09:00",
-    "summary": "Cycle 5 completed T-008: phase2-ui is done — all three modes ship. NetworkMode (src/ui/modes/NetworkMode.tsx): per-validator card grid computed with domain observe(log, v, slot, count); each card shows head/justified/finalized/latest vote (source→target); hover or focus renders that validator's local block tree below via BlockTreeView; a card whose head differs from the majority head gets a 分岐中 text flag. GlobalMode (src/ui/modes/GlobalMode.tsx): left ChainMode, right NetworkMode — real components; perspective/selected-validator state lives in App and is shared across modes. Evidence green: typecheck 0, vitest 9 files / 72 tests 0 (tests/ui/appShell.test.tsx now covers network cards at 4 and 7 validators, hover-view swapping via mouseover dispatch, global split-pane interactions), build 0. README status/usage updated for the 3 modes.",
+    "written_at": "2026-08-27T23:56:30+09:00",
+    "summary": "Cycle 6 completed T-009+T-010: phase3-interventions done. Domain: src/domain/intervention.ts (partition/stop/double-propose/double-vote/delay/drop as pure data; compileDelivery + directivesForSlot compile them onto the engine's existing delivery/directives axes) and src/domain/scenario.ts (Scenario = config+interventions; scenarioStates = anchor recomputation, shared rewind/determinism path). Compatible engine extensions only: Delivery gained a 5th MessageRef arg (4-arg fns still conform), advanceSlot gained optional SlotDirectives, stopped proposer leaves an empty slot. UI: InterventionPanel.tsx (all four intervention families specified at the next slot boundary; scheduled list with 解消/復帰/削除 that deterministically rewrites history), useSimulation reworked to (config, interventions, runSlot, cursor) with states from scenarioStates, slot-bar cursor ◀/▶/最新へ with truncate-on-advance-from-past, and the compiled delivery now feeds ChainMode/NetworkMode local views (CRITICAL pattern: observe() defaults to instantDelivery — always pass session.delivery). Evidence green: typecheck 0, vitest 11 files / 94 tests 0, build 0. changed_files 24 is at the reset threshold's edge — this handoff assumes a fresh session reading only the disk.",
     "next_actions": [
-      "T-009 (phase3-interventions, cost 5): compile an intervention list into a Delivery rule + protocol overrides — the engine already takes delivery as a parameter (useSimulation(delivery) and domain advanceSlot), do NOT redesign it. UI specifies partition (validator sets), stop/resume, equivocation (double propose/vote), delay-drop of specific messages, all at slot boundaries. Interventions must live in the scenario config so T-011 can persist them. NetworkMode's 分岐中 flag already visualizes divergence — partition scenarios should light it up.",
-      "T-010 (phase3-interventions, cost 3): rewind UI — useSimulation already keeps states[slot] (index = slot); add a slot cursor viewing past states; advancing from a past cursor should truncate-or-branch per T-011 scenario design. Batch note: T-009(5)+T-010(3) = 8 ≤ max_context_cost_per_batch 8, same group, so they can share a batch.",
+      "T-011 (phase4-scenario, cost 4): scenario save/load/replay. Scenario type already exists in src/domain/scenario.ts (config + interventions = complete run identity; determinism test in tests/domain/intervention.test.ts proves same scenario -> same states). Add (de)serialization in domain (JSON schema with version field; validate on load — Intervention is a tagged union, reject unknown kinds), then UI: save current scenario (download JSON and/or localStorage list), load + replay (set scenario, recompute via scenarioStates, cursor to 0 or saved runSlot). Persist runSlot too so a replay reproduces the exact displayed run. Keep domain free of DOM/storage APIs — file/localStorage I/O belongs to src/ui.",
+      "Then phase5-polish: T-012 (no-manual operability pass over ALL scenario operations; success criteria 5/7/8 end-to-end: partition divergence観測, heal convergence, equivocation visibility, rewind, save/reload identical results) and T-013 (verification gate + GitHub Pages path check; vite base './' already set).",
       "UI must keep consuming ONLY src/domain exports (tests/domain/purity.test.ts enforces).",
-      "Essence gates: (a) semantics changes of View/Vote/protocol skeleton and (b) large UI look/info-design pivots go back to the human. Discretion already recorded: SVG tree, M1 palette salvage, jsdom verification layer, NetworkMode card+hover design, 分岐中 divergence flag.",
-      "Discretionary semantics on record: SLOTS_PER_EPOCH=4; same-slot equivocation resolved lexicographically; anchor slot 0 / first proposal slot 1; attestations of a slot simultaneous (votes visible through s-1).",
+      "Essence gates: (a) semantics changes of View/Vote/protocol skeleton and (b) large UI look/info-design pivots go back to the human. Intervention semantics decisions are recorded in reflection.jsonl cycle 6 (decision entry): monotone partition delivery, stop=silenced-not-blinded, same-parent double propose, parent-head double vote, sender-exempt delay/drop, truncate-on-advance, editable interventions rewrite history.",
+      "Older discretionary semantics: SLOTS_PER_EPOCH=4; same-slot equivocation resolved lexicographically; anchor slot 0 / first proposal slot 1; attestations of a slot simultaneous (votes visible through s-1).",
       "R-001 (proposed, non-blocking): human may enable real-browser verification via 'npx playwright install chromium' once; until then jsdom DOM tests are the autonomous verification layer. npm install needs --cache \"$TMPDIR/npm-cache\" under the sandbox."
     ],
     "open_questions": []

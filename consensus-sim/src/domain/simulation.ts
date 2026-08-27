@@ -19,10 +19,16 @@ import {
   type Delivery,
 } from "./localView";
 import { emptyLog, publishBlock, publishVotes, type MessageLog } from "./messages";
-import { buildAttestation, buildProposal, proposerForSlot } from "./protocol";
+import {
+  buildAttestation,
+  buildEquivocalAttestation,
+  buildProposal,
+  proposerForSlot,
+} from "./protocol";
 import {
   ANCHOR_BLOCK_INDEX,
   START_SLOT,
+  type Block,
   type BlockIndex,
   type SlotIndex,
   type ValidatorIndex,
@@ -77,46 +83,95 @@ export function initialState(config: SimulationConfig): SimulationState {
 }
 
 /**
+ * Per-slot protocol directives — how interventions bend one slot's protocol
+ * actions. Delivery stays a separate axis (who sees what); directives decide
+ * who acts and whether they equivocate. Absent fields mean honest behaviour.
+ */
+export interface SlotDirectives {
+  /** Validators that neither propose nor vote this slot (停止). They still
+   * observe: stopping silences a validator, it does not blind it. */
+  readonly stopped?: ReadonlySet<ValidatorIndex>;
+  /** The slot's proposer publishes two blocks on the same parent (二重提案). */
+  readonly doublePropose?: boolean;
+  /** These validators each cast a second, conflicting vote (二重投票). */
+  readonly doubleVote?: ReadonlySet<ValidatorIndex>;
+}
+
+/**
  * Advance one slot: the slot's proposer publishes a block built on its own
  * view, every validator attests from its own view, then the god view and
- * every validator's local head are recomputed.
+ * every validator's local head are recomputed. `directives` bends the slot's
+ * protocol actions (stops, equivocations); a stopped proposer leaves the
+ * slot empty.
  */
 export function advanceSlot(
   config: SimulationConfig,
   state: SimulationState,
   delivery: Delivery = instantDelivery,
+  directives: SlotDirectives = {},
 ): SimulationState {
   const slot = state.slot + 1;
   const validators = validatorIndices(config.validatorCount);
+  const stopped = directives.stopped ?? new Set<ValidatorIndex>();
 
   // 1. Proposal, from the proposer's view of everything before this slot.
+  // A stopped proposer publishes nothing; a double proposal is a second
+  // block on the same parent (conflicting siblings in the same slot).
   const proposer = proposerForSlot(slot, config.validatorCount);
-  const proposerView = viewOf(state.log, proposer, slot - 1, delivery);
-  const proposerFinality = localFinalityOf(proposerView, config.validatorCount);
-  const proposal = buildProposal(
-    proposerView.blockTree,
-    proposerView.votes,
-    proposerFinality,
-    slot,
-    proposer,
-    state.nextBlockIndex,
-  );
-  let log = publishBlock(state.log, proposal, slot);
+  const proposals: Block[] = [];
+  if (!stopped.has(proposer)) {
+    const proposerView = viewOf(state.log, proposer, slot - 1, delivery);
+    const proposerFinality = localFinalityOf(
+      proposerView,
+      config.validatorCount,
+    );
+    const proposal = buildProposal(
+      proposerView.blockTree,
+      proposerView.votes,
+      proposerFinality,
+      slot,
+      proposer,
+      state.nextBlockIndex,
+    );
+    proposals.push(proposal);
+    if (directives.doublePropose) {
+      proposals.push({
+        index: proposal.index + 1,
+        parent: proposal.parent,
+        slot,
+        proposer,
+      });
+    }
+  }
+  let log = state.log;
+  for (const block of proposals) log = publishBlock(log, block, slot);
 
   // 2. Attestations: blocks through this slot, votes through the previous
-  // one, so every attester of the slot votes simultaneously.
+  // one, so every attester of the slot votes simultaneously. Stopped
+  // validators skip; double voters add a conflicting second vote.
   const attestations: Vote[] = [];
   for (const validator of validators) {
+    if (stopped.has(validator)) continue;
     const view = viewOf(log, validator, slot, delivery, slot - 1);
     const finality = localFinalityOf(view, config.validatorCount);
-    attestations.push(
-      buildAttestation(view.blockTree, view.votes, finality, slot, validator),
+    const vote = buildAttestation(
+      view.blockTree,
+      view.votes,
+      finality,
+      slot,
+      validator,
     );
+    attestations.push(vote);
+    if (directives.doubleVote?.has(validator)) {
+      const second = buildEquivocalAttestation(view.blockTree, vote);
+      if (second !== undefined) attestations.push(second);
+    }
   }
   log = publishVotes(log, attestations, slot);
 
   // 3. God view and per-validator end-of-slot heads.
-  const tree = addBlock(state.tree, proposal);
+  let tree = state.tree;
+  for (const block of proposals) tree = addBlock(tree, block);
   const votes = [...state.votes, ...attestations];
   const finality = computeFinality(tree, votes, config.validatorCount);
   const heads = new Map<ValidatorIndex, BlockIndex>(
@@ -132,7 +187,7 @@ export function advanceSlot(
     votes,
     finality,
     heads,
-    nextBlockIndex: proposal.index + 1,
+    nextBlockIndex: state.nextBlockIndex + proposals.length,
   };
 }
 

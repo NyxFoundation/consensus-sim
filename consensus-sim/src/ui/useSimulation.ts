@@ -1,64 +1,134 @@
 /**
- * Simulation session for the UI: a scenario config plus the list of states
- * the run has passed through, one per slot. Advancing appends
- * `advanceSlot`; every past state stays addressable by slot index, which is
- * exactly the rewind surface the later rewind UI will point at.
+ * Simulation session for the UI: a scenario (config + interventions) plus a
+ * slot cursor. All states are derived by pure recomputation from the anchor
+ * (`scenarioStates`), so rewinding is just moving the cursor, and editing
+ * the interventions deterministically rewrites the whole displayed history.
+ *
+ * Advancing while the cursor sits on a past slot truncates the discarded
+ * future and continues from the cursor (branch comparison is explicitly out
+ * of scope in the Essence).
  *
  * All consensus computation lives in src/domain; this hook only holds the
- * (config, states, cursor) triple as React state.
+ * (config, interventions, runSlot, cursor) tuple as React state.
  */
 
 import { useCallback, useMemo, useState } from 'react'
 import {
-  advanceSlot,
-  initialState,
-  instantDelivery,
+  compileDelivery,
+  scenarioStates,
   DEFAULT_VALIDATOR_COUNT,
 } from '../domain'
-import type { Delivery, SimulationConfig, SimulationState } from '../domain'
+import type {
+  Delivery,
+  Intervention,
+  SimulationConfig,
+  SimulationState,
+} from '../domain'
 
 export interface SimulationSession {
   readonly config: SimulationConfig
-  /** states[i] is the state at slot i; the last entry is the current slot. */
+  readonly interventions: readonly Intervention[]
+  /** Compiled delivery rule — local views must be filtered through this. */
+  readonly delivery: Delivery
+  /** states[i] is the state at slot i; the run has advanced to `runSlot`. */
   readonly states: readonly SimulationState[]
+  readonly runSlot: number
+  /** The slot currently displayed (≤ runSlot). */
+  readonly cursor: number
   readonly current: SimulationState
+  /** Advance one slot from the cursor; a past cursor truncates the future. */
   advance(): void
+  /** Move the displayed slot within [0, runSlot] (巻き戻し). */
+  setCursor(slot: number): void
+  /** Replace the intervention list; every state recomputes deterministically. */
+  setInterventions(next: readonly Intervention[]): void
   /** Replaces the scenario (new validator count ⇒ new run from slot 0). */
   setValidatorCount(count: number): void
 }
 
 const DEFAULT_SEED = 0
 
-export function useSimulation(
-  delivery: Delivery = instantDelivery,
-): SimulationSession {
-  const [config, setConfig] = useState<SimulationConfig>({
-    validatorCount: DEFAULT_VALIDATOR_COUNT,
-    seed: DEFAULT_SEED,
-  })
-  const [states, setStates] = useState<readonly SimulationState[]>(() => [
-    initialState(config),
-  ])
+interface SessionCore {
+  readonly config: SimulationConfig
+  readonly interventions: readonly Intervention[]
+  readonly runSlot: number
+  readonly cursor: number
+}
+
+const freshCore = (validatorCount: number): SessionCore => ({
+  config: { validatorCount, seed: DEFAULT_SEED },
+  interventions: [],
+  runSlot: 0,
+  cursor: 0,
+})
+
+export function useSimulation(): SimulationSession {
+  const [core, setCore] = useState<SessionCore>(() =>
+    freshCore(DEFAULT_VALIDATOR_COUNT),
+  )
+
+  const { config, interventions, runSlot, cursor } = core
+
+  const states = useMemo(
+    () => scenarioStates({ config, interventions }, runSlot),
+    [config, interventions, runSlot],
+  )
+  const delivery = useMemo(
+    () => compileDelivery(interventions),
+    [interventions],
+  )
 
   const advance = useCallback(() => {
-    setStates((prev) => {
-      const last = prev[prev.length - 1]
-      if (last === undefined) return prev
-      return [...prev, advanceSlot(config, last, delivery)]
-    })
-  }, [config, delivery])
-
-  const setValidatorCount = useCallback((count: number) => {
-    const next: SimulationConfig = { validatorCount: count, seed: DEFAULT_SEED }
-    setConfig(next)
-    setStates([initialState(next)])
+    setCore((c) => ({ ...c, runSlot: c.cursor + 1, cursor: c.cursor + 1 }))
   }, [])
 
-  const current = states[states.length - 1]
+  const setCursor = useCallback((slot: number) => {
+    setCore((c) => ({
+      ...c,
+      cursor: Math.min(Math.max(slot, 0), c.runSlot),
+    }))
+  }, [])
+
+  const setInterventions = useCallback(
+    (next: readonly Intervention[]) => {
+      setCore((c) => ({ ...c, interventions: next }))
+    },
+    [],
+  )
+
+  const setValidatorCount = useCallback((count: number) => {
+    setCore(freshCore(count))
+  }, [])
+
+  const current = states[cursor]
   if (current === undefined) throw new Error('simulation has no states')
 
   return useMemo(
-    () => ({ config, states, current, advance, setValidatorCount }),
-    [config, states, current, advance, setValidatorCount],
+    () => ({
+      config,
+      interventions,
+      delivery,
+      states,
+      runSlot,
+      cursor,
+      current,
+      advance,
+      setCursor,
+      setInterventions,
+      setValidatorCount,
+    }),
+    [
+      config,
+      interventions,
+      delivery,
+      states,
+      runSlot,
+      cursor,
+      current,
+      advance,
+      setCursor,
+      setInterventions,
+      setValidatorCount,
+    ],
   )
 }

@@ -8,8 +8,13 @@
  * nothing more.
  */
 
-import { observe, latestVotes } from '../../domain'
-import type { SimulationState, ValidatorIndex, Vote } from '../../domain'
+import { observe, latestVotes, instantDelivery } from '../../domain'
+import type {
+  Delivery,
+  SimulationState,
+  ValidatorIndex,
+  Vote,
+} from '../../domain'
 import { BlockTreeView } from '../BlockTreeView'
 import { validatorColor } from '../validatorColor'
 
@@ -18,6 +23,8 @@ export type Perspective = 'local' | 'god'
 export interface ChainModeProps {
   readonly state: SimulationState
   readonly validatorCount: number
+  /** The scenario's delivery rule — local views are filtered through it. */
+  readonly delivery?: Delivery
   readonly perspective: Perspective
   readonly selectedValidator: ValidatorIndex
   onPerspectiveChange(perspective: Perspective): void
@@ -68,6 +75,7 @@ function VoteTable({ votes }: { readonly votes: readonly Vote[] }) {
 export function ChainMode({
   state,
   validatorCount,
+  delivery = instantDelivery,
   perspective,
   selectedValidator,
   onPerspectiveChange,
@@ -75,7 +83,7 @@ export function ChainMode({
 }: ChainModeProps) {
   const local =
     perspective === 'local'
-      ? observe(state.log, selectedValidator, state.slot, validatorCount)
+      ? observe(state.log, selectedValidator, state.slot, validatorCount, delivery)
       : undefined
 
   const tree = local ? local.view.blockTree : state.tree

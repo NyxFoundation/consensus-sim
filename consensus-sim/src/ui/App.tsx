@@ -1,6 +1,7 @@
 /**
  * Application shell: mode tabs (チェーン / ネットワーク / 全体), the slot
- * cursor with its advance control, and the scenario's validator count.
+ * cursor with rewind and advance controls, the intervention panel, and the
+ * scenario's validator count.
  * All model computation stays behind useSimulation / src/domain.
  */
 
@@ -15,6 +16,7 @@ import { ChainMode } from './modes/ChainMode'
 import type { Perspective } from './modes/ChainMode'
 import { GlobalMode } from './modes/GlobalMode'
 import { NetworkMode } from './modes/NetworkMode'
+import { InterventionPanel } from './InterventionPanel'
 import { useSimulation } from './useSimulation'
 import { useThemeMode } from './useTheme'
 
@@ -38,8 +40,9 @@ export function App() {
   const [perspective, setPerspective] = useState<Perspective>('local')
   const [selectedValidator, setSelectedValidator] = useState<ValidatorIndex>(0)
 
-  const { current, config } = session
-  const nextProposer = proposerForSlot(current.slot + 1, config.validatorCount)
+  const { current, config, delivery, cursor, runSlot } = session
+  const inPast = cursor < runSlot
+  const nextProposer = proposerForSlot(cursor + 1, config.validatorCount)
 
   const changeValidatorCount = (count: number) => {
     session.setValidatorCount(count)
@@ -93,22 +96,55 @@ export function App() {
       </header>
 
       <div className="slot-bar">
-        <span className="slot-current">
-          スロット <strong>{current.slot}</strong>
-        </span>
+        <div className="slot-cursor" role="group" aria-label="スロット巻き戻し">
+          <button
+            type="button"
+            className="cursor-step"
+            aria-label="1 スロット戻る"
+            disabled={cursor === 0}
+            onClick={() => session.setCursor(cursor - 1)}
+          >
+            ◀
+          </button>
+          <span className="slot-current">
+            スロット <strong>{cursor}</strong>
+            {inPast && <span className="slot-run"> / 最新 {runSlot}</span>}
+          </span>
+          <button
+            type="button"
+            className="cursor-step"
+            aria-label="1 スロット先へ"
+            disabled={!inPast}
+            onClick={() => session.setCursor(cursor + 1)}
+          >
+            ▶
+          </button>
+          {inPast && (
+            <button
+              type="button"
+              className="cursor-latest"
+              onClick={() => session.setCursor(runSlot)}
+            >
+              最新へ
+            </button>
+          )}
+        </div>
         <span className="slot-next">
           次スロットの提案者: V{nextProposer}
         </span>
         <button type="button" className="advance" onClick={() => session.advance()}>
-          ＋1 スロット進める
+          {inPast ? 'ここから進める（以降の履歴を破棄）' : '＋1 スロット進める'}
         </button>
       </div>
+
+      <InterventionPanel key={config.validatorCount} session={session} />
 
       <main className="mode-body">
         {mode === 'chain' && (
           <ChainMode
             state={current}
             validatorCount={config.validatorCount}
+            delivery={delivery}
             perspective={perspective}
             selectedValidator={selectedValidator}
             onPerspectiveChange={setPerspective}
@@ -116,12 +152,17 @@ export function App() {
           />
         )}
         {mode === 'network' && (
-          <NetworkMode state={current} validatorCount={config.validatorCount} />
+          <NetworkMode
+            state={current}
+            validatorCount={config.validatorCount}
+            delivery={delivery}
+          />
         )}
         {mode === 'global' && (
           <GlobalMode
             state={current}
             validatorCount={config.validatorCount}
+            delivery={delivery}
             perspective={perspective}
             selectedValidator={selectedValidator}
             onPerspectiveChange={setPerspective}

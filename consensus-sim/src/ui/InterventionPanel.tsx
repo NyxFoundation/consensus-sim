@@ -1,0 +1,355 @@
+/**
+ * Intervention panel (介入): specify partitions, stops, equivocations and
+ * per-message delay/drop from the UI, at slot boundaries — new interventions
+ * take effect from the slot after the cursor. The scheduled list stays
+ * visible and editable; removing or healing an entry deterministically
+ * recomputes the displayed history.
+ */
+
+import { useState } from 'react'
+import { proposerForSlot } from '../domain'
+import type {
+  Intervention,
+  MessageRef,
+  PartitionIntervention,
+  SimulationState,
+  StopIntervention,
+  ValidatorIndex,
+} from '../domain'
+import type { SimulationSession } from './useSimulation'
+import { validatorColor } from './validatorColor'
+
+const validatorLabel = (v: ValidatorIndex) => `V${v}`
+const setLabel = (vs: readonly ValidatorIndex[]) =>
+  vs.map(validatorLabel).join(', ')
+
+function messageLabel(ref: MessageRef): string {
+  return ref.kind === 'block'
+    ? `ブロック B${ref.block}`
+    : `V${ref.validator} の投票（s${ref.slot}, head B${ref.head}）`
+}
+
+function spanLabel(fromSlot: number, toSlot: number | undefined): string {
+  return toSlot === undefined ? `s${fromSlot}〜` : `s${fromSlot}〜s${toSlot}`
+}
+
+function describe(i: Intervention): string {
+  switch (i.kind) {
+    case 'partition':
+      return `分断 { ${i.groups.map(setLabel).join(' | ')} } ⇔ 残り全員 ${spanLabel(i.fromSlot, i.toSlot)}`
+    case 'stop':
+      return `停止 ${setLabel(i.validators)} ${spanLabel(i.fromSlot, i.toSlot)}`
+    case 'double-propose':
+      return `二重提案 ${validatorLabel(i.validator)} @ s${i.slot}`
+    case 'double-vote':
+      return `二重投票 ${validatorLabel(i.validator)} @ s${i.slot}`
+    case 'delay':
+      return `遅延 ${messageLabel(i.message)} → s${i.untilSlot} まで${
+        i.observers ? `（対象: ${setLabel(i.observers)}）` : ''
+      }`
+    case 'drop':
+      return `欠落 ${messageLabel(i.message)}${
+        i.observers ? `（対象: ${setLabel(i.observers)}）` : ''
+      }`
+  }
+}
+
+/** Every deliverable message currently in the log, newest first. */
+function messageOptions(
+  state: SimulationState,
+): { key: string; ref: MessageRef; label: string }[] {
+  const blocks = state.log.blocks.map((m) => ({
+    key: `block:${m.block.index}`,
+    ref: { kind: 'block', block: m.block.index } as MessageRef,
+    label: `ブロック B${m.block.index}（提案 V${m.block.proposer}, s${m.block.slot}）`,
+    at: m.publishedAt,
+  }))
+  const votes = state.log.votes.map((m) => ({
+    key: `vote:${m.vote.validator}:${m.vote.slot}:${m.vote.head}`,
+    ref: {
+      kind: 'vote',
+      validator: m.vote.validator,
+      slot: m.vote.slot,
+      head: m.vote.head,
+    } as MessageRef,
+    label: `V${m.vote.validator} の投票（s${m.vote.slot}, head B${m.vote.head}）`,
+    at: m.publishedAt,
+  }))
+  return [...blocks, ...votes]
+    .sort((a, b) => b.at - a.at)
+    .map(({ key, ref, label }) => ({ key, ref, label }))
+}
+
+export interface InterventionPanelProps {
+  readonly session: SimulationSession
+}
+
+export function InterventionPanel({ session }: InterventionPanelProps) {
+  const { current, config, interventions, cursor } = session
+  const validators = Array.from({ length: config.validatorCount }, (_, v) => v)
+  const nextSlot = cursor + 1
+  const nextProposer = proposerForSlot(nextSlot, config.validatorCount)
+
+  const [groupA, setGroupA] = useState<readonly ValidatorIndex[]>([])
+  const [dvValidator, setDvValidator] = useState<ValidatorIndex>(0)
+  const [msgKey, setMsgKey] = useState('')
+  const [msgAction, setMsgAction] = useState<'drop' | 'delay'>('drop')
+  const [delayUntil, setDelayUntil] = useState('')
+  const [msgTargets, setMsgTargets] = useState<readonly ValidatorIndex[]>([])
+
+  const add = (i: Intervention) =>
+    session.setInterventions([...interventions, i])
+  const replaceAt = (index: number, i: Intervention) =>
+    session.setInterventions(interventions.map((x, k) => (k === index ? i : x)))
+  const removeAt = (index: number) =>
+    session.setInterventions(interventions.filter((_, k) => k !== index))
+
+  const toggleIn = (
+    list: readonly ValidatorIndex[],
+    v: ValidatorIndex,
+  ): ValidatorIndex[] =>
+    list.includes(v) ? list.filter((x) => x !== v) : [...list, v].sort((a, b) => a - b)
+
+  const openPartition = (i: Intervention): i is PartitionIntervention =>
+    i.kind === 'partition' && (i.toSlot === undefined || i.toSlot >= nextSlot)
+  const openStopWith = (i: Intervention, v: ValidatorIndex): i is StopIntervention =>
+    i.kind === 'stop' &&
+    i.validators.includes(v) &&
+    (i.toSlot === undefined || i.toSlot >= nextSlot) &&
+    i.fromSlot <= nextSlot
+  const isStopped = (v: ValidatorIndex) =>
+    interventions.some((i) => openStopWith(i, v))
+
+  const toggleStop = (v: ValidatorIndex) => {
+    const index = interventions.findIndex((i) => openStopWith(i, v))
+    if (index === -1) {
+      add({ kind: 'stop', fromSlot: nextSlot, validators: [v] })
+    } else {
+      const stop = interventions[index] as StopIntervention
+      replaceAt(index, { ...stop, toSlot: cursor })
+    }
+  }
+
+  const doubleProposeScheduled = interventions.some(
+    (i) => i.kind === 'double-propose' && i.slot === nextSlot,
+  )
+  const doubleVoteScheduled = interventions.some(
+    (i) => i.kind === 'double-vote' && i.slot === nextSlot && i.validator === dvValidator,
+  )
+
+  const options = messageOptions(current)
+  const selectedMessage = options.find((o) => o.key === msgKey)
+  const applyMessageIntervention = () => {
+    if (!selectedMessage) return
+    const scoped = msgTargets.length > 0 ? { observers: msgTargets } : {}
+    if (msgAction === 'drop') {
+      add({ kind: 'drop', message: selectedMessage.ref, ...scoped })
+    } else {
+      const until = Number(delayUntil)
+      if (!Number.isInteger(until) || until <= cursor) return
+      add({
+        kind: 'delay',
+        message: selectedMessage.ref,
+        untilSlot: until,
+        ...scoped,
+      })
+    }
+    setMsgKey('')
+  }
+
+  return (
+    <section className="intervention-panel" aria-label="介入">
+      <h2 className="intervention-title">
+        介入 <span className="intervention-note">新規指定は次のスロット s{nextSlot} の境界から適用</span>
+      </h2>
+
+      <div className="intervention-forms">
+        <fieldset className="intervention-group">
+          <legend>分断</legend>
+          <div className="validator-checks">
+            {validators.map((v) => (
+              <label key={v} className="check-inline">
+                <input
+                  type="checkbox"
+                  checked={groupA.includes(v)}
+                  onChange={() => setGroupA(toggleIn(groupA, v))}
+                />
+                <span
+                  className="validator-dot"
+                  style={{ background: validatorColor(v) }}
+                />
+                {validatorLabel(v)}
+              </label>
+            ))}
+          </div>
+          <button
+            type="button"
+            disabled={groupA.length === 0 || groupA.length === validators.length}
+            onClick={() => {
+              add({ kind: 'partition', fromSlot: nextSlot, groups: [groupA] })
+              setGroupA([])
+            }}
+          >
+            選択集合を残りから分断
+          </button>
+        </fieldset>
+
+        <fieldset className="intervention-group">
+          <legend>停止 / 復帰</legend>
+          <div className="validator-checks">
+            {validators.map((v) => (
+              <button
+                type="button"
+                key={v}
+                className={isStopped(v) ? 'stop-toggle stopped' : 'stop-toggle'}
+                onClick={() => toggleStop(v)}
+              >
+                <span
+                  className="validator-dot"
+                  style={{ background: validatorColor(v) }}
+                />
+                {validatorLabel(v)} {isStopped(v) ? '停止中 → 復帰' : '稼働中 → 停止'}
+              </button>
+            ))}
+          </div>
+        </fieldset>
+
+        <fieldset className="intervention-group">
+          <legend>equivocation</legend>
+          <button
+            type="button"
+            disabled={doubleProposeScheduled}
+            onClick={() =>
+              add({ kind: 'double-propose', slot: nextSlot, validator: nextProposer })
+            }
+          >
+            {doubleProposeScheduled
+              ? `二重提案を予約済み（s${nextSlot}）`
+              : `次スロットで二重提案（提案者 V${nextProposer}）`}
+          </button>
+          <div className="form-line">
+            <select
+              aria-label="二重投票するバリデータ"
+              value={dvValidator}
+              onChange={(e) => setDvValidator(Number(e.target.value))}
+            >
+              {validators.map((v) => (
+                <option key={v} value={v}>
+                  {validatorLabel(v)}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              disabled={doubleVoteScheduled}
+              onClick={() =>
+                add({ kind: 'double-vote', slot: nextSlot, validator: dvValidator })
+              }
+            >
+              {doubleVoteScheduled ? '二重投票を予約済み' : '次スロットで二重投票'}
+            </button>
+          </div>
+        </fieldset>
+
+        <fieldset className="intervention-group">
+          <legend>メッセージの遅延・欠落</legend>
+          <div className="form-line">
+            <select
+              aria-label="対象メッセージ"
+              value={msgKey}
+              onChange={(e) => setMsgKey(e.target.value)}
+            >
+              <option value="">メッセージを選択…</option>
+              {options.map((o) => (
+                <option key={o.key} value={o.key}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="form-line">
+            <label className="check-inline">
+              <input
+                type="radio"
+                name="msg-action"
+                checked={msgAction === 'drop'}
+                onChange={() => setMsgAction('drop')}
+              />
+              欠落（届かない）
+            </label>
+            <label className="check-inline">
+              <input
+                type="radio"
+                name="msg-action"
+                checked={msgAction === 'delay'}
+                onChange={() => setMsgAction('delay')}
+              />
+              遅延
+            </label>
+            {msgAction === 'delay' && (
+              <label className="check-inline">
+                s
+                <input
+                  type="number"
+                  className="slot-input"
+                  aria-label="遅延の到達スロット"
+                  min={cursor + 1}
+                  value={delayUntil}
+                  onChange={(e) => setDelayUntil(e.target.value)}
+                />
+                で到達
+              </label>
+            )}
+          </div>
+          <div className="validator-checks">
+            対象:
+            {validators.map((v) => (
+              <label key={v} className="check-inline">
+                <input
+                  type="checkbox"
+                  checked={msgTargets.includes(v)}
+                  onChange={() => setMsgTargets(toggleIn(msgTargets, v))}
+                />
+                {validatorLabel(v)}
+              </label>
+            ))}
+            <span className="intervention-note">（未選択 = 送信者以外の全員）</span>
+          </div>
+          <button
+            type="button"
+            disabled={
+              !selectedMessage ||
+              (msgAction === 'delay' &&
+                (!Number.isInteger(Number(delayUntil)) ||
+                  Number(delayUntil) <= cursor))
+            }
+            onClick={applyMessageIntervention}
+          >
+            適用
+          </button>
+        </fieldset>
+      </div>
+
+      {interventions.length > 0 && (
+        <ul className="intervention-list">
+          {interventions.map((i, index) => (
+            <li key={index}>
+              <span className="intervention-desc">{describe(i)}</span>
+              {openPartition(i) && (
+                <button
+                  type="button"
+                  onClick={() => replaceAt(index, { ...i, toSlot: cursor })}
+                >
+                  解消（次スロットから）
+                </button>
+              )}
+              <button type="button" onClick={() => removeAt(index)}>
+                削除
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  )
+}

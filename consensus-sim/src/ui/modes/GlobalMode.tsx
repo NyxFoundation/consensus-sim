@@ -22,6 +22,7 @@ export function GlobalMode(props: GlobalModeProps) {
         <NetworkMode
           state={props.state}
           validatorCount={props.validatorCount}
+          delivery={props.delivery}
         />
       </div>
     </section>
