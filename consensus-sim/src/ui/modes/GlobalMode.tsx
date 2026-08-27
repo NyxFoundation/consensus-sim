@@ -1,14 +1,29 @@
-/** Global mode (全体モード) — placeholder until the side-by-side layout
- * (left: chain, right: network) is built (planned next). */
+/**
+ * Global mode (全体モード): the chain view on the left and the network view
+ * on the right, side by side. Both panes are the real mode components, so
+ * every interaction (perspective toggle, validator selection, hover views)
+ * behaves identically here.
+ */
 
-export function GlobalMode() {
+import { ChainMode, type ChainModeProps } from './ChainMode'
+import { NetworkMode } from './NetworkMode'
+
+export type GlobalModeProps = ChainModeProps
+
+export function GlobalMode(props: GlobalModeProps) {
   return (
-    <section className="mode-placeholder">
-      <h2>全体モード（準備中）</h2>
-      <p>
-        左にチェーン、右にネットワークを並べて表示するモードです。
-        次の開発ステップで実装されます。
-      </p>
+    <section className="global-mode">
+      <div className="global-pane">
+        <h2 className="pane-title">チェーン</h2>
+        <ChainMode {...props} />
+      </div>
+      <div className="global-pane">
+        <h2 className="pane-title">ネットワーク</h2>
+        <NetworkMode
+          state={props.state}
+          validatorCount={props.validatorCount}
+        />
+      </div>
     </section>
   )
 }

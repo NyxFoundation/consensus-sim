@@ -13,8 +13,9 @@ text is Japanese; code and documentation are English.
 **Status:** the domain layer (block tree, LMD-GHOST fork choice,
 justification/finality over source→target checkpoints, per-validator local
 views, deterministic slot driver) is complete and fully tested. The UI
-currently ships the chain mode (local / god perspectives) with slot
-advancing; network mode, global mode, interventions, rewind UI and scenario
+ships all three modes — chain (local / god perspectives), network
+(per-validator cards with hover views) and global (chain + network side by
+side) — with slot advancing; interventions, the rewind UI and scenario
 persistence are next.
 
 ## Quickstart
@@ -25,10 +26,17 @@ npm run dev        # http://localhost:5173
 ```
 
 Open the page, press **＋1 スロット進める** to advance a slot, and watch the
-proposal, the votes and each validator's head update. Switch between
-局所視点 (one validator's view) and 神視点 (the overlay of everyone's
-information), and pick a validator to inspect its block tree, latest votes,
-head and justified/finalized checkpoints.
+proposal, the votes and each validator's head update. Three modes are
+available from the header tabs:
+
+- **チェーンモード** — the block tree, switchable between 局所視点 (one
+  validator's view) and 神視点 (the overlay of everyone's information);
+  pick a validator to inspect its block tree, latest votes, head and
+  justified/finalized checkpoints.
+- **ネットワークモード** — one card per validator (head / justified /
+  finalized / latest vote at a glance); hover a card to see that
+  validator's own block tree.
+- **全体モード** — chain on the left, network on the right.
 
 Sanity check:
 

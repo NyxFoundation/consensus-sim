@@ -79,9 +79,9 @@ describe('App shell (T-006)', () => {
 
   it('switches to network and global modes and back', async () => {
     await click(buttonByText('ネットワークモード'))
-    expect(text('.mode-placeholder h2')).toContain('ネットワーク')
+    expect(container.querySelector('.network-mode')).not.toBeNull()
     await click(buttonByText('全体モード'))
-    expect(text('.mode-placeholder h2')).toContain('全体')
+    expect(container.querySelector('.global-mode')).not.toBeNull()
     await click(buttonByText('チェーンモード'))
     expect(all('.tree-block').length).toBeGreaterThan(0)
   })
@@ -122,5 +122,79 @@ describe('Chain mode perspectives (T-007)', () => {
     expect(all('.badge-finalized')).toHaveLength(1)
     expect(all('.badge-justified').length).toBeGreaterThan(0)
     expect(text('.status-list')).toContain('finalized')
+  })
+})
+
+async function hover(el: Element | null | undefined) {
+  if (!el) throw new Error('hover target not found')
+  await act(async () => {
+    el.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }))
+  })
+}
+
+describe('Network mode (T-008)', () => {
+  it('shows one card per validator with head / justified / finalized / vote', async () => {
+    await advance(9)
+    await click(buttonByText('ネットワークモード'))
+    const cards = all('.validator-card')
+    expect(cards).toHaveLength(4)
+    for (const card of cards) {
+      const body = card.textContent ?? ''
+      expect(body).toContain('head')
+      expect(body).toContain('justified')
+      expect(body).toContain('finalized')
+      expect(body).toContain('最新投票')
+    }
+    // Instant delivery: everyone agrees, so no card is flagged as diverged.
+    expect(all('.validator-card.diverged')).toHaveLength(0)
+  })
+
+  it('shows the hovered validator view as a block tree', async () => {
+    await advance(4)
+    await click(buttonByText('ネットワークモード'))
+    expect(container.querySelector('.network-hint')).not.toBeNull()
+    expect(container.querySelector('.network-detail')).toBeNull()
+
+    const cards = all('.validator-card')
+    await hover(cards[2])
+    expect(text('.network-detail h3')).toContain('V2 のビュー')
+    // 5 blocks visible in V2's local view at slot 4 (anchor + one per slot).
+    expect(all('.network-detail .tree-block')).toHaveLength(5)
+
+    await hover(cards[0])
+    expect(text('.network-detail h3')).toContain('V0 のビュー')
+  })
+
+  it('reflects the validator count in the card grid', async () => {
+    const select = container.querySelector('.field-inline select')
+    if (!(select instanceof HTMLSelectElement)) throw new Error('select not found')
+    await act(async () => {
+      select.value = '7'
+      select.dispatchEvent(new Event('change', { bubbles: true }))
+    })
+    await click(buttonByText('ネットワークモード'))
+    expect(all('.validator-card')).toHaveLength(7)
+  })
+})
+
+describe('Global mode (T-008)', () => {
+  it('shows the chain pane on the left and the network pane on the right', async () => {
+    await advance(4)
+    await click(buttonByText('全体モード'))
+    const panes = all('.global-pane')
+    expect(panes).toHaveLength(2)
+    expect(panes[0]?.querySelector('.chain-mode')).not.toBeNull()
+    expect(panes[0]?.querySelectorAll('.tree-block').length).toBeGreaterThan(0)
+    expect(panes[1]?.querySelectorAll('.validator-card')).toHaveLength(4)
+  })
+
+  it('keeps chain interactions working inside the global layout', async () => {
+    await advance(4)
+    await click(buttonByText('全体モード'))
+    await click(buttonByText('V2'))
+    expect(text('.chain-mode .panel h3')).toContain('V2 の局所状態')
+    const cards = all('.validator-card')
+    await hover(cards[1])
+    expect(text('.network-detail h3')).toContain('V1 のビュー')
   })
 })

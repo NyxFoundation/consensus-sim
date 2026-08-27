@@ -115,8 +115,19 @@ export function App() {
             onSelectValidator={setSelectedValidator}
           />
         )}
-        {mode === 'network' && <NetworkMode />}
-        {mode === 'global' && <GlobalMode />}
+        {mode === 'network' && (
+          <NetworkMode state={current} validatorCount={config.validatorCount} />
+        )}
+        {mode === 'global' && (
+          <GlobalMode
+            state={current}
+            validatorCount={config.validatorCount}
+            perspective={perspective}
+            selectedValidator={selectedValidator}
+            onPerspectiveChange={setPerspective}
+            onSelectValidator={setSelectedValidator}
+          />
+        )}
       </main>
     </div>
   )

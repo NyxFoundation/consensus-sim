@@ -272,7 +272,7 @@
     {
       "id": "T-008",
       "title": "ネットワークモード(状態一覧+マウスオーバーでビュー表示)と全体モード(左チェーン・右ネットワーク)",
-      "status": "pending",
+      "status": "done",
       "priority": "must",
       "spec": [
         "S-008",
@@ -283,7 +283,32 @@
       },
       "batch_group": "phase2-ui",
       "context_cost": 4,
-      "risk_level": "normal"
+      "risk_level": "normal",
+      "notes": "ネットワークモード: バリデータごとのカード(head/justified/finalized/最新投票)をdomain observe(純フィルタ)で計算し、マウスオーバー(またはフォーカス)でそのバリデータの局所ブロック木を下部に表示。多数派 head と食い違うカードは「分岐中」テキストラベル+色で標示(色単独に依存しない)。全体モード: 左に ChainMode・右に NetworkMode を実コンポーネントのまま並置(全操作が両ペインで有効)。",
+      "evidence": [
+        {
+          "type": "diff",
+          "summary": "src/ui/modes/NetworkMode.tsx rewritten from placeholder: per-validator card grid (head / justified head / finalized / latest vote with source→target) computed via domain observe(log, v, slot, count); hover/focus shows that validator's local view as a BlockTreeView; cards disagreeing with the majority head get a 分岐中 text flag. src/ui/modes/GlobalMode.tsx rewritten: left ChainMode, right NetworkMode (real components, shared perspective/validator selection via App state). src/ui/App.tsx passes state/config into both modes. styles.css: placeholder styles replaced with validator-grid/card, network-detail, global-mode two-column layout. README status and usage updated for the three shipped modes."
+        },
+        {
+          "type": "command",
+          "command": "npm run typecheck",
+          "exit_code": 0,
+          "summary": "tsc --noEmit passes."
+        },
+        {
+          "type": "command",
+          "command": "npm test",
+          "exit_code": 0,
+          "summary": "vitest: 9 files / 72 tests pass. New DOM tests (jsdom): network mode renders one card per validator (4 and 7) with head/justified/finalized/latest-vote fields and no diverged flag under instant delivery; hovering V2 then V0 swaps the detail block tree (5 blocks at slot 4); global mode renders the chain pane left (tree present) and network pane right (4 cards), with V2 local-state selection and V1 hover both working inside the global layout."
+        },
+        {
+          "type": "command",
+          "command": "npm run build",
+          "exit_code": 0,
+          "summary": "vite build produces the static dist/ bundle."
+        }
+      ]
     },
     {
       "id": "T-009",
