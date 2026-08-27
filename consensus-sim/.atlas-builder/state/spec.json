@@ -1,6 +1,224 @@
 {
   "schema_version": "1.0.0",
   "projected_from_essence_sha256": "b5a60ac7a826d4f8b2311d36ce310d3434b1d1c06264a09589cc36a7a09b478f",
-  "projected_at": null,
-  "items": []
+  "projected_at": "2026-08-27T23:10:33+09:00",
+  "items": [
+    {
+      "id": "S-001",
+      "title": "最抽象モデル: バリデータ(プロポーザー/アテスター)・ブロック・投票を主要素とし、時間はスロット刻みで進む",
+      "status": "active",
+      "priority": "must",
+      "essence_refs": [
+        "バリデータ(プロポーザーとアテスター)・ブロック・投票を主要素とする最抽象モデルを",
+        "構築する。時間はスロット刻みで進む。"
+      ]
+    },
+    {
+      "id": "S-002",
+      "title": "バリデータ数は 4〜10 体で設定可能、既定 4 体",
+      "status": "active",
+      "priority": "must",
+      "essence_refs": [
+        "バリデータ数は 4〜10 体で設定可能とし、既定は 4 体とする。"
+      ]
+    },
+    {
+      "id": "S-003",
+      "title": "簡約プロトコル骨格: 提案・投票・GHOST 系 fork choice・finality。source/target のチェックポイント概念は保持し、committee 構造やエポック処理の細部は持ち込まない",
+      "status": "active",
+      "priority": "must",
+      "essence_refs": [
+        "最抽象レベルに見合った簡約プロトコル骨格を実装する: プロポーザーがブロックを提案し、",
+        "アテスターが投票し、fork choice(GHOST 系)が各バリデータの head を決め、",
+        "一定条件で確定(finality)する。source/target が指すエポック境界チェックポイントという",
+        "最小限の概念は保持しつつ、Gasper の完全な committee 構造やエポック処理の細部は",
+        "持ち込まない。"
+      ]
+    },
+    {
+      "id": "S-004",
+      "title": "完全決定性: 同一シナリオ(シード含む)から同一の実行結果が再現される",
+      "status": "active",
+      "priority": "must",
+      "essence_refs": [
+        "シミュレーションは完全決定的とする: 同一シナリオ(シードを含む)から同一の実行結果が",
+        "再現される。"
+      ]
+    },
+    {
+      "id": "S-005",
+      "title": "各バリデータの局所視点の個別観測: ブロック木・投票・head・justified/finalized・各投票の支持先",
+      "status": "active",
+      "priority": "must",
+      "essence_refs": [
+        "各バリデータの局所視点を個別に観測できる: そのバリデータから見えているブロック木・",
+        "投票・head・justified/finalized 状態、および各投票がどのブロックを支持したか。"
+      ]
+    },
+    {
+      "id": "S-006",
+      "title": "チェーン/ネットワーク/全体の 3 モード UI",
+      "status": "active",
+      "priority": "must",
+      "essence_refs": [
+        "チェーンモード/ネットワークモード/全体モードの 3 モード UI を備える。"
+      ]
+    },
+    {
+      "id": "S-007",
+      "title": "チェーンモードの局所視点/神視点切り替え",
+      "status": "active",
+      "priority": "must",
+      "essence_refs": [
+        "チェーンモードは局所視点と神視点の両方を切り替えられる。"
+      ]
+    },
+    {
+      "id": "S-008",
+      "title": "ネットワークモード: 各バリデータの状態が一目で分かり、マウスオーバーでビューを表示",
+      "status": "active",
+      "priority": "must",
+      "essence_refs": [
+        "ネットワークモードは各バリデータの状態が一目で分かる表示とし、マウスオーバーで",
+        "そのバリデータのビューを表示する。"
+      ]
+    },
+    {
+      "id": "S-009",
+      "title": "介入一式: 分断・停止/復帰・equivocation・メッセージ遅延/欠落を UI からスロット境界で指定",
+      "status": "active",
+      "priority": "must",
+      "essence_refs": [
+        "介入として、バリデータ集合の分断、バリデータの停止/復帰、equivocation",
+        "(二重提案・二重投票)、特定メッセージの遅延・欠落を、UI からスロット境界で指定できる。"
+      ]
+    },
+    {
+      "id": "S-010",
+      "title": "任意の過去スロットへの巻き戻しと状態の正確な再現",
+      "status": "active",
+      "priority": "must",
+      "essence_refs": [
+        "任意の過去スロットへの巻き戻しができ、その時点の全バリデータの状態が正確に再現される。"
+      ]
+    },
+    {
+      "id": "S-011",
+      "title": "シナリオ(初期条件+介入の列)の保存・再読込・再実行",
+      "status": "active",
+      "priority": "must",
+      "essence_refs": [
+        "シナリオ(初期条件+介入の列)の保存・再読込・再実行ができる。"
+      ]
+    },
+    {
+      "id": "S-012",
+      "title": "すべての操作は説明書なしで UI 上から実行できる",
+      "status": "active",
+      "priority": "must",
+      "essence_refs": [
+        "すべての操作は説明書なしで UI 上から実行できる。"
+      ]
+    },
+    {
+      "id": "S-013",
+      "title": "コア設計はより具体的な抽象レベルの将来追加を妨げない",
+      "status": "active",
+      "priority": "must",
+      "essence_refs": [
+        "コア(モデル・プロトコル層)の設計は、より具体的な抽象レベルの将来追加を妨げない。"
+      ]
+    },
+    {
+      "id": "S-014",
+      "title": "検証ゲート: ビルド・型検査・ユニットテスト(コアのモデル・fork choice・決定性・巻き戻し)がすべて exit 0",
+      "status": "active",
+      "priority": "must",
+      "essence_refs": [
+        "ビルド・型検査・ユニットテスト(コアのモデル・fork choice・決定性・巻き戻しを含む)",
+        "がすべて exit 0 で終わる。"
+      ]
+    },
+    {
+      "id": "S-015",
+      "title": "既存 M1 実装は捨ててゼロから書き直す。静的 SPA を維持し GitHub Pages で公開、UI テキストは日本語",
+      "status": "active",
+      "priority": "must",
+      "essence_refs": [
+        "既存 M1 実装は捨てて、ゼロから書き直す。互換性の維持は不要。",
+        "バックエンドなしの静的 SPA を維持し、GitHub Pages で公開する。UI テキストは日本語。"
+      ]
+    },
+    {
+      "id": "S-016",
+      "title": "DDD: ドメイン層(最抽象モデル・プロトコル骨格)を UI・インフラから独立させ、ユビキタス言語と一致する命名。ドメイン層は UI 技術に依存しない",
+      "status": "active",
+      "priority": "must",
+      "essence_refs": [
+        "ドメイン駆動設計ベースで実装する: ドメイン層(最抽象モデル・プロトコル骨格)を",
+        "UI・インフラから独立したモジュールとして分離し、ドメイン層のコードは「用語」節の",
+        "ユビキタス言語と一致する命名を用いる。ドメイン層は React 等の UI 技術に依存しない。"
+      ]
+    },
+    {
+      "id": "S-017",
+      "title": "ジェネシスなし: エポック先頭のスロット 0 から開始し、木の根は全バリデータが finalized と合意する錨ブロック 1 個",
+      "status": "active",
+      "priority": "must",
+      "essence_refs": [
+        "ジェネシスは扱わない。これまで続いてきたブロックチェーンの、エポック先頭のスロット",
+        "(これをスロット 0 とする)から開始する。木の根は開始時点で全バリデータが finalized と",
+        "合意している錨ブロック 1 個とする。"
+      ]
+    },
+    {
+      "id": "S-018",
+      "title": "参照型: View / Vote / Block / ValidatorIndex=SlotIndex=BlockIndex=Int(等価な改良は裁量、意味論の変更は人間に戻す)",
+      "status": "active",
+      "priority": "must",
+      "essence_refs": [
+        "型は次を参照実装とする(等価な改良は裁量。ただし意味論の変更は人間に戻す):",
+        "`View = {validator: ValidatorIndex, slot: SlotIndex, blockTree: BlockTree, votes: Vote[]}`",
+        "`Vote = {validator: ValidatorIndex, slot: SlotIndex, head: BlockIndex, source: BlockIndex, target: BlockIndex}`",
+        "`Block = {index: BlockIndex, parent: BlockIndex, slot: SlotIndex, proposer: ValidatorIndex, payload: BlockBody(使わない)}`",
+        "`ValidatorIndex = SlotIndex = BlockIndex = Int`。他はこれを元によしなに。"
+      ]
+    },
+    {
+      "id": "S-019",
+      "title": "スロット送りの自動再生(速度調整付き)と一時停止",
+      "status": "pending",
+      "priority": "should",
+      "essence_refs": [
+        "スロット送りの自動再生(速度調整付き)と一時停止。"
+      ]
+    },
+    {
+      "id": "S-020",
+      "title": "介入・シナリオ操作のキーボードショートカット",
+      "status": "pending",
+      "priority": "should",
+      "essence_refs": [
+        "介入・シナリオ操作のキーボードショートカット。"
+      ]
+    },
+    {
+      "id": "S-021",
+      "title": "状態・ブロック木の画像/データエクスポート",
+      "status": "pending",
+      "priority": "should",
+      "essence_refs": [
+        "状態・ブロック木の画像/データエクスポート。"
+      ]
+    },
+    {
+      "id": "S-022",
+      "title": "シナリオへのメモ・命名",
+      "status": "pending",
+      "priority": "should",
+      "essence_refs": [
+        "シナリオへのメモ・命名(この実験は何を確かめたかを残す)。"
+      ]
+    }
+  ]
 }

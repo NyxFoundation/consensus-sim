@@ -9,5 +9,311 @@
     "avoid_mixing_executors": true
   },
   "active_batch": [],
-  "items": []
+  "items": [
+    {
+      "id": "T-001",
+      "title": "新アーキテクチャの骨格: src/domain(純粋 TS ドメイン層)を UI から分離した構成を確立する(M1 コードは新実装が置き換わり次第撤去)",
+      "status": "done",
+      "priority": "must",
+      "spec": [
+        "S-015",
+        "S-016"
+      ],
+      "executor": {
+        "mode": "atlas-builder"
+      },
+      "batch_group": "phase1-core",
+      "context_cost": 3,
+      "risk_level": "normal",
+      "notes": "遂行順序 1。Vite+React+TS の既存スタックは裁量で継続(前提事項: 技術スタック裁量)。M1 の src/core・src/protocol・src/ui は phase2 で新 UI に置き換えるまで残置し、ビルド健全性を維持する。",
+      "evidence": [
+        {
+          "type": "diff",
+          "summary": "Created src/domain/{types,blockTree,view,validatorSet,index}.ts as the pure domain layer (no React/UI/infra imports) and tests/domain/purity.test.ts asserting the import boundary mechanically."
+        },
+        {
+          "type": "command",
+          "command": "npm run typecheck",
+          "exit_code": 0,
+          "summary": "tsc --noEmit passes with the new domain layer in place."
+        },
+        {
+          "type": "command",
+          "command": "npm test",
+          "exit_code": 0,
+          "summary": "vitest: 13 files, 100 tests passed — includes tests/domain/purity.test.ts, which fails if src/domain imports React, UI, or anything outside src/domain."
+        }
+      ]
+    },
+    {
+      "id": "T-002",
+      "title": "最抽象モデルのドメイン型とブロック木: View/Vote/Block/Index 参照型、錨ブロック(スロット 0)、バリデータ数 4〜10(既定 4)、将来の抽象レベル追加を妨げない境界",
+      "status": "done",
+      "priority": "must",
+      "spec": [
+        "S-001",
+        "S-002",
+        "S-013",
+        "S-017",
+        "S-018"
+      ],
+      "executor": {
+        "mode": "atlas-builder"
+      },
+      "batch_group": "phase1-core",
+      "context_cost": 4,
+      "risk_level": "normal",
+      "notes": "参照型どおり View/Vote/Block を実装(payload は Essence が『使わない』と明記のため省略 — 等価な改良の裁量内、意味論変更なし)。錨ブロックは index 0・slot 0・parent/proposer は番兵 -1。スロット 0 開始・最初のスロット送りで slot 1 に最初の提案が起きる解釈。",
+      "evidence": [
+        {
+          "type": "diff",
+          "summary": "src/domain/types.ts (ValidatorIndex/SlotIndex/BlockIndex=number, Block, Vote, anchorBlock at slot 0), src/domain/blockTree.ts (immutable tree: addBlock validation, childrenOf, isAncestor, pathToAnchor, leafIndices), src/domain/view.ts (View = {validator, slot, blockTree, votes}), src/domain/validatorSet.ts (count 4..10, default 4)."
+        },
+        {
+          "type": "command",
+          "command": "npm test",
+          "exit_code": 0,
+          "summary": "tests/domain/blockTree.test.ts (anchor block, immutability, duplicate/conflict/orphan/slot-order rejection, ancestry queries) and tests/domain/validatorSet.test.ts (bounds 4..10, default 4) all pass."
+        },
+        {
+          "type": "command",
+          "command": "npm run build",
+          "exit_code": 0,
+          "summary": "tsc --noEmit && vite build succeeds with the domain layer included."
+        }
+      ]
+    },
+    {
+      "id": "T-003",
+      "title": "簡約プロトコル骨格: プロポーザー提案・アテスター投票・GHOST 系 fork choice・justified/finalized 判定(source/target チェックポイント)+ユニットテスト",
+      "status": "pending",
+      "priority": "must",
+      "spec": [
+        "S-003"
+      ],
+      "executor": {
+        "mode": "atlas-builder"
+      },
+      "batch_group": "phase1-core",
+      "context_cost": 4,
+      "risk_level": "normal"
+    },
+    {
+      "id": "T-004",
+      "title": "決定性と巻き戻しのコア保証: シード付きシナリオ実行の再現性、任意過去スロットの状態再構築+ユニットテスト",
+      "status": "pending",
+      "priority": "must",
+      "spec": [
+        "S-004",
+        "S-010",
+        "S-014"
+      ],
+      "executor": {
+        "mode": "atlas-builder"
+      },
+      "batch_group": "phase1-core",
+      "context_cost": 4,
+      "risk_level": "normal"
+    },
+    {
+      "id": "T-005",
+      "title": "局所ビュー計算: メッセージ配送モデル(誰に何がいつ見えるか)と各バリデータのビュー(ブロック木・投票・head・justified/finalized)+ユニットテスト",
+      "status": "pending",
+      "priority": "must",
+      "spec": [
+        "S-005"
+      ],
+      "executor": {
+        "mode": "atlas-builder"
+      },
+      "batch_group": "phase1-core",
+      "context_cost": 4,
+      "risk_level": "normal"
+    },
+    {
+      "id": "T-006",
+      "title": "UI シェル: 3 モード切替(チェーン/ネットワーク/全体)とスロット送り操作、日本語 UI",
+      "status": "pending",
+      "priority": "must",
+      "spec": [
+        "S-006",
+        "S-015"
+      ],
+      "executor": {
+        "mode": "atlas-builder"
+      },
+      "batch_group": "phase2-ui",
+      "context_cost": 4,
+      "risk_level": "normal"
+    },
+    {
+      "id": "T-007",
+      "title": "チェーンモード: 選択バリデータの局所ブロック木と神視点(全バリデータ重ね合わせ)の切り替え表示",
+      "status": "pending",
+      "priority": "must",
+      "spec": [
+        "S-007",
+        "S-005"
+      ],
+      "executor": {
+        "mode": "atlas-builder"
+      },
+      "batch_group": "phase2-ui",
+      "context_cost": 4,
+      "risk_level": "normal"
+    },
+    {
+      "id": "T-008",
+      "title": "ネットワークモード(状態一覧+マウスオーバーでビュー表示)と全体モード(左チェーン・右ネットワーク)",
+      "status": "pending",
+      "priority": "must",
+      "spec": [
+        "S-008",
+        "S-006"
+      ],
+      "executor": {
+        "mode": "atlas-builder"
+      },
+      "batch_group": "phase2-ui",
+      "context_cost": 4,
+      "risk_level": "normal"
+    },
+    {
+      "id": "T-009",
+      "title": "介入一式: バリデータ集合の分断、停止/復帰、二重提案・二重投票、特定メッセージの遅延・欠落をスロット境界で指定する UI+モデル+テスト",
+      "status": "pending",
+      "priority": "must",
+      "spec": [
+        "S-009"
+      ],
+      "executor": {
+        "mode": "atlas-builder"
+      },
+      "batch_group": "phase3-interventions",
+      "context_cost": 5,
+      "risk_level": "normal"
+    },
+    {
+      "id": "T-010",
+      "title": "巻き戻し UI: 任意の過去スロットへ戻り、その時点の全バリデータ状態を表示に反映する",
+      "status": "pending",
+      "priority": "must",
+      "spec": [
+        "S-010"
+      ],
+      "executor": {
+        "mode": "atlas-builder"
+      },
+      "batch_group": "phase3-interventions",
+      "context_cost": 3,
+      "risk_level": "normal"
+    },
+    {
+      "id": "T-011",
+      "title": "シナリオの保存・再読込・再実行(初期条件+シード+介入列の永続化と決定的リプレイ)+テスト",
+      "status": "pending",
+      "priority": "must",
+      "spec": [
+        "S-011",
+        "S-004"
+      ],
+      "executor": {
+        "mode": "atlas-builder"
+      },
+      "batch_group": "phase4-scenario",
+      "context_cost": 4,
+      "risk_level": "normal"
+    },
+    {
+      "id": "T-012",
+      "title": "説明書なし操作性の仕上げ: 全シナリオ操作を UI から発見・実行でき、各ステップの状態変化が読み取れる UI/UX 磨き込み",
+      "status": "pending",
+      "priority": "must",
+      "spec": [
+        "S-012"
+      ],
+      "executor": {
+        "mode": "atlas-builder"
+      },
+      "batch_group": "phase5-polish",
+      "context_cost": 4,
+      "risk_level": "normal"
+    },
+    {
+      "id": "T-013",
+      "title": "検証ゲート: ビルド・型検査・ユニットテスト(モデル・fork choice・決定性・巻き戻し)全通し+GitHub Pages 公開経路の確認",
+      "status": "pending",
+      "priority": "must",
+      "spec": [
+        "S-014",
+        "S-015"
+      ],
+      "executor": {
+        "mode": "atlas-builder"
+      },
+      "batch_group": "phase5-polish",
+      "context_cost": 2,
+      "risk_level": "normal"
+    },
+    {
+      "id": "T-014",
+      "title": "スロット送りの自動再生(速度調整付き)と一時停止",
+      "status": "pending",
+      "priority": "should",
+      "spec": [
+        "S-019"
+      ],
+      "executor": {
+        "mode": "atlas-builder"
+      },
+      "batch_group": "phase6-optional",
+      "context_cost": 2,
+      "risk_level": "normal"
+    },
+    {
+      "id": "T-015",
+      "title": "介入・シナリオ操作のキーボードショートカット",
+      "status": "pending",
+      "priority": "should",
+      "spec": [
+        "S-020"
+      ],
+      "executor": {
+        "mode": "atlas-builder"
+      },
+      "batch_group": "phase6-optional",
+      "context_cost": 2,
+      "risk_level": "normal"
+    },
+    {
+      "id": "T-016",
+      "title": "状態・ブロック木の画像/データエクスポート",
+      "status": "pending",
+      "priority": "should",
+      "spec": [
+        "S-021"
+      ],
+      "executor": {
+        "mode": "atlas-builder"
+      },
+      "batch_group": "phase6-optional",
+      "context_cost": 2,
+      "risk_level": "normal"
+    },
+    {
+      "id": "T-017",
+      "title": "シナリオへのメモ・命名",
+      "status": "pending",
+      "priority": "should",
+      "spec": [
+        "S-022"
+      ],
+      "executor": {
+        "mode": "atlas-builder"
+      },
+      "batch_group": "phase6-optional",
+      "context_cost": 2,
+      "risk_level": "normal"
+    }
+  ]
 }

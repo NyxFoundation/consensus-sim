@@ -6,11 +6,12 @@
     "stop_after_infra_fails": 2
   },
   "progress": {
-    "last_signature": null,
+    "last_signature": "428e0fd6c8f09bacbc361c70387196b72338fced79be5ac0bd7e85c5c8a353bc",
     "idle_cycles_since_progress": 0,
     "infra_fails_since_ok": 0,
-    "last_progress_at": null,
-    "last_checked_at": null
+    "last_progress_at": "2026-08-27T23:17:05+09:00",
+    "last_checked_at": "2026-08-27T23:17:05+09:00",
+    "usage_limited_since_ok": 0
   },
   "reset_policy": {
     "hard_threshold_context_usage": 0.8,
@@ -20,18 +21,23 @@
     "reset_after_decisions": 5
   },
   "counters": {
-    "context_usage_estimate": 0.0,
+    "context_usage_estimate": 0.15,
     "failed_attempts_since_reset": 0,
-    "changed_files_since_reset": 0,
-    "completed_todos_since_reset": 0,
-    "important_decisions_since_reset": 0,
+    "changed_files_since_reset": 8,
+    "completed_todos_since_reset": 2,
+    "important_decisions_since_reset": 2,
     "major_spec_rewrite_since_reset": false,
     "high_risk_change_completed": false
   },
   "handoff": {
-    "written_at": null,
-    "summary": null,
-    "next_actions": [],
+    "written_at": "2026-08-27T23:20:00+09:00",
+    "summary": "Cycle 1 of the feat/abstract-model rewrite: projected the new ESSENCE (abstract-model pillar 1) into 22 Specs (S-001..S-022) and 17 Todos (T-001..T-017), then completed the first batch. T-001 established src/domain as the pure DDD domain layer (purity enforced by tests/domain/purity.test.ts); T-002 implemented the reference types (View/Vote/Block, index sentinels, anchor block at slot 0) and the immutable BlockTree. typecheck/test/build all exit 0 (13 files, 100 tests). M1 code (src/core, src/protocol, src/ui) is intentionally left in place until the phase2 UI replaces it, to keep the build gate green.",
+    "next_actions": [
+      "Run batch T-003 (protocol skeleton: proposer/attester, GHOST fork choice, source/target checkpoint justification/finality in src/domain) — design so T-005's per-validator message visibility slots in cleanly.",
+      "Then T-004 (determinism + rewind via recompute-from-scenario) and T-005 (local view / message delivery model).",
+      "Phase2 (T-006..T-008) replaces the M1 UI; delete src/core, src/protocol, src/ui and their tests when the new UI lands, and rewrite README.md for the new design at that point.",
+      "Semantic choices needing human eyes if they ever change: anchor block sits at slot 0 with sentinel parent/proposer -1; first proposal happens at slot 1 on the first slot advance; Vote.source/target are block indices of epoch-boundary checkpoints."
+    ],
     "open_questions": []
   }
 }
