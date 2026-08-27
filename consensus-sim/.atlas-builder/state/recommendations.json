@@ -1,4 +1,17 @@
 {
   "schema_version": "1.0.0",
-  "items": []
+  "items": [
+    {
+      "id": "R-001",
+      "type": "Non-blocking Recommendation",
+      "status": "proposed",
+      "title": "ブラウザ実機での UI 検証には Playwright ブラウザの取得許可が必要",
+      "detail": "sandbox が (1) ローカルポートの listen(EPERM)と (2) cdn.playwright.dev への通信を拒否するため、実ブラウザでの UI 検証が実行できない。scripts/verify-ui.mjs は file:// で dist/ を読み込む方式で準備済みで、人間が一度 `npx playwright install chromium` を実行する(または cdn.playwright.dev を許可する)だけで動く。現状は jsdom による DOM テスト(tests/ui/appShell.test.tsx)が同じ操作系列をヘッドレスで検証しており、進行の妨げはない。UI/UX 磨き込み(T-012)前に実ブラウザ確認経路があると望ましい。",
+      "requires_human_approval": false,
+      "source": [
+        "T-006"
+      ],
+      "raised_by": "atlas-builder"
+    }
+  ]
 }

@@ -1,93 +1,64 @@
 /**
- * Drives a `Simulation` from requestAnimationFrame.
+ * Simulation session for the UI: a scenario config plus the list of states
+ * the run has passed through, one per slot. Advancing appends
+ * `advanceSlot`; every past state stays addressable by slot index, which is
+ * exactly the rewind surface the later rewind UI will point at.
  *
- * The engine has no notion of real time — it advances to a target simulated
- * instant and stops. This hook is the only place the two clocks meet: each
- * frame converts elapsed wall-clock milliseconds into simulated milliseconds
- * via `speed`. Changing any protocol parameter rebuilds the simulation, because
- * altering the validator set or epoch length mid-run would compare two
- * different experiments.
+ * All consensus computation lives in src/domain; this hook only holds the
+ * (config, states, cursor) triple as React state.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { createGasperSimulation } from '../setup'
-import type { GasperParams } from '../setup'
-import type { Simulation } from '../core/simulation'
-import type { GasperSchedule } from '../protocol/gasper/schedule'
+import { useCallback, useMemo, useState } from 'react'
+import {
+  advanceSlot,
+  initialState,
+  instantDelivery,
+  DEFAULT_VALIDATOR_COUNT,
+} from '../domain'
+import type { Delivery, SimulationConfig, SimulationState } from '../domain'
 
-/** Longest wall-clock gap folded into one advance, so a backgrounded tab does
- * not resume by simulating minutes of chain in a single frame. */
-const MAX_FRAME_MS = 100
-
-/**
- * Real time. Anything faster runs a slot by before the propagation inside it
- * can be followed, and the point of the slot views is that they can be read.
- */
-const DEFAULT_SPEED = 1
-
-export interface SimulationController {
-  readonly sim: Simulation
-  /** Duty assignment for the run, for showing proposer and committee. */
-  readonly schedule: GasperSchedule
-  /** Increments on every advance; views depend on it to redraw. */
-  readonly frame: number
-  readonly running: boolean
-  readonly speed: number
-  /** Simulated position on the slot axis, including the fraction within a slot. */
-  readonly slotPosition: number
-  setRunning(running: boolean): void
-  setSpeed(speed: number): void
-  stepSlot(): void
-  reset(): void
+export interface SimulationSession {
+  readonly config: SimulationConfig
+  /** states[i] is the state at slot i; the last entry is the current slot. */
+  readonly states: readonly SimulationState[]
+  readonly current: SimulationState
+  advance(): void
+  /** Replaces the scenario (new validator count ⇒ new run from slot 0). */
+  setValidatorCount(count: number): void
 }
 
-export function useSimulation(params: GasperParams): SimulationController {
-  const [generation, setGeneration] = useState(0)
-  const { sim, schedule } = useMemo(() => createGasperSimulation(params), [params, generation])
+const DEFAULT_SEED = 0
 
-  const [running, setRunning] = useState(true)
-  const [speed, setSpeed] = useState(DEFAULT_SPEED)
-  const [frame, setFrame] = useState(0)
-  const lastRef = useRef(0)
+export function useSimulation(
+  delivery: Delivery = instantDelivery,
+): SimulationSession {
+  const [config, setConfig] = useState<SimulationConfig>({
+    validatorCount: DEFAULT_VALIDATOR_COUNT,
+    seed: DEFAULT_SEED,
+  })
+  const [states, setStates] = useState<readonly SimulationState[]>(() => [
+    initialState(config),
+  ])
 
-  useEffect(() => {
-    if (!running) return
+  const advance = useCallback(() => {
+    setStates((prev) => {
+      const last = prev[prev.length - 1]
+      if (last === undefined) return prev
+      return [...prev, advanceSlot(config, last, delivery)]
+    })
+  }, [config, delivery])
 
-    let handle = 0
-    lastRef.current = performance.now()
-
-    const tick = (now: number) => {
-      const elapsed = Math.min(now - lastRef.current, MAX_FRAME_MS)
-      lastRef.current = now
-      sim.advanceTo(sim.time + elapsed * speed)
-      setFrame((value) => value + 1)
-      handle = requestAnimationFrame(tick)
-    }
-
-    handle = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(handle)
-  }, [sim, running, speed])
-
-  const stepSlot = useCallback(() => {
-    sim.advanceTo(sim.time + params.slotDurationMs)
-    setFrame((value) => value + 1)
-  }, [sim, params.slotDurationMs])
-
-  const reset = useCallback(() => {
-    setGeneration((value) => value + 1)
-    setFrame(0)
+  const setValidatorCount = useCallback((count: number) => {
+    const next: SimulationConfig = { validatorCount: count, seed: DEFAULT_SEED }
+    setConfig(next)
+    setStates([initialState(next)])
   }, [])
 
-  return {
-    sim,
-    schedule,
-    frame,
-    running,
-    speed,
-    slotPosition: sim.time / params.slotDurationMs,
-    setRunning,
-    setSpeed,
-    stepSlot,
-    reset,
-  }
+  const current = states[states.length - 1]
+  if (current === undefined) throw new Error('simulation has no states')
+
+  return useMemo(
+    () => ({ config, states, current, advance, setValidatorCount }),
+    [config, states, current, advance, setValidatorCount],
+  )
 }

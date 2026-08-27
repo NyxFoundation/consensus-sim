@@ -6,11 +6,11 @@
     "stop_after_infra_fails": 2
   },
   "progress": {
-    "last_signature": "c6c9b044d5fa97e8c0b1a9a1e0800049fa3e672a27bc78e0cf9a6220e5a92960",
+    "last_signature": "f4bcdd16c5f7fedf7ab8887918133630da4ece15193191fabeb62c5d64e08289",
     "idle_cycles_since_progress": 0,
     "infra_fails_since_ok": 0,
-    "last_progress_at": "2026-08-27T23:27:03+09:00",
-    "last_checked_at": "2026-08-27T23:27:03+09:00",
+    "last_progress_at": "2026-08-27T23:38:25+09:00",
+    "last_checked_at": "2026-08-27T23:38:25+09:00",
     "usage_limited_since_ok": 0
   },
   "reset_policy": {
@@ -21,24 +21,24 @@
     "reset_after_decisions": 5
   },
   "counters": {
-    "context_usage_estimate": 0.15,
-    "failed_attempts_since_reset": 0,
-    "changed_files_since_reset": 20,
-    "completed_todos_since_reset": 5,
-    "important_decisions_since_reset": 4,
+    "context_usage_estimate": 0.35,
+    "failed_attempts_since_reset": 2,
+    "changed_files_since_reset": 50,
+    "completed_todos_since_reset": 2,
+    "important_decisions_since_reset": 2,
     "major_spec_rewrite_since_reset": false,
     "high_risk_change_completed": false
   },
   "handoff": {
-    "written_at": "2026-08-27T23:35:00+09:00",
-    "summary": "Cycles 1-3 finished phase1-core entirely: T-001..T-005 done, all with exit-0 evidence (currently 17 test files / 138 tests, typecheck+build green). src/domain now holds the complete abstract model: types.ts (View/Vote/Block reference types, anchor at slot 0), blockTree.ts (immutable tree), forkChoice.ts (LMD-GHOST, order-independent equivocation tie-break), finality.ts (SLOTS_PER_EPOCH=4, supermajority links, justification fixpoint, adjacent-epoch 1-finality), protocol.ts (round-robin proposer, buildProposal/buildAttestation), messages.ts (append-only MessageLog with publishedAt), localView.ts (Delivery rules, instantDelivery default, viewOf pure filter, observe → {view, finality, head}), simulation.ts (advanceSlot: propose from own view / attest from blocks≤s,votes≤s-1 / per-validator heads; stateAtSlot = pure recomputation = rewind). Partition divergence and post-heal convergence are proven at domain level in tests/domain/localView.test.ts. completed_todos_since_reset hit the reset threshold (5) — this handoff is written for a fresh session reading only the disk.",
+    "written_at": "2026-08-27T23:38:30+09:00",
+    "summary": "Cycle 4 (phase2-ui) completed T-006+T-007: M1 fully removed (src/core, src/protocol, src/setup.ts, old src/ui, 10 M1 test files, verify-visual.mjs) and the new UI built on src/domain only. src/ui now: App.tsx (shell: chain/network/global tabs, slot bar with +1 advance + next proposer, validator count 4-10 select that restarts the run, theme toggle), useSimulation.ts (states-per-slot array over advanceSlot — index=slot, ready-made rewind surface for T-010), modes/ChainMode.tsx (local via domain observe / god via state.{tree,votes,finality,heads}; status panel + LMD vote table), BlockTreeView.tsx (SVG: slot columns, J/F badges, head chips, vote chips, head-path emphasis), treeLayout.ts (deterministic DFS rows), validatorColor.ts, modes/{NetworkMode,GlobalMode}.tsx placeholders. Theme system (validated palette, light default, data-theme) salvaged from M1 in theme.ts/useTheme.ts/styles.css. README rewritten for the new design. Evidence green: typecheck 0, vitest 9 files/67 tests 0 (incl. tests/ui/appShell.test.tsx jsdom DOM tests + treeLayout tests), build 0. jsdom added as devDependency (npm install needs --cache \"$TMPDIR/npm-cache\" under the sandbox). Sandbox denies port listen and cdn.playwright.dev → real-browser smoke scripts/verify-ui.mjs (file://dist based) is ready but needs a human-run 'npx playwright install chromium' (R-001, non-blocking; jsdom covers the interactions). changed_files 50 ≥ reset threshold 25 — this handoff is written for a fresh session reading only the disk.",
     "next_actions": [
-      "Start phase2-ui with T-006 (UI shell: 3 modes chain/network/global + slot advance, Japanese UI text). Read src/ui (M1) once for salvageable patterns (theme/canvas handling), then REPLACE it: build the new shell on src/domain only via stateAtSlot/advanceSlot + observe(log, v, slot, count[, delivery]). Delete M1 code (src/core, src/protocol, src/ui, their tests in tests/*.test.ts at top level) as the new UI replaces it, and update README.md (it still describes M1/discrete-event design — it is agent-owned, rides the cycle commit).",
-      "T-007 (chain mode local/god toggle) and T-008 (network mode + global mode) follow; batch policy allows 2 per batch at cost 4 each.",
-      "UI must consume ONLY src/domain exports (keep tests/domain/purity.test.ts green; imports go one way UI→domain).",
-      "Interventions (T-009) later compile scenario intervention data into a Delivery rule + protocol overrides (equivocation/stop) — the engine already takes delivery as a parameter; do NOT redesign the engine for it.",
-      "Essence gate to remember: UI 見た目・情報設計の大きな方針転換 and ビューの型/プロトコル骨格の意味論変更 must go back to the human — building the first new UI per 成功条件 1-8 is in-scope discretion, but a later large redesign is not.",
-      "Recorded discretionary semantics (no human gate needed, already in notes/reflections): SLOTS_PER_EPOCH=4; checkpoint epoch from block slot; same-slot equivocation resolved lexicographically; anchor at slot 0 / first proposal slot 1; attestations of a slot are simultaneous (votes visible through s-1)."
+      "T-008 (phase2-ui, cost 4): implement NetworkMode (per-validator at-a-glance grid: head/justified/finalized/last vote per validator, hover shows that validator's view — use domain observe(log, v, slot, count)) and GlobalMode (left: ChainMode tree, right: network grid). Replace the two placeholder components; reuse BlockTreeView for hover/detail. Extend tests/ui/appShell.test.tsx with DOM tests for both modes.",
+      "Then phase3: T-009 (interventions: compile intervention list into a Delivery rule + protocol overrides — engine already takes delivery as a parameter, do NOT redesign it; UI specifies partition/stop/equivocation/delay-drop at slot boundaries) and T-010 (rewind UI: useSimulation already keeps states[slot]; add a slot cursor that views past states — advancing from a past cursor should truncate-or-branch per T-011 scenario design).",
+      "UI must keep consuming ONLY src/domain exports (tests/domain/purity.test.ts enforces).",
+      "Essence gates to remember: (a) semantics changes of View/Vote/protocol skeleton and (b) large UI look/info-design pivots go back to the human. First-build discretion already used and recorded: SVG tree rendering, M1 palette salvage, jsdom verification layer.",
+      "Discretionary semantics on record: SLOTS_PER_EPOCH=4; same-slot equivocation resolved lexicographically; anchor slot 0 / first proposal slot 1; attestations of a slot simultaneous (votes visible through s-1).",
+      "R-001 (proposed, non-blocking): human may enable real-browser verification via 'npx playwright install chromium' once; until then jsdom DOM tests are the autonomous verification layer."
     ],
     "open_questions": []
   }

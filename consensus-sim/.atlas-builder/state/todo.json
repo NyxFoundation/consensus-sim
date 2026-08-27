@@ -196,7 +196,7 @@
     {
       "id": "T-006",
       "title": "UI シェル: 3 モード切替(チェーン/ネットワーク/全体)とスロット送り操作、日本語 UI",
-      "status": "pending",
+      "status": "done",
       "priority": "must",
       "spec": [
         "S-006",
@@ -207,12 +207,37 @@
       },
       "batch_group": "phase2-ui",
       "context_cost": 4,
-      "risk_level": "normal"
+      "risk_level": "normal",
+      "notes": "M1 完全撤去(src/core・src/protocol・src/setup.ts・旧 src/ui ビュー/コントロール・M1 テスト 10 本・verify-visual.mjs)+新シェル構築。テーマ基盤(検証済みパレット CSS 変数・ライト既定)は M1 から流用。ネットワーク/全体モードは T-008 実装までプレースホルダ。sandbox がポート listen と cdn.playwright.dev を拒否したため、ブラウザ実検証の代わりに jsdom DOM テストで UI 動作を検証(R-001 参照)。",
+      "evidence": [
+        {
+          "type": "diff",
+          "summary": "Removed all M1 code (src/core/*, src/protocol/**, src/setup.ts, old src/ui views/controls/canvas/stats, 10 top-level M1 test files, scripts/verify-visual.mjs). New shell: src/ui/App.tsx (mode tabs chain/network/global, slot bar with +1-slot advance and next-proposer display, validator count 4-10 select that restarts the scenario, theme toggle, Japanese UI text), src/ui/useSimulation.ts (per-slot states array over domain advanceSlot/initialState), src/ui/modes/{NetworkMode,GlobalMode}.tsx placeholders, styles.css rebuilt on the salvaged validated palette variables, index.html title updated."
+        },
+        {
+          "type": "command",
+          "command": "npm run typecheck",
+          "exit_code": 0,
+          "summary": "tsc --noEmit passes on the replaced src tree."
+        },
+        {
+          "type": "command",
+          "command": "npm test",
+          "exit_code": 0,
+          "summary": "vitest: 9 files / 67 tests pass. tests/ui/appShell.test.tsx drives the real DOM (jsdom): starts at slot 0 with anchor only and the three mode tabs; +1 advancing yields one block per slot (5 blocks at slot 4, 4 vote-table rows); network/global mode switching renders their sections; validator-count change to 7 resets to slot 0 and yields 7 vote rows after one slot."
+        },
+        {
+          "type": "command",
+          "command": "npm run build",
+          "exit_code": 0,
+          "summary": "vite build produces the static dist/ bundle (base './')."
+        }
+      ]
     },
     {
       "id": "T-007",
       "title": "チェーンモード: 選択バリデータの局所ブロック木と神視点(全バリデータ重ね合わせ)の切り替え表示",
-      "status": "pending",
+      "status": "done",
       "priority": "must",
       "spec": [
         "S-007",
@@ -223,7 +248,26 @@
       },
       "batch_group": "phase2-ui",
       "context_cost": 4,
-      "risk_level": "normal"
+      "risk_level": "normal",
+      "notes": "チェーンモード: 局所視点は domain の observe(純フィルタ)で計算、神視点は state.tree/votes/finality/heads。ブロック木は SVG(スロット=列、フォーク=行)。J/F バッジ・head チップ・投票チップで状態は色+記号+数字の三重符号化。",
+      "evidence": [
+        {
+          "type": "diff",
+          "summary": "src/ui/modes/ChainMode.tsx (local/god perspective toggle, validator selector, status panel with head / justified set + head / finalized, LMD latest-vote table with source→target), src/ui/BlockTreeView.tsx (SVG slot-column tree: proposer labels, J/F checkpoint badges, per-validator head chips, vote-support chips under supported blocks, head-path edge emphasis), src/ui/treeLayout.ts (deterministic DFS layout, first child keeps the trunk row) with tests/ui/treeLayout.test.ts, src/ui/validatorColor.ts (stable per-validator colours, digits always alongside colour)."
+        },
+        {
+          "type": "command",
+          "command": "npm test",
+          "exit_code": 0,
+          "summary": "vitest 67/67: treeLayout tests (anchor row, straight chain, fork rows, insertion-order determinism) and chain-mode DOM tests (V0→V2 local-state switching, god view listing every validator's head V0..V3, justified badges plus exactly one finalized F badge at slot 9)."
+        },
+        {
+          "type": "command",
+          "command": "npm run typecheck && npm run build",
+          "exit_code": 0,
+          "summary": "Typecheck and production build both exit 0."
+        }
+      ]
     },
     {
       "id": "T-008",
