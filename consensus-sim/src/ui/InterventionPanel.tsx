@@ -54,10 +54,19 @@ function describe(i: Intervention): string {
   }
 }
 
-/** Every deliverable message currently in the log, newest first. */
-function messageOptions(
+interface MessageOption {
+  readonly key: string
+  readonly ref: MessageRef
+  readonly label: string
+}
+
+/**
+ * Every deliverable message currently in the log, grouped by publish slot
+ * (newest slot first) so the selector stays readable on long runs.
+ */
+function messageOptionGroups(
   state: SimulationState,
-): { key: string; ref: MessageRef; label: string }[] {
+): { slot: number; options: MessageOption[] }[] {
   const blocks = state.log.blocks.map((m) => ({
     key: `block:${m.block.index}`,
     ref: { kind: 'block', block: m.block.index } as MessageRef,
@@ -75,9 +84,15 @@ function messageOptions(
     label: `V${m.vote.validator} の投票（s${m.vote.slot}, head B${m.vote.head}）`,
     at: m.publishedAt,
   }))
-  return [...blocks, ...votes]
-    .sort((a, b) => b.at - a.at)
-    .map(({ key, ref, label }) => ({ key, ref, label }))
+  const bySlot = new Map<number, MessageOption[]>()
+  for (const { at, key, ref, label } of [...blocks, ...votes]) {
+    const list = bySlot.get(at) ?? []
+    list.push({ key, ref, label })
+    bySlot.set(at, list)
+  }
+  return [...bySlot.entries()]
+    .sort((a, b) => b[0] - a[0])
+    .map(([slot, options]) => ({ slot, options }))
 }
 
 export interface InterventionPanelProps {
@@ -137,8 +152,10 @@ export function InterventionPanel({ session }: InterventionPanelProps) {
     (i) => i.kind === 'double-vote' && i.slot === nextSlot && i.validator === dvValidator,
   )
 
-  const options = messageOptions(current)
-  const selectedMessage = options.find((o) => o.key === msgKey)
+  const optionGroups = messageOptionGroups(current)
+  const selectedMessage = optionGroups
+    .flatMap((g) => g.options)
+    .find((o) => o.key === msgKey)
   const applyMessageIntervention = () => {
     if (!selectedMessage) return
     const scoped = msgTargets.length > 0 ? { observers: msgTargets } : {}
@@ -159,9 +176,16 @@ export function InterventionPanel({ session }: InterventionPanelProps) {
 
   return (
     <section className="intervention-panel" aria-label="介入">
-      <h2 className="intervention-title">
-        介入 <span className="intervention-note">新規指定は次のスロット s{nextSlot} の境界から適用</span>
-      </h2>
+      <details open>
+        <summary className="panel-summary">
+          <h2 className="intervention-title">
+            介入
+            {interventions.length > 0 && `（${interventions.length} 件指定中）`}{' '}
+            <span className="intervention-note">
+              新規指定は次のスロット s{nextSlot} の境界から適用
+            </span>
+          </h2>
+        </summary>
 
       <div className="intervention-forms">
         <fieldset className="intervention-group">
@@ -215,7 +239,7 @@ export function InterventionPanel({ session }: InterventionPanelProps) {
         </fieldset>
 
         <fieldset className="intervention-group">
-          <legend>equivocation</legend>
+          <legend>equivocation（二重提案・二重投票）</legend>
           <button
             type="button"
             disabled={doubleProposeScheduled}
@@ -257,15 +281,25 @@ export function InterventionPanel({ session }: InterventionPanelProps) {
             <select
               aria-label="対象メッセージ"
               value={msgKey}
+              disabled={optionGroups.length === 0}
               onChange={(e) => setMsgKey(e.target.value)}
             >
               <option value="">メッセージを選択…</option>
-              {options.map((o) => (
-                <option key={o.key} value={o.key}>
-                  {o.label}
-                </option>
+              {optionGroups.map((g) => (
+                <optgroup key={g.slot} label={`発行スロット s${g.slot}`}>
+                  {g.options.map((o) => (
+                    <option key={o.key} value={o.key}>
+                      {o.label}
+                    </option>
+                  ))}
+                </optgroup>
               ))}
             </select>
+            {optionGroups.length === 0 && (
+              <span className="intervention-note">
+                メッセージはまだありません。スロットを進めると提案・投票を選べます。
+              </span>
+            )}
           </div>
           <div className="form-line">
             <label className="check-inline">
@@ -330,7 +364,7 @@ export function InterventionPanel({ session }: InterventionPanelProps) {
         </fieldset>
       </div>
 
-      {interventions.length > 0 && (
+      {interventions.length > 0 ? (
         <ul className="intervention-list">
           {interventions.map((i, index) => (
             <li key={index}>
@@ -349,7 +383,13 @@ export function InterventionPanel({ session }: InterventionPanelProps) {
             </li>
           ))}
         </ul>
+      ) : (
+        <p className="empty-hint">
+          介入はまだありません。上のフォームで指定すると、ここに一覧が並び、
+          解消・削除で表示中の履歴が決定的に再計算されます。
+        </p>
       )}
+      </details>
     </section>
   )
 }

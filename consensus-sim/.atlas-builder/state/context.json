@@ -6,11 +6,11 @@
     "stop_after_infra_fails": 2
   },
   "progress": {
-    "last_signature": "ed49a8b8ea8c30a619958a9e02ec13b84a4f4b3d174cc6f03d403bbd227b3cf3",
+    "last_signature": "39015ffc2a400a152a3c4be5e9f297a17e22f44f65d695d2628256e7feb61340",
     "idle_cycles_since_progress": 0,
     "infra_fails_since_ok": 0,
-    "last_progress_at": "2026-08-28T00:02:29+09:00",
-    "last_checked_at": "2026-08-28T00:02:29+09:00",
+    "last_progress_at": "2026-08-28T00:09:54+09:00",
+    "last_checked_at": "2026-08-28T00:09:54+09:00",
     "usage_limited_since_ok": 0
   },
   "reset_policy": {
@@ -21,24 +21,22 @@
     "reset_after_decisions": 5
   },
   "counters": {
-    "context_usage_estimate": 0.45,
+    "context_usage_estimate": 0.15,
     "failed_attempts_since_reset": 0,
-    "changed_files_since_reset": 34,
-    "completed_todos_since_reset": 4,
+    "changed_files_since_reset": 5,
+    "completed_todos_since_reset": 2,
     "important_decisions_since_reset": 1,
     "major_spec_rewrite_since_reset": false,
     "high_risk_change_completed": false
   },
   "handoff": {
-    "written_at": "2026-08-28T00:02:30+09:00",
-    "summary": "Cycle 7 completed T-011: phase4-scenario done. Scenario persistence ships at both layers: src/domain/scenarioCodec.ts (versioned format 'consensus-sim.scenario' v1: {format, version, config incl. seed, runSlot, interventions}; parseScenario fully validates the tagged union and rejects unknown kinds / out-of-range validators / bad slot spans), src/ui/scenarioStore.ts (localStorage list under key consensus-sim.scenarios; corrupt entries dropped silently), src/ui/ScenarioPanel.tsx (保存 / 読込・再実行 / 削除 + JSON エクスポート/インポート), useSimulation.loadScenario(scenario, runSlot) = deterministic replay via scenarioStates with cursor on the saved slot. App clamps selectedValidator when a smaller validatorCount loads. Evidence green: typecheck 0, vitest 13 files / 120 tests 0 (23 codec + 3 DOM scenario tests incl. save->mutate->reload exact reproduction), build 0. changed_files 34 > reset threshold 25: a context reset is expected — this handoff is written for a fresh session reading only the disk. Musts remaining: T-012, T-013 (both phase5-polish, costs 4+2 = one batch).",
+    "written_at": "2026-08-28T00:09:00+09:00",
+    "summary": "Cycle 8 completed T-012 + T-013 (phase5-polish): ALL 13 must Todos are done and validation is ok with zero warnings. T-012 polish: intervention/scenario panels are collapsible <details> with count-bearing summaries, message delay/drop selector groups per publish slot (optgroup, newest first), equivocation legend glossed in Japanese, empty-state hints in 3 places (intervention list / scenario list / empty message log with disabled selector), scenario status has role=status. T-013 gate: typecheck 0, vitest 14 files / 126 tests 0, build 0; Pages path verified (vite base './', dist relative asset refs only) and README documents Pages deployment (no workflow added — .github/workflows is high-risk; Pages enablement is a human repo setting). Acceptance evidence for 成功条件 4 (post-heal convergence) recorded on T-013 after an initial validate warning.",
     "next_actions": [
-      "T-012 (phase5-polish, cost 4): no-manual operability pass (success criteria 5/8: every scenario operation discoverable and executable from the UI alone, each step's state change readable). Walk the whole flow as a first-time user: mode tabs, slot bar, 介入 panel (分断/停止/equivocation/遅延・欠落), シナリオ panel, rewind. Fix rough edges: e.g. the delay/drop message selector lists ALL messages ever (gets long — group by slot or cap with newest-first), equivocation legend is English ('equivocation') amid Japanese UI, panels may deserve collapsible <details> to keep the tree visible, empty-state hints where lists are empty. Add/extend DOM tests for whatever changes.",
-      "T-013 (phase5-polish, cost 2): verification gate — full typecheck/test/build plus GitHub Pages publish path check (vite.config base './' exists; verify dist/ opens standalone, document Pages deployment in README Development). Same batch as T-012 (same group, cost 6 ≤ 8).",
-      "After T-013: all 13 musts done -> the loop stops at the must boundary (must_complete_awaiting_phase_approval) for the human's phase decision; should Todos T-014..T-017 (autoplay, shortcuts, export, scenario notes) need --approve-should.",
-      "UI must keep consuming ONLY src/domain exports (tests/domain/purity.test.ts enforces). observe() defaults to instantDelivery — always pass session.delivery for local views.",
-      "Essence gates: (a) semantics changes of View/Vote/protocol skeleton and (b) large UI look/info-design pivots go back to the human (T-012 is polish, not a pivot — keep the existing information design). Discretionary semantics on record: reflection.jsonl cycle 6 decision entry (intervention semantics) + SLOTS_PER_EPOCH=4, lexicographic equivocation resolution, anchor slot 0 / first proposal slot 1, votes visible through s-1.",
-      "R-001 (proposed, non-blocking): human may enable real-browser verification via 'npx playwright install chromium' once; until then jsdom DOM tests are the autonomous verification layer. npm install needs --cache \"$TMPDIR/npm-cache\" under the sandbox. Heredoc-writing JSON with certain content trips the Bash guard — write state/tmp JSON files with the Write tool instead."
+      "Expect the loop to stop at the must boundary (must_complete_awaiting_phase_approval): the human decides --approve-should (unlocks T-014..T-017: autoplay, keyboard shortcuts, image/data export, scenario notes/naming — phase6-optional, cost 2 each) or --close-at-must.",
+      "If the should phase is approved, a sensible first batch is T-014 + T-015 (autoplay + shortcuts, cost 4); keep the established UI conventions (panel-summary / empty-hint patterns, Japanese UI text).",
+      "R-001 (proposed, non-blocking) remains: human may enable real-browser verification via 'npx playwright install chromium' once; until then jsdom DOM tests are the autonomous verification layer.",
+      "Essence gates on record: (a) View/Vote/protocol-skeleton semantics changes and (b) large UI look/info-design pivots go back to the human. Discretionary semantics: SLOTS_PER_EPOCH=4, lexicographic equivocation resolution, anchor slot 0 / first proposal slot 1, votes visible through s-1 (reflection cycle 6 decision entry)."
     ],
     "open_questions": []
   }

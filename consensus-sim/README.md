@@ -18,8 +18,10 @@ three modes — chain (local / god perspectives), network (per-validator
 cards with hover views) and global (chain + network side by side) — plus
 the intervention panel (partition, stop/resume, equivocation, per-message
 delay/drop), slot rewind, and scenario save/reload/replay (localStorage
-list plus JSON export/import); the remaining work is the final
-no-manual-needed UX polish pass.
+list plus JSON export/import). Every scenario operation is discoverable
+from the UI itself: panels collapse but summarize their contents, empty
+lists explain the next step, and the message selector groups the log per
+publish slot.
 
 ## Quickstart
 
@@ -103,3 +105,18 @@ the boundary is designed not to obstruct.
 via Playwright (`npx playwright install chromium` once, then
 `npm run build && node scripts/verify-ui.mjs`). The jsdom test suite covers
 the same interactions headlessly and runs in `npm test`.
+
+### Deploying to GitHub Pages
+
+`npm run build` emits a fully static `dist/` whose asset references are
+relative (`base: './'` in `vite.config.ts`), so the bundle works from any
+subpath — including `https://<user>.github.io/<repo>/`. To publish:
+
+1. `npm run build`
+2. Serve the `dist/` directory as the Pages site — either point Pages at a
+   branch containing `dist/`'s contents (e.g. a `gh-pages` branch), or use
+   the "GitHub Actions" source with the standard static-site workflow
+   uploading `dist/` as the artifact.
+
+No server-side configuration is involved; the app is a plain static SPA
+with browser-local persistence only.

@@ -86,12 +86,16 @@ export function ScenarioPanel({ session }: ScenarioPanelProps) {
 
   return (
     <section className="scenario-panel" aria-label="シナリオ">
-      <h2 className="intervention-title">
-        シナリオ{' '}
-        <span className="intervention-note">
-          保存 = 初期条件（シード含む）+ 介入列。再読込は決定的リプレイ
-        </span>
-      </h2>
+      <details open>
+        <summary className="panel-summary">
+          <h2 className="intervention-title">
+            シナリオ
+            {entries.length > 0 && `（保存 ${entries.length} 件）`}{' '}
+            <span className="intervention-note">
+              保存 = 初期条件（シード含む）+ 介入列。再読込は決定的リプレイ
+            </span>
+          </h2>
+        </summary>
 
       <div className="form-line">
         <button type="button" onClick={save}>
@@ -115,10 +119,14 @@ export function ScenarioPanel({ session }: ScenarioPanelProps) {
             e.target.value = ''
           }}
         />
-        {status && <span className="scenario-status">{status}</span>}
+        {status && (
+          <span className="scenario-status" role="status">
+            {status}
+          </span>
+        )}
       </div>
 
-      {entries.length > 0 && (
+      {entries.length > 0 ? (
         <ul className="intervention-list">
           {entries.map((e) => (
             <li key={e.id}>
@@ -132,7 +140,13 @@ export function ScenarioPanel({ session }: ScenarioPanelProps) {
             </li>
           ))}
         </ul>
+      ) : (
+        <p className="empty-hint">
+          保存されたシナリオはまだありません。「現在のシナリオを保存」で、
+          いまの実行（シード + 介入列 + 進行スロット）をこのブラウザの一覧に残せます。
+        </p>
       )}
+      </details>
     </section>
   )
 }

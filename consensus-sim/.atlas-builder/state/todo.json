@@ -410,7 +410,7 @@
     {
       "id": "T-012",
       "title": "説明書なし操作性の仕上げ: 全シナリオ操作を UI から発見・実行でき、各ステップの状態変化が読み取れる UI/UX 磨き込み",
-      "status": "pending",
+      "status": "done",
       "priority": "must",
       "spec": [
         "S-012"
@@ -420,12 +420,31 @@
       },
       "batch_group": "phase5-polish",
       "context_cost": 4,
-      "risk_level": "normal"
+      "risk_level": "normal",
+      "notes": "説明書なし操作性の仕上げ: 介入・シナリオ両パネルを <details>/<summary> 化(既定 open、summary に指定中の介入数/保存数を常時表示し、折りたたんでもブロック木と状態が読める)。メッセージ遅延・欠落セレクタは発行スロット別 <optgroup>(新しいスロット順)でグループ化し長走行でも読める形に。equivocation 凡例は「equivocation（二重提案・二重投票）」と日本語補記。空状態ヒント 3 箇所(介入一覧なし/保存シナリオなし/メッセージログ空 = セレクタ無効化+案内)。シナリオ状態表示に role=status。見た目・情報設計の大転換はなし(Essence 人間ゲート (b) 非該当のポリッシュのみ)。",
+      "evidence": [
+        {
+          "type": "diff",
+          "summary": "src/ui/InterventionPanel.tsx (details/summary with scheduled count, optgroup-by-publish-slot message selector with disabled+hint empty state, Japanese-glossed equivocation legend, empty-list hint), src/ui/ScenarioPanel.tsx (details/summary with saved count, empty-list hint, role=status on the status line), src/ui/styles.css (.panel-summary, .empty-hint). ChainMode already had its own vote empty state (まだ投票はありません)."
+        },
+        {
+          "type": "command",
+          "command": "npm test",
+          "exit_code": 0,
+          "summary": "vitest 14 files / 126 tests pass, including the new tests/ui/polish.test.tsx (6 tests): empty-state hints present at slot 0 and replaced once content exists; message selector disabled when the log is empty, then grouped as 発行スロット s2/s1 (newest first, 5 options each with 4 validators) and still drives a working drop intervention; panel summaries show 1 件指定中 / 保存 1 件; both panels are open <details> with summaries; equivocation legend carries the Japanese gloss."
+        },
+        {
+          "type": "command",
+          "command": "npm run typecheck",
+          "exit_code": 0,
+          "summary": "tsc --noEmit passes."
+        }
+      ]
     },
     {
       "id": "T-013",
       "title": "検証ゲート: ビルド・型検査・ユニットテスト(モデル・fork choice・決定性・巻き戻し)全通し+GitHub Pages 公開経路の確認",
-      "status": "pending",
+      "status": "done",
       "priority": "must",
       "spec": [
         "S-014",
@@ -436,7 +455,38 @@
       },
       "batch_group": "phase5-polish",
       "context_cost": 2,
-      "risk_level": "normal"
+      "risk_level": "normal",
+      "notes": "検証ゲート: typecheck / test / build を通しで実行し全 exit 0。GitHub Pages 経路: vite.config.ts base \"./\" を確認、dist/index.html のアセット参照が相対 (./assets/…) のみで任意サブパス配信可であることを確認。README Development に Pages 公開手順(gh-pages ブランチ or Actions アーティファクト)を文書化。ワークフロー YAML の追加は行っていない(.github/workflows は高リスク領域のため、文書化に留めた — Pages 有効化は人間のリポジトリ設定操作)。",
+      "evidence": [
+        {
+          "type": "command",
+          "command": "npm run typecheck",
+          "exit_code": 0,
+          "summary": "tsc --noEmit exits 0."
+        },
+        {
+          "type": "command",
+          "command": "npm test",
+          "exit_code": 0,
+          "summary": "vitest run exits 0: 14 files / 126 tests (model, fork choice, finality, determinism, rewind, local views, interventions, scenario codec/replay, UI shell + polish)."
+        },
+        {
+          "type": "command",
+          "command": "npm run build",
+          "exit_code": 0,
+          "summary": "tsc --noEmit && vite build exits 0; dist/ = index.html + assets/{js,css}; index.html references only ./assets/… relative paths (base \"./\"), so the bundle serves standalone from any subpath incl. GitHub Pages project sites."
+        },
+        {
+          "type": "diff",
+          "summary": "README.md: Status updated (polish pass shipped), new \"Deploying to GitHub Pages\" subsection documenting the static publish path."
+        },
+        {
+          "type": "command",
+          "command": "npx vitest run tests/ui/interventions.test.tsx tests/domain/localView.test.ts",
+          "exit_code": 0,
+          "summary": "受け入れ確認(成功条件 4): 分断中は分断相手のバリデータと表示内容(ネットワークカードの head/分岐中フラグ、局所ブロック木)が食い違い、分断解消後は後続スロットの進行に伴い一致へ収束することが確認できる — DOM テスト(パネル操作で分断→カード発散、解消→後続スロットで再収束)とドメインテスト(slot 9 解消後 slot 10 までに全ビュー・全 head が一致収束)の 2 層で検証、2 files / 17 tests 全通過 exit 0。"
+        }
+      ]
     },
     {
       "id": "T-014",
