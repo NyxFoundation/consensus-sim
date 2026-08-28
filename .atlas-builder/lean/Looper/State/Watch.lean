@@ -20,8 +20,13 @@ state が壊れているときこそ人間の窓を開けたままにする(§19
 (超過は `Text.truncateDisplay`、不足は空白パディング)。全行の等幅上書きが
 前フレームの残骸を消すので、行末消去やカーソル制御のエスケープは持たない —
 画面制御は driver(watch スクリプト)の責務。SGR(色)だけを `color` の
-とき埋め、`--no-color` では ESC バイトゼロ(W-013)。色は状態語のみ(D7):
-STOP=赤 / COMPLETE=緑 / drain=黄 / EVAL ERROR=赤反転。
+とき埋め、`--no-color` では ESC バイトゼロ(W-013)。彩色は固定パレット
+(D7、割当の単一定義点はこのファイル): 状態語 — STOP=赤 / COMPLETE=緑 /
+runnable=緑 / RUNNING=緑 / NOT RUNNING=グレー / drain=黄 / EVAL ERROR=
+赤反転 / Validation は ok=緑・warning=黄・error=赤・他=グレー / History の
+run status は ok=緑・非 ok=黄 — と構造面 — ラベル・セクション罫=シアン /
+`claude:`=マゼンタ / 脇役情報=グレー / ヘッダ左=太字。色は SGR 挿入だけの
+差であり、剥がすと no-color とバイト一致する(W-013)。
 -/
 
 namespace Looper.State.Watch
@@ -37,6 +42,10 @@ inductive Style
   | green
   | yellow
   | redReverse
+  | cyan
+  | magenta
+  | gray
+  | bold
   deriving BEq
 
 def Style.sgr : Style → String
@@ -44,6 +53,10 @@ def Style.sgr : Style → String
   | .green => "\x1b[32m"
   | .yellow => "\x1b[33m"
   | .redReverse => "\x1b[31;7m"
+  | .cyan => "\x1b[36m"
+  | .magenta => "\x1b[35m"
+  | .gray => "\x1b[90m"
+  | .bold => "\x1b[1m"
 
 def sgrReset : String := "\x1b[0m"
 
@@ -232,11 +245,11 @@ def decodeTail? (bytes : ByteArray) : Option String :=
     | _ :: rest => String.fromUTF8? (ByteArray.mk rest.toArray)
     | [] => none
 
-/-- 断片から最後の assistant テキストを抽出: 行ごとの lenient JSON パースで
-`type == "assistant"` の `message.content[].text` を連結。不読行・未知形は
-黙殺(実フォーマットとの一致は仕様として主張しない — §15.3)。 -/
-def lastAssistantText (contents : String) : Option String :=
-  ((Text.splitLinesPy contents).filterMap fun line =>
+/-- 断片から assistant テキストの履歴を抽出(古→新順): 行ごとの lenient JSON
+パースで `type == "assistant"` の `message.content[].text` を連結。不読行・
+未知形は黙殺(実フォーマットとの一致は仕様として主張しない — §15.3)。 -/
+def assistantTexts (contents : String) : List String :=
+  (Text.splitLinesPy contents).filterMap fun line =>
     match Json.parse line with
     | .error _ => none
     | .ok record =>
@@ -248,42 +261,6 @@ def lastAssistantText (contents : String) : Option String :=
             (item.get? "text").bind (·.asStr?)
           if frags.isEmpty then none else some (String.intercalate " " frags)
         | _ => none
-  ).getLast?
-
-/-! ## tool_audit tail -/
-
-structure AuditEntry where
-  clock : String
-  tool : String
-  detail : String
-  deriving BEq
-
-/-- ISO タイムスタンプの時刻部(`HH:MM:SS`)。形が違えばそのまま。 -/
-private def clockOf (stamp : String) : String :=
-  let cs := stamp.toList
-  if cs.length ≥ 19 && cs[10]? == some 'T' then String.ofList ((cs.drop 11).take 8)
-  else stamp
-
-private def detailOf : Json.Value → Option String
-  | .str s => if s.isEmpty then none else some s
-  | v => if v.truthy then some v.render else none
-
-/-- tool_audit tail の寛容パース(新→旧順)。file 優先、なければ command
-(スライス済み配列 command は render 表示)。不読行・非 object 行は黙殺。 -/
-def auditEntries (tail? : Option String) : List AuditEntry :=
-  match tail? with
-  | none => []
-  | some contents =>
-    ((Text.splitLinesPy contents).filterMap fun line =>
-      match Json.parse line with
-      | .ok (.obj entries) =>
-        let r : Json.Value := .obj entries
-        let detail := ((detailOf ((r.get? "file").getD .null)).orElse fun _ =>
-          detailOf ((r.get? "command").getD .null)).getD ""
-        some { clock := clockOf (((r.get? "at").bind (·.asStr?)).getD "")
-               tool := ((r.get? "tool").bind (·.asStr?)).getD "?"
-               detail }
-      | _ => none).reverse
 
 /-! ## gate 評価(I-017 — 同一観測・単一導出点の消費) -/
 
@@ -347,15 +324,14 @@ structure WatchInputs where
   `.error` としてここに届き、EVAL ERROR フレームに落ちる(§19.1-3)。 -/
   stop : Except String Predicates.StopInputs
   validation : Option String := none
-  toolAuditTail : Option String := none
   transcriptTail : Option ByteArray := none
 
 private def labelSpan (name : String) : Span :=
-  plain (name ++ spaces (8 - name.length) ++ ": ")
+  styled .cyan (name ++ spaces (8 - name.length) ++ ": ")
 
 private def sectionRule (cols : Nat) (title : String) : Line :=
   let head := s!"── {title} "
-  [plain (head ++ "".pushn '─' (cols - Text.displayWidth head))]
+  [styled .cyan (head ++ "".pushn '─' (cols - Text.displayWidth head))]
 
 private def headerLine (i : WatchInputs) : Line :=
   let right := i.nowLocal
@@ -363,18 +339,19 @@ private def headerLine (i : WatchInputs) : Line :=
   let left := s!"{i.tool} watch — {sanitizeDisplay i.projectTitle}"
   if i.cols ≥ rw + 12 then
     let left := Text.truncateDisplay (i.cols - rw - 2) left
-    [plain left, plain (spaces (i.cols - Text.displayWidth left - rw)), plain right]
+    [styled .bold left, plain (spaces (i.cols - Text.displayWidth left - rw)),
+     styled .gray right]
   else
-    [plain left]
+    [styled .bold left]
 
 private def loopLine (i : WatchInputs) : Line :=
-  let base :=
+  let base : List Span :=
     if i.lockAlive then
       match i.lockPid with
-      | some pid => s!"RUNNING (pid {sanitizeDisplay pid})"
-      | none => "RUNNING"
-    else "NOT RUNNING"
-  [labelSpan "Loop", plain base]
+      | some pid => [styled .green "RUNNING", plain s!" (pid {sanitizeDisplay pid})"]
+      | none => [styled .green "RUNNING"]
+    else [styled .gray "NOT RUNNING"]
+  [labelSpan "Loop"] ++ base
     ++ (if i.drainPending then [plain " · ", styled .yellow "drain pending"] else [])
 
 private def optInt (v : Option Int) : String := (v.map toString).getD "?"
@@ -392,22 +369,22 @@ private def cycleLine (i : WatchInputs) (hb : HeartbeatRead) : Line :=
       | _, _ => false
     let base := s!"{optInt h.cycle}/{optInt h.maxCycles}"
       ++ s!" · {h.runId.getD "?"} · session {h.sessionMode.getD "?"}"
-    let tail :=
+    let tail : List Span :=
       if i.lockAlive && !pidMismatch then
         match h.startedAtEpoch with
-        | some e => s!" · elapsed {fmtDuration (max 0 (i.nowEpoch - e))}"
-        | none => ""
+        | some e => [plain s!" · elapsed {fmtDuration (max 0 (i.nowEpoch - e))}"]
+        | none => []
       else
         -- last-known(stale)表示: elapsed は当該 loop の終了後に意味を失う
         -- ので開始時刻の実測へ切り替える。
         match h.startedAt with
-        | some t => s!" · last known (started {sanitizeDisplay t})"
-        | none => " · last known"
-    [labelSpan "Cycle", plain (sanitizeDisplay base ++ tail)]
+        | some t => [styled .gray s!" · last known (started {sanitizeDisplay t})"]
+        | none => [styled .gray " · last known"]
+    [labelSpan "Cycle", plain (sanitizeDisplay base)] ++ tail
 
 private def gateLines (i : WatchInputs) (gate : Gate) : List Line :=
   match gate with
-  | .runnable => [[labelSpan "Gate", plain "none (runnable)"]]
+  | .runnable => [[labelSpan "Gate", styled .green "none (runnable)"]]
   | .stop reasons message =>
     [labelSpan "Gate", styled .red "STOP",
       plain s!" ({String.intercalate ", " reasons})"]
@@ -427,19 +404,57 @@ private def fieldStr (p : Json.Value) (k : String) : String :=
   | some (.bool b) => if b then "true" else "false"
   | _ => "?"
 
+private def fieldNat? (p : Json.Value) (k : String) : Option Nat :=
+  match p.get? k with
+  | some (.num m 0) => if m < 0 then none else some m.toNat
+  | _ => none
+
+-- 語彙は `Validate` の status 導出(ok / warning / error)と揃える
+private def validationSpan (status : String) : Span :=
+  match status with
+  | "ok" => styled .green status
+  | "warning" => styled .yellow status
+  | "error" => styled .red status
+  | s => styled .gray (sanitizeDisplay s)
+
 private def phaseLine (i : WatchInputs) (sv cv : Option Json.Value) : Line :=
   match sv, cv with
   | some sv, some cv =>
-    [labelSpan "Phase",
-     plain (s!"{fieldStr cv "phase"} · Must {fieldStr cv "must_done"}/{fieldStr cv "must_total"}"
-       ++ s!" · Idle {fieldStr sv "idle_cycles_since_progress"}/{fieldStr sv "stop_after_idle_cycles"}"
-       ++ s!" · Validation {sanitizeDisplay (validationStatus i.validation)}")]
+    [labelSpan "Phase", plain (sanitizeDisplay (fieldStr cv "phase")),
+     plain (s!" · Idle {fieldStr sv "idle_cycles_since_progress"}"
+       ++ s!"/{fieldStr sv "stop_after_idle_cycles"} · Validation "),
+     validationSpan (validationStatus i.validation)]
   | _, _ => [labelSpan "Phase", plain "—"]
+
+/-- MUST 進捗バー(W-009): 幅 `w` を `⌊w·done/total⌋` で塗り分ける。ただし
+`done > 0` は最低 1 マス(進捗があるのに空に見せない)— floor なので
+`done < total` が満杯になることはない。`total = 0` は全枠を空で描く(0/0 —
+分母なしでもバーの幅は揺らさない)。 -/
+def progressBar (w done total : Nat) : Line :=
+  let filled :=
+    if total == 0 || done == 0 then 0
+    else max 1 (min w (w * done / total))
+  (if filled == 0 then [] else [styled .green ("".pushn '█' filled)])
+    ++ (if filled == w then [] else [styled .gray ("".pushn '░' (w - filled))])
+
+private def mustLine (i : WatchInputs) (sv cv : Option Json.Value) : Line :=
+  match sv, cv with
+  | some _, some cv =>
+    match fieldNat? cv "must_done", fieldNat? cv "must_total" with
+    | some done, some total =>
+      let barWidth := min 24 (i.cols - 16)
+      [labelSpan "Must"] ++ progressBar barWidth done total
+        ++ [plain s!" {done}/{total}"]
+    | _, _ => [labelSpan "Must", plain "—"]
+  | _, _ => [labelSpan "Must", plain "—"]
+
+private def statusStyle (status : String) : Style :=
+  if status == "ok" then .green else .yellow
 
 private def historyEntryLine (e : RunEntry) : Line :=
   [plain "  ", plain (padDisplay 28 (sanitizeDisplay e.runId)),
-   plain (padDisplay 15 (sanitizeDisplay e.status)),
-   plain ((e.duration?.map fmtDuration).getD "—")]
+   styled (statusStyle e.status) (padDisplay 15 (sanitizeDisplay e.status)),
+   styled .gray ((e.duration?.map fmtDuration).getD "—")]
 
 private def statsLine (hb : HeartbeatRead) (entries : List RunEntry)
     (records : List Json.Value) : Line :=
@@ -453,23 +468,40 @@ private def statsLine (hb : HeartbeatRead) (entries : List RunEntry)
     | _ => "—"
   [labelSpan "Stats", plain s!"this loop {thisLoop} | lifetime {fmtStats entries}"]
 
-private def activityLines (i : WatchInputs) (slots : Nat) : List Line :=
-  let snippet : List Line :=
-    match (i.transcriptTail.bind decodeTail?).bind lastAssistantText with
-    | some text =>
-      match cappedWrap (i.cols - 8) 2 (Text.normalizeWs (sanitizeDisplay text)) with
-      | first :: rest =>
-        [plain "claude: ", plain first]
-          :: rest.map fun chunk => [plain (spaces 8), plain chunk]
-      | [] => [[plain "claude: "]]
-    | none => [[plain "transcript: unavailable"]]
-  let snippet := snippet.take slots
-  let audit := (auditEntries i.toolAuditTail).take (slots - snippet.length)
-  let auditLines := audit.map fun e =>
-    [plain "  ", plain (padDisplay 9 e.clock),
-     plain (padDisplay 12 (sanitizeDisplay e.tool)),
-     plain (sanitizeDisplay e.detail)]
-  let body := snippet ++ auditLines
+/-- 1 メッセージの表示行(`claude:` 前置 + 続き行はインデント、1 件あたり
+3 行 cap)。 -/
+private def claudeMessageLines (cols : Nat) (text : String) : List Line :=
+  match cappedWrap (cols - 8) 3 (Text.normalizeWs (sanitizeDisplay text)) with
+  | first :: rest =>
+    [styled .magenta "claude: ", plain first]
+      :: rest.map fun chunk => [plain (spaces 8), plain chunk]
+  | [] => [[styled .magenta "claude: "]]
+
+/-- 新→旧順のメッセージ行ブロックを、`slots` に収まる限り新しい側から
+**丸ごと**積む(古→新順で返す)。境界のメッセージは行単位で切らない —
+切ると続き行が `claude:` 見出しなしで画面に残る。入り切らないブロックで
+打ち切る(それより古いブロックも出さない — 履歴の連続性を保つ)。 -/
+private def packNewestBlocks : Nat → List (List Line) → List Line
+  | _, [] => []
+  | slots, newest :: older =>
+    if newest.length ≤ slots then
+      packNewestBlocks (slots - newest.length) older ++ newest
+    else []
+
+/-- Claude セクション本体: transcript tail の assistant 履歴(古→新)を流し、
+`slots` に収まる末尾のメッセージ群を採る — 最新のメッセージが常に画面へ残る
+log 表示。最新 1 件だけで `slots` を超えるときはその先頭 `slots` 行
+(`claude:` 見出しから)を出す — セクションを空にしない。tail 不在・
+デコード不能・assistant ゼロは 1 行の劣化表示(D6)。 -/
+private def claudeLines (i : WatchInputs) (slots : Nat) : List Line :=
+  let msgs := ((i.transcriptTail.bind decodeTail?).map assistantTexts).getD []
+  let body :=
+    if msgs.isEmpty then [[styled .gray "transcript: unavailable"]]
+    else
+      let blocks := (msgs.map (claudeMessageLines i.cols)).reverse
+      let packed := packNewestBlocks slots blocks
+      if packed.isEmpty then (blocks.headD []).take slots else packed
+  let body := body.take slots
   body ++ List.replicate (slots - body.length) []
 
 /-- 極小端末の決定的フレーム(W-012)。`take` は `rows = 0` でも不変量
@@ -479,9 +511,10 @@ private def tooSmallFrame (i : WatchInputs) : List Line :=
     :: List.replicate (i.rows - 1) []).take i.rows
 
 /-- フレーム(未 fit の行リスト、ちょうど `rows` 行)。行予算の単一定義点
-(D7): ヘッダ / Loop / Cycle / Gate(+ 詳細行)/ Phase → History(見出し +
-min(6, 残り/3) 項目)→ Stats → Activity(見出し + 残り全行)→ footer。
-予算超過(小さい rows × 長い STOP message)でも footer は必ず最終行に立つ。 -/
+(D7): ヘッダ / Loop / Cycle / Gate(+ 詳細行)/ Phase / Must → History
+(見出し + min(6, 残り/3) 項目)→ Stats → Claude(見出し + 残り全行)→
+footer。予算超過(小さい rows × 長い STOP message)でも footer は必ず最終行に
+立つ。 -/
 private def frameLines (i : WatchInputs) : List Line :=
   if i.cols < 40 || i.rows < 12 then tooSmallFrame i
   else
@@ -492,25 +525,25 @@ private def frameLines (i : WatchInputs) : List Line :=
       | .error _ => []
     let entries := runHistory records
     let top := [headerLine i, loopLine i, cycleLine i hb]
-      ++ gateLines i gate ++ [phaseLine i sv cv]
+      ++ gateLines i gate ++ [phaseLine i sv cv, mustLine i sv cv]
     let avail := i.rows - top.length - 2   -- Stats と footer の 2 行を先取り
     let histEntries := min 6 (avail / 3)
     let history :=
       if histEntries == 0 then []
       else
         let shown := (entries.reverse.take histEntries).map historyEntryLine
-        let shown := if shown.isEmpty then [[plain "  (none)"]] else shown
+        let shown := if shown.isEmpty then [[styled .gray "  (none)"]] else shown
         sectionRule i.cols "History"
           :: shown ++ List.replicate (histEntries - shown.length) []
     let actTotal := avail - history.length
-    let activity :=
+    let claude :=
       -- 1 行では見出しの下に本体が置けない — 見出しだけの空セクションは出さない
       if actTotal ≤ 1 then []
-      else sectionRule i.cols "Activity" :: activityLines i (actTotal - 1)
-    let body := top ++ history ++ [statsLine hb entries records] ++ activity
+      else sectionRule i.cols "Claude" :: claudeLines i (actTotal - 1)
+    let body := top ++ history ++ [statsLine hb entries records] ++ claude
     let body := body.take (i.rows - 1)
     let body := body ++ List.replicate (i.rows - 1 - body.length) []
-    body ++ [[plain "q quit · 1s refresh · read-only"]]
+    body ++ [[styled .gray "q quit · 1s refresh · read-only"]]
 
 /-- 1 フレーム: ちょうど `rows` 行、各行の表示幅ちょうど `cols`。 -/
 def render (i : WatchInputs) : List String :=
@@ -577,21 +610,29 @@ private def runsFixture : List Json.Value :=
 #guard decodeTail? (((String.toUTF8 "日本語\nrest").toList.drop 1).toArray
     |> ByteArray.mk) == some "rest"                        -- 先頭切断行を捨てて回復
 #guard decodeTail? (ByteArray.mk #[0xFF, 0xFE]) == none
-#guard lastAssistantText
+#guard assistantTexts
     ("{\"type\": \"user\", \"message\": {\"content\": [{\"type\": \"text\", \"text\": \"hi\"}]}}\n"
+      ++ "{\"type\": \"assistant\", \"message\": {\"content\": [{\"type\": \"text\", \"text\": \"reading\"}]}}\n"
       ++ "{\"type\": \"assistant\", \"message\": {\"content\": [{\"type\": \"text\", \"text\": \"working\"}, {\"type\": \"tool_use\"}]}}\n"
       ++ "broken json\n")
-    == some "working"
-#guard lastAssistantText "not json\n[]\n" == none
+    == ["reading", "working"]
+#guard assistantTexts "not json\n[]\n" == []
 
--- tool_audit tail(新→旧、file 優先)
-#guard auditEntries (some
-    ("{\"at\": \"2026-08-12T12:58:01+09:00\", \"tool\": \"Edit\", \"file\": \"src/a.rs\", \"command\": null}\n"
-      ++ "{\"at\": \"2026-08-12T12:58:03+09:00\", \"tool\": \"Bash\", \"file\": null, \"command\": \"just test\"}\n"
-      ++ "garbage\n"))
-    == [{ clock := "12:58:03", tool := "Bash", detail := "just test" },
-        { clock := "12:58:01", tool := "Edit", detail := "src/a.rs" }]
-#guard auditEntries none == []
+-- MUST 進捗バー(枠幅一定・0 分母・満杯の各境界)
+#guard lineText (progressBar 10 0 0) == "".pushn '░' 10
+#guard lineText (progressBar 10 5 10) == "".pushn '█' 5 ++ "".pushn '░' 5
+#guard lineText (progressBar 10 10 10) == "".pushn '█' 10
+#guard lineText (progressBar 10 1 3) == "".pushn '█' 3 ++ "".pushn '░' 7
+#guard lineText (progressBar 10 1 100) == "█" ++ "".pushn '░' 9   -- 最低 1 マス
+#guard lineText (progressBar 10 99 100) == "".pushn '█' 9 ++ "░"  -- 未完は満杯にしない
+#guard (progressBar 10 10 10).all (·.style == some .green)
+#guard (progressBar 10 0 0).all (·.style == some .gray)
+
+-- claude 履歴の詰め込み: メッセージ境界で丸ごと(行単位で切らない)
+private def linesOf (n : Nat) : List Line := List.replicate n [plain "x"]
+#guard (packNewestBlocks 5 [linesOf 2, linesOf 2, linesOf 2]).length == 4  -- 新 2 件のみ
+#guard (packNewestBlocks 6 [linesOf 2, linesOf 2, linesOf 2]).length == 6
+#guard packNewestBlocks 1 [linesOf 2, linesOf 1] == []  -- 最新が入らねば打ち切り
 
 -- フレーム不変量: EVAL ERROR(観測不能)と STOP(essence_missing)の両経路で
 -- ちょうど rows 行 × 全行幅 cols、footer が最終行、no-color は ESC ゼロ

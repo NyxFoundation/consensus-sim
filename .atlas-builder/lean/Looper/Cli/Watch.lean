@@ -26,7 +26,7 @@ open Looper.Core
 open Looper.State
 
 private def usage (d : Domain) : String :=
-  s!"usage: {d.binCommand} state watch-render --project <PROJECT_ROOT> --cols <n> --rows <n> --now <epoch> [--no-color] [--lock-pid <pid>] [--lock-alive yes|no] [--drain-pending] [--heartbeat <path>] [--tool-audit-tail <path>] [--transcript-tail <path>]"
+  s!"usage: {d.binCommand} state watch-render --project <PROJECT_ROOT> --cols <n> --rows <n> --now <epoch> [--no-color] [--lock-pid <pid>] [--lock-alive yes|no] [--drain-pending] [--heartbeat <path>] [--transcript-tail <path>]"
 
 private def die (tool msg : String) : IO UInt32 := do
   IO.eprintln s!"[{tool} state] ERROR: {msg}"
@@ -42,7 +42,6 @@ private structure Args where
   lockAlive : Bool
   drainPending : Bool
   heartbeat : Option String
-  toolAuditTail : Option String
   transcriptTail : Option String
 
 private structure ArgsAcc where
@@ -55,7 +54,6 @@ private structure ArgsAcc where
   lockAlive : Bool := false
   drainPending : Bool := false
   heartbeat : Option String := none
-  toolAuditTail : Option String := none
   transcriptTail : Option String := none
 
 /-- strict パース: 未知フラグ・値欠落・非数値・`--lock-alive` の閉集合外は
@@ -65,8 +63,7 @@ private def parseArgs : List String → ArgsAcc → Option Args
     pure { project := ← acc.project, cols := ← acc.cols, rows := ← acc.rows,
            now := ← acc.now, color := acc.color, lockPid := acc.lockPid,
            lockAlive := acc.lockAlive, drainPending := acc.drainPending,
-           heartbeat := acc.heartbeat, toolAuditTail := acc.toolAuditTail,
-           transcriptTail := acc.transcriptTail }
+           heartbeat := acc.heartbeat, transcriptTail := acc.transcriptTail }
   | "--project" :: v :: rest, acc => parseArgs rest { acc with project := some v }
   | "--cols" :: v :: rest, acc =>
     (v.toNat?).bind fun n => parseArgs rest { acc with cols := some n }
@@ -82,8 +79,6 @@ private def parseArgs : List String → ArgsAcc → Option Args
     else none
   | "--drain-pending" :: rest, acc => parseArgs rest { acc with drainPending := true }
   | "--heartbeat" :: v :: rest, acc => parseArgs rest { acc with heartbeat := some v }
-  | "--tool-audit-tail" :: v :: rest, acc =>
-    parseArgs rest { acc with toolAuditTail := some v }
   | "--transcript-tail" :: v :: rest, acc =>
     parseArgs rest { acc with transcriptTail := some v }
   | _, _ => none
@@ -129,7 +124,6 @@ def run (d : Domain) (args : List String) : IO UInt32 := do
       heartbeat := ← readTail? parsed.heartbeat
       stop
       validation := ← readTail? (some (ctx.stateDir / "validation.json").toString)
-      toolAuditTail := ← readTail? parsed.toolAuditTail
       transcriptTail := ← readBytes? parsed.transcriptTail
     }
     for line in Watch.render inputs do

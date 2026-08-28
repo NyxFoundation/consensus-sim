@@ -4,9 +4,10 @@
 # A pure observer: joins the running `just loop` from another terminal and
 # redraws one frame about every second from the same observations the gate
 # predicates read — I-018 lock liveness, the §19.1-7 drain flag, the §19.1-9
-# heartbeat, canonical state, tool_audit.jsonl, and (best-effort) the Claude
-# Code session transcript. Quitting the TUI never touches the loop or
-# canonical state, and it also works while no loop runs (last-known display).
+# heartbeat, canonical state, and (best-effort) the Claude Code session
+# transcript (tool_audit.jsonl is read only to locate the session id).
+# Quitting the TUI never touches the loop or canonical state, and it also
+# works while no loop runs (last-known display).
 #
 # The frame is computed by `<tool> state watch-render` (status-shaped: the
 # IO shell reads, the pure core renders exactly rows lines of exactly cols
@@ -120,10 +121,9 @@ while :; do
   [[ -f "${LOOP_STATUS_PATH}" ]] && RENDER_ARGS+=(--heartbeat "${LOOP_STATUS_PATH}")
 
   if [[ -f "${AUDIT_LOG}" ]]; then
-    tail -n 40 "${AUDIT_LOG}" >"${WATCH_TMP}/audit.jsonl" 2>/dev/null || true
-    RENDER_ARGS+=(--tool-audit-tail "${WATCH_TMP}/audit.jsonl")
     # §15.3 best-effort: the latest session's transcript, when it exists at the
-    # documented location — anything else degrades to the tool_audit view.
+    # documented location — anything else degrades to the one-line unavailable
+    # display. The audit log is read only to locate the session id.
     SID="$(tail -n 1 "${AUDIT_LOG}" 2>/dev/null |
       "${TOOL_BIN}" util json-get session_id --lenient)"
     TRANSCRIPT="$(claude_transcript_path_for "${CONTROL_ROOT}" "${SID}")"
