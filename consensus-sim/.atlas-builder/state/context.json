@@ -6,11 +6,11 @@
     "stop_after_infra_fails": 2
   },
   "progress": {
-    "last_signature": "39015ffc2a400a152a3c4be5e9f297a17e22f44f65d695d2628256e7feb61340",
+    "last_signature": "aa45cd04587208942848561906b799d63a82a1768c577cafe440ed632fa113ce",
     "idle_cycles_since_progress": 0,
     "infra_fails_since_ok": 0,
-    "last_progress_at": "2026-08-28T00:09:54+09:00",
-    "last_checked_at": "2026-08-28T00:09:54+09:00",
+    "last_progress_at": "2026-08-30T01:16:50+09:00",
+    "last_checked_at": "2026-08-30T01:16:50+09:00",
     "usage_limited_since_ok": 0
   },
   "reset_policy": {
@@ -21,19 +21,24 @@
     "reset_after_decisions": 5
   },
   "counters": {
-    "context_usage_estimate": 0.15,
+    "context_usage_estimate": 0.2,
     "failed_attempts_since_reset": 0,
-    "changed_files_since_reset": 5,
-    "completed_todos_since_reset": 2,
-    "important_decisions_since_reset": 1,
-    "major_spec_rewrite_since_reset": false,
+    "changed_files_since_reset": 19,
+    "completed_todos_since_reset": 5,
+    "important_decisions_since_reset": 2,
+    "major_spec_rewrite_since_reset": true,
     "high_risk_change_completed": false
   },
   "handoff": {
-    "written_at": "2026-08-30T00:58:21+09:00",
-    "summary": "Human resume: ESSENCE.md を update-essence で改訂し、直近の human update チェックポイント(f32614b)で attest 済み。must 境界ゲート R-LG-20260828T000954+0900-d2cf は旧 Essence の must 完了を根拠とするため解除し、フェーズは must のまま、新 Essence から Spec/Todo を再投影して必須対応を継続する(approve-should / close-at-must のいずれも選ばない)。\nPlaywright chromium は人間がインストール済み: 実ブラウザ検証経路(scripts/verify-ui.mjs、R-001 参照)が利用可能になった。",
-    "next_actions": [],
+    "written_at": "2026-08-30T01:17:00+09:00",
+    "summary": "サイクル 9: 改訂 ESSENCE(状態表・フォーク作成・型一覧・総点検・3 状態稼働・視点切替廃止・JSON ファイル入出力の非対応化)から Spec/Todo を再投影済み(validation ok、投影ハッシュは現行 ESSENCE と一致)。新 must Todo は T-018〜T-028。うちバッチ e2-ui-fixes(T-018 カタカナ人名 / T-023 F 表示修正 / T-025 JSON 入出力撤去)を完了(typecheck・test 128/128・build すべて exit 0)。残 must: T-019(視点切替廃止・常時重ね表示)、T-020(状態表)、T-021(稼働状態 3 状態)、T-022(フォーク作成)、T-024(介入キュー健全性)、T-026(型一覧ページ)、T-027(pbs.show ビジュアル刷新)、T-028(総点検・最後に実施)。Playwright chromium は人間がインストール済みで scripts/verify-ui.mjs による実ブラウザ検証が可能(R-001)。",
+    "next_actions": [
+      "バッチ e2-table を実行: T-019(局所/神視点切替の廃止、チェーン表示を常時全バリデータ重ねに一本化、「モード」→「表示」の文言統一)→ T-020(状態表: 行=バリデータ・列=スロット、チェーン表示と横位置整列、セル項目の動的選択、差分強調、約 10 スロット幅+横スクロール、セル展開で個別観測)。T-019 で外す局所観測は T-020 のセル展開が引き継ぐ順序に注意",
+      "次いで e2-model バッチ: T-021(オフライン状態の追加: 送受信遮断・ビュー凍結・復帰後は通常伝搬のみで追いつく)、T-022(フォーク作成: parent 指定、指定フォーク同時 4 本制限は UI 側で拒否)、T-024(介入キューの無効イベント防止)",
+      "その後 T-026(型一覧ページ)、T-027(pbs.show 参照のビジュアル刷新 — 実ブラウザ確認に scripts/verify-ui.mjs が使える)、最後に T-028(総点検+検証ゲート全通し)",
+      "mutating な state コマンドがロックで拒否されたら lessons.jsonl の単一実行ロック継承の項(L-20260830T011600+0900-b044)を参照"
+    ],
     "open_questions": [],
-    "pending_cycle": true
+    "pending_cycle": false
   }
 }

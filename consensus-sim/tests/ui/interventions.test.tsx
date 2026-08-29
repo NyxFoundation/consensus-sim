@@ -92,15 +92,15 @@ describe('partition intervention from the UI (T-009)', () => {
 
 describe('stop / resume from the UI (T-009)', () => {
   it('a stopped proposer leaves the slot empty and resuming restores votes', async () => {
-    // Slot 1's proposer is V1: stop it before the first advance.
-    await click(buttonByText('V1 稼働中 → 停止'))
-    expect(buttonByText('V1 停止中 → 復帰')).toBeDefined()
+    // Slot 1's proposer is V1 (ボブ): stop it before the first advance.
+    await click(buttonByText('ボブ 稼働中 → 停止'))
+    expect(buttonByText('ボブ 停止中 → 復帰')).toBeDefined()
     await advance(1)
     // Anchor only — the stopped proposer published nothing.
     expect(all('.tree-block')).toHaveLength(1)
     expect(all('.vote-table tbody tr')).toHaveLength(3)
 
-    await click(buttonByText('V1 停止中 → 復帰'))
+    await click(buttonByText('ボブ 停止中 → 復帰'))
     await advance(1)
     expect(all('.vote-table tbody tr')).toHaveLength(4)
   })
@@ -108,8 +108,8 @@ describe('stop / resume from the UI (T-009)', () => {
 
 describe('equivocation from the UI (T-009)', () => {
   it('double propose forks the next slot into two sibling blocks', async () => {
-    await click(buttonByText('次スロットで二重提案（提案者 V1）'))
-    expect(text('.intervention-list')).toContain('二重提案 V1 @ s1')
+    await click(buttonByText('次スロットで二重提案（提案者 ボブ）'))
+    expect(text('.intervention-list')).toContain('二重提案 ボブ @ s1')
     await advance(1)
     // God view: anchor + two competing slot-1 blocks.
     await click(buttonByText('神視点'))
@@ -127,7 +127,7 @@ describe('equivocation from the UI (T-009)', () => {
       select.dispatchEvent(new Event('change', { bubbles: true }))
     })
     await click(buttonByText('次スロットで二重投票'))
-    expect(text('.intervention-list')).toContain('二重投票 V3 @ s3')
+    expect(text('.intervention-list')).toContain('二重投票 デイブ @ s3')
     await advance(1)
     await click(buttonByText('神視点'))
     // The god-view latest-vote table still shows one resolved row per validator.

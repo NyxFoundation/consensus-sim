@@ -555,10 +555,6 @@ body {
   padding: 8px 16px 10px;
 }
 
-.file-input-hidden {
-  display: none;
-}
-
 .scenario-status {
   color: var(--ink-secondary);
   font-size: 12px;

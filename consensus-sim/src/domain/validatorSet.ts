@@ -30,3 +30,31 @@ export function validatorIndices(count: number): ValidatorIndex[] {
   assertValidatorCount(count);
   return Array.from({ length: count }, (_, i) => i);
 }
+
+/**
+ * Katakana display names (カタカナ人名), one per validator index. The
+ * standard cryptography cast keeps them recognizable (ESSENCE.md), and every
+ * name starts with a distinct kana so the initial alone still identifies a
+ * validator where space is tight.
+ */
+export const VALIDATOR_NAMES: readonly string[] = [
+  "アリス",
+  "ボブ",
+  "キャロル",
+  "デイブ",
+  "イヴ",
+  "フランク",
+  "グレース",
+  "ハイジ",
+  "オスカー",
+  "ペギー",
+];
+
+export function validatorName(validator: ValidatorIndex): string {
+  return VALIDATOR_NAMES[validator] ?? `V${validator}`;
+}
+
+/** First kana of the name — the compact identity used on tree chips. */
+export function validatorInitial(validator: ValidatorIndex): string {
+  return validatorName(validator).slice(0, 1);
+}

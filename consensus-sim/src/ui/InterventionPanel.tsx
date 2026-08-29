@@ -7,7 +7,7 @@
  */
 
 import { useState } from 'react'
-import { proposerForSlot } from '../domain'
+import { proposerForSlot, validatorName } from '../domain'
 import type {
   Intervention,
   MessageRef,
@@ -19,14 +19,14 @@ import type {
 import type { SimulationSession } from './useSimulation'
 import { validatorColor } from './validatorColor'
 
-const validatorLabel = (v: ValidatorIndex) => `V${v}`
+const validatorLabel = (v: ValidatorIndex) => validatorName(v)
 const setLabel = (vs: readonly ValidatorIndex[]) =>
   vs.map(validatorLabel).join(', ')
 
 function messageLabel(ref: MessageRef): string {
   return ref.kind === 'block'
     ? `ブロック B${ref.block}`
-    : `V${ref.validator} の投票（s${ref.slot}, head B${ref.head}）`
+    : `${validatorName(ref.validator)} の投票（s${ref.slot}, head B${ref.head}）`
 }
 
 function spanLabel(fromSlot: number, toSlot: number | undefined): string {
@@ -70,7 +70,7 @@ function messageOptionGroups(
   const blocks = state.log.blocks.map((m) => ({
     key: `block:${m.block.index}`,
     ref: { kind: 'block', block: m.block.index } as MessageRef,
-    label: `ブロック B${m.block.index}（提案 V${m.block.proposer}, s${m.block.slot}）`,
+    label: `ブロック B${m.block.index}（提案 ${validatorName(m.block.proposer)}, s${m.block.slot}）`,
     at: m.publishedAt,
   }))
   const votes = state.log.votes.map((m) => ({
@@ -81,7 +81,7 @@ function messageOptionGroups(
       slot: m.vote.slot,
       head: m.vote.head,
     } as MessageRef,
-    label: `V${m.vote.validator} の投票（s${m.vote.slot}, head B${m.vote.head}）`,
+    label: `${validatorName(m.vote.validator)} の投票（s${m.vote.slot}, head B${m.vote.head}）`,
     at: m.publishedAt,
   }))
   const bySlot = new Map<number, MessageOption[]>()
@@ -249,7 +249,7 @@ export function InterventionPanel({ session }: InterventionPanelProps) {
           >
             {doubleProposeScheduled
               ? `二重提案を予約済み（s${nextSlot}）`
-              : `次スロットで二重提案（提案者 V${nextProposer}）`}
+              : `次スロットで二重提案（提案者 ${validatorName(nextProposer)}）`}
           </button>
           <div className="form-line">
             <select

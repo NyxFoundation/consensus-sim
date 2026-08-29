@@ -10,6 +10,7 @@ import {
   MAX_VALIDATOR_COUNT,
   MIN_VALIDATOR_COUNT,
   proposerForSlot,
+  validatorName,
 } from '../domain'
 import type { ValidatorIndex } from '../domain'
 import { ChainMode } from './modes/ChainMode'
@@ -133,7 +134,7 @@ export function App() {
           )}
         </div>
         <span className="slot-next">
-          次スロットの提案者: V{nextProposer}
+          次スロットの提案者: {validatorName(nextProposer)}
         </span>
         <button type="button" className="advance" onClick={() => session.advance()}>
           {inPast ? 'ここから進める（以降の履歴を破棄）' : '＋1 スロット進める'}

@@ -195,7 +195,7 @@
     },
     {
       "id": "T-006",
-      "title": "UI シェル: 3 モード切替(チェーン/ネットワーク/全体)とスロット送り操作、日本語 UI",
+      "title": "UI シェル: 3 表示切替(チェーン/ネットワーク/全体)とスロット送り操作、日本語 UI",
       "status": "done",
       "priority": "must",
       "spec": [
@@ -240,8 +240,8 @@
       "status": "done",
       "priority": "must",
       "spec": [
-        "S-007",
-        "S-005"
+        "S-005",
+        "S-006"
       ],
       "executor": {
         "mode": "atlas-builder"
@@ -249,7 +249,7 @@
       "batch_group": "phase2-ui",
       "context_cost": 4,
       "risk_level": "normal",
-      "notes": "チェーンモード: 局所視点は domain の observe(純フィルタ)で計算、神視点は state.tree/votes/finality/heads。ブロック木は SVG(スロット=列、フォーク=行)。J/F バッジ・head チップ・投票チップで状態は色+記号+数字の三重符号化。",
+      "notes": "チェーンモード: 局所視点は domain の observe(純フィルタ)で計算、神視点は state.tree/votes/finality/heads。ブロック木は SVG(スロット=列、フォーク=行)。J/F バッジ・head チップ・投票チップで状態は色+記号+数字の三重符号化。※改訂 Essence(2026-08-30 attest)は局所/神視点切替を廃止し常時全バリデータ重ね表示を指定 — 刷新は T-019。",
       "evidence": [
         {
           "type": "diff",
@@ -271,7 +271,7 @@
     },
     {
       "id": "T-008",
-      "title": "ネットワークモード(状態一覧+マウスオーバーでビュー表示)と全体モード(左チェーン・右ネットワーク)",
+      "title": "ネットワーク表示(状態一覧+マウスオーバーでビュー表示)と全体表示(左チェーン・右ネットワーク)",
       "status": "done",
       "priority": "must",
       "spec": [
@@ -324,7 +324,7 @@
       "batch_group": "phase3-interventions",
       "context_cost": 5,
       "risk_level": "normal",
-      "notes": "介入は純データ(シナリオの一部、T-011 で永続化)とし、既存エンジンの 2 軸にコンパイル: compileDelivery(分断/遅延/欠落 → Delivery 規則)+ directivesForSlot(停止/二重提案/二重投票 → SlotDirectives)。エンジン改変は互換拡張のみ: Delivery に第5引数 MessageRef(4引数関数は従来どおり適合)、advanceSlot に任意 directives。裁量の意味論(骨格・View/Vote 型は不変更): 分断は単調配送 (∃u∈[発行,現在] 非分断なら到達=解消で滞留分が流れる)、停止は発言停止で観測は継続、二重提案は同親の兄弟 2 ブロック、二重投票は正規票+その head の親への対抗票、遅延・欠落は送信者自身には適用されない。介入の削除・解消は全履歴を決定的に再計算(理解装置としての仕様)。",
+      "notes": "介入は純データ(シナリオの一部、T-011 で永続化)とし、既存エンジンの 2 軸にコンパイル: compileDelivery(分断/遅延/欠落 → Delivery 規則)+ directivesForSlot(停止/二重提案/二重投票 → SlotDirectives)。エンジン改変は互換拡張のみ: Delivery に第5引数 MessageRef(4引数関数は従来どおり適合)、advanceSlot に任意 directives。裁量の意味論(骨格・View/Vote 型は不変更): 分断は単調配送 (∃u∈[発行,現在] 非分断なら到達=解消で滞留分が流れる)、停止は発言停止で観測は継続、二重提案は同親の兄弟 2 ブロック、二重投票は正規票+その head の親への対抗票、遅延・欠落は送信者自身には適用されない。介入の削除・解消は全履歴を決定的に再計算(理解装置としての仕様)。※改訂 Essence は稼働状態を 3 状態(停止/オフライン)へ拡張 — T-021。",
       "evidence": [
         {
           "type": "diff",
@@ -362,7 +362,7 @@
       "evidence": [
         {
           "type": "diff",
-          "summary": "src/ui/useSimulation.ts reworked around (config, interventions, runSlot, cursor): states = scenarioStates(scenario, runSlot) via useMemo (pure recomputation), setCursor clamps to [0, runSlot], advance() from a past cursor truncates the future. App.tsx slot bar: ◀/▶ cursor steps, スロット n / 最新 m display, 最新へ jump, and the advance button relabels to ここから進める（以降の履歴を破棄） while in the past."
+          "summary": "src/ui/useSimulation.ts reworked around (config, interventions, runSlot, cursor): states = scenarioStates(scenario, runSlot) via useMemo (pure recomputation), setCursor clamps to [0, runSlot], advance() from a past cursor truncates the future. App.tsx slot bar: ◀/▶ cursor steps, スロット n / 最新 m display, 最新へ jump, and the advance button relabels to ここから進める(以降の履歴を破棄) while in the past."
         },
         {
           "type": "command",
@@ -387,7 +387,7 @@
       "batch_group": "phase4-scenario",
       "context_cost": 4,
       "risk_level": "normal",
-      "notes": "シナリオ = config(シード含む)+介入列+進行スロット(runSlot)。ドメインの scenarioCodec.ts が フォーマットタグ+バージョン付き JSON を発行し、パースは全構造を検証(未知 kind・範囲外バリデータ・不正スロット等を拒否)して読込物を構築物と同等に信頼可能にする。I/O は UI 層のみ: localStorage の保存リスト(壊れたエントリは黙って除外しリストを保全)+ JSON ファイルのエクスポート/インポート。再読込 = loadScenario で決定的リプレイ(scenarioStates 再計算、カーソルは保存時スロットへ)。",
+      "notes": "シナリオ = config(シード含む)+介入列+進行スロット(runSlot)。ドメインの scenarioCodec.ts が フォーマットタグ+バージョン付き JSON を発行し、パースは全構造を検証(未知 kind・範囲外バリデータ・不正スロット等を拒否)して読込物を構築物と同等に信頼可能にする。I/O は UI 層のみ: localStorage の保存リスト(壊れたエントリは黙って除外しリストを保全)+ JSON ファイルのエクスポート/インポート。再読込 = loadScenario で決定的リプレイ(scenarioStates 再計算、カーソルは保存時スロットへ)。※改訂 Essence は JSON ファイル入出力を非対応事項に明記 — 撤去は T-025。",
       "evidence": [
         {
           "type": "diff",
@@ -421,7 +421,7 @@
       "batch_group": "phase5-polish",
       "context_cost": 4,
       "risk_level": "normal",
-      "notes": "説明書なし操作性の仕上げ: 介入・シナリオ両パネルを <details>/<summary> 化(既定 open、summary に指定中の介入数/保存数を常時表示し、折りたたんでもブロック木と状態が読める)。メッセージ遅延・欠落セレクタは発行スロット別 <optgroup>(新しいスロット順)でグループ化し長走行でも読める形に。equivocation 凡例は「equivocation（二重提案・二重投票）」と日本語補記。空状態ヒント 3 箇所(介入一覧なし/保存シナリオなし/メッセージログ空 = セレクタ無効化+案内)。シナリオ状態表示に role=status。見た目・情報設計の大転換はなし(Essence 人間ゲート (b) 非該当のポリッシュのみ)。",
+      "notes": "説明書なし操作性の仕上げ: 介入・シナリオ両パネルを <details>/<summary> 化(既定 open、summary に指定中の介入数/保存数を常時表示し、折りたたんでもブロック木と状態が読める)。メッセージ遅延・欠落セレクタは発行スロット別 <optgroup>(新しいスロット順)でグループ化し長走行でも読める形に。equivocation 凡例は「equivocation(二重提案・二重投票)」と日本語補記。空状態ヒント 3 箇所(介入一覧なし/保存シナリオなし/メッセージログ空 = セレクタ無効化+案内)。シナリオ状態表示に role=status。見た目・情報設計の大転換はなし(Essence 人間ゲート (b) 非該当のポリッシュのみ)。",
       "evidence": [
         {
           "type": "diff",
@@ -519,21 +519,6 @@
       "risk_level": "normal"
     },
     {
-      "id": "T-016",
-      "title": "状態・ブロック木の画像/データエクスポート",
-      "status": "pending",
-      "priority": "should",
-      "spec": [
-        "S-021"
-      ],
-      "executor": {
-        "mode": "atlas-builder"
-      },
-      "batch_group": "phase6-optional",
-      "context_cost": 2,
-      "risk_level": "normal"
-    },
-    {
       "id": "T-017",
       "title": "シナリオへのメモ・命名",
       "status": "pending",
@@ -547,6 +532,229 @@
       "batch_group": "phase6-optional",
       "context_cost": 2,
       "risk_level": "normal"
+    },
+    {
+      "id": "T-018",
+      "title": "バリデータへの認知性の高いカタカナ人名の割り当て(アリス、ボブ等)と UI 全域での表示",
+      "status": "done",
+      "priority": "must",
+      "spec": [
+        "S-002"
+      ],
+      "executor": {
+        "mode": "atlas-builder"
+      },
+      "batch_group": "e2-ui-fixes",
+      "context_cost": 2,
+      "risk_level": "normal",
+      "notes": "人名はドメインのユビキタス言語(バリデータの同定)としてドメイン層に定数で置き、UI のバリデータ表示(セレクタ・カード・投票表・提案者ラベル等)をすべて人名表示に統一する。インデックスは併記可(色+名前+番号の多重符号化を維持)。",
+      "evidence": [
+        {
+          "type": "diff",
+          "summary": "src/domain/validatorSet.ts: VALIDATOR_NAMES (アリス, ボブ, キャロル, デイブ, イヴ, フランク, グレース, ハイジ, オスカー, ペギー — standard cryptography cast, 10 names, all initials distinct) + validatorName/validatorInitial. UI now shows names everywhere a validator appears: chain-mode selector buttons, local-state heading, per-validator heads listing, vote table (ChainMode), network cards and hover-view heading (NetworkMode), next-proposer label (App), intervention labels — partition checks, stop/resume toggles, double-propose/vote controls and list descriptions, message option labels (InterventionPanel), and the block-tree proposer sublabel; tree chips carry the distinct initial kana instead of a digit (BlockTreeView, validatorColor comment updated). README model section notes the names."
+        },
+        {
+          "type": "command",
+          "command": "npm test",
+          "exit_code": 0,
+          "summary": "vitest 14 files / 128 tests pass, including new tests/domain/validatorSet.test.ts cases (10 distinct names covering MAX_VALIDATOR_COUNT, all initials distinct, validatorName mapping) and every UI test updated to the name-based labels (アリス の局所状態, ボブ 稼働中 → 停止, 二重提案 ボブ @ s1, キャロル のビュー, …)."
+        },
+        {
+          "type": "command",
+          "command": "npm run typecheck && npm run build",
+          "exit_code": 0,
+          "summary": "tsc --noEmit and vite build both exit 0."
+        }
+      ]
+    },
+    {
+      "id": "T-019",
+      "title": "チェーン表示の刷新: 局所視点/神視点切替を廃止し、常に全バリデータの情報を重ねた表示に一本化する",
+      "status": "pending",
+      "priority": "must",
+      "spec": [
+        "S-023",
+        "S-006"
+      ],
+      "executor": {
+        "mode": "atlas-builder"
+      },
+      "batch_group": "e2-table",
+      "context_cost": 3,
+      "risk_level": "normal",
+      "notes": "改訂 Essence の明示指定(必須 7)。局所視点の個別観測は状態表(T-020)のセル展開が引き継ぐ。UI 文言も「モード」→「表示」へ統一。"
+    },
+    {
+      "id": "T-020",
+      "title": "状態表: 行=バリデータ・列=スロット(チェーン表示の slotIndex と横位置整列)、セル項目の UI からの動的選択、差分強調、約 10 スロット幅+横スクロール、セル展開による個別観測",
+      "status": "pending",
+      "priority": "must",
+      "spec": [
+        "S-023",
+        "S-005"
+      ],
+      "executor": {
+        "mode": "atlas-builder"
+      },
+      "batch_group": "e2-table",
+      "context_cost": 5,
+      "risk_level": "normal",
+      "notes": "改訂 Essence の中核新機能(必須 5・7、成功条件 3・4)。セルはそのスロット時点の head / justified / finalized / View 要素から動的選択。分断中の食い違い→収束が表上で確認できること(成功条件 4)をテストで固める。"
+    },
+    {
+      "id": "T-021",
+      "title": "稼働状態 3 状態への拡張: オンライン稼働/オンライン停止(提案・投票停止、受信継続)/オフライン(送受信遮断・ビュー凍結、復帰後は通常伝搬で追いつく)+UI とテスト",
+      "status": "pending",
+      "priority": "must",
+      "spec": [
+        "S-009"
+      ],
+      "executor": {
+        "mode": "atlas-builder"
+      },
+      "batch_group": "e2-model",
+      "context_cost": 4,
+      "risk_level": "normal",
+      "notes": "現行の停止/復帰(オンライン停止相当)にオフライン状態を追加。オフラインは送信も受信も遮断しビューが凍結、復帰スロット以降の通常伝搬のみで追いつく(遡及一括配送はしない)。"
+    },
+    {
+      "id": "T-022",
+      "title": "フォーク作成介入: 提案ブロックの parent をプロポーザーの View 内から UI で指定(未指定時は fork choice)。指定フォーク同時 4 本超は UI が受け付けない+テスト",
+      "status": "pending",
+      "priority": "must",
+      "spec": [
+        "S-024"
+      ],
+      "executor": {
+        "mode": "atlas-builder"
+      },
+      "batch_group": "e2-model",
+      "context_cost": 4,
+      "risk_level": "normal"
+    },
+    {
+      "id": "T-023",
+      "title": "finality 表示の修正: finalized 済みのチェックポイントすべてに F を表示する(最新のみ F で以前が J に留まる表示をしない)",
+      "status": "done",
+      "priority": "must",
+      "spec": [
+        "S-028"
+      ],
+      "executor": {
+        "mode": "atlas-builder"
+      },
+      "batch_group": "e2-ui-fixes",
+      "context_cost": 2,
+      "risk_level": "normal",
+      "notes": "現行実装は最新の finalized のみ F 表示(T-007 テストが『exactly one F badge』を確認)— 改訂 Essence 成功条件 8 が明示的に禁止する表示。finalized チェックポイントの全歴代に F が付くよう修正しテストも更新。",
+      "evidence": [
+        {
+          "type": "diff",
+          "summary": "src/ui/BlockTreeView.tsx: a block's F badge condition changed from `finality.finalized === block.index` (latest only) to `justified && (block === finalized || isAncestor(tree, block, finalized))` — every justified checkpoint at or below the finalized frontier now carries F, including the anchor (agreed finalized by definition); only the justified frontier above it stays J."
+        },
+        {
+          "type": "command",
+          "command": "npm test",
+          "exit_code": 0,
+          "summary": "Updated badge test (tests/ui/appShell.test.tsx): at slot 9 (finalized = B4, justified frontier B8) the tree shows exactly 2 F badges (anchor B0 + B4) and B8 as J — no finalized checkpoint remains displayed as J. Full suite 128/128 exit 0."
+        }
+      ]
+    },
+    {
+      "id": "T-024",
+      "title": "介入キューの健全性: 指定・取り消しの連続でも無効イベント(終了<開始等)が生成・残留しない検証と修正+テスト",
+      "status": "pending",
+      "priority": "must",
+      "spec": [
+        "S-029"
+      ],
+      "executor": {
+        "mode": "atlas-builder"
+      },
+      "batch_group": "e2-model",
+      "context_cost": 2,
+      "risk_level": "normal"
+    },
+    {
+      "id": "T-025",
+      "title": "シナリオ JSON ファイルのエクスポート/インポート機能の撤去(localStorage 保存のみに整理)",
+      "status": "done",
+      "priority": "must",
+      "spec": [
+        "S-030"
+      ],
+      "executor": {
+        "mode": "atlas-builder"
+      },
+      "batch_group": "e2-ui-fixes",
+      "context_cost": 2,
+      "risk_level": "normal",
+      "notes": "改訂 Essence の非対応事項に明記されたため、T-011 で実装済みの JSON 入出力 UI を撤去。scenarioCodec 自体は localStorage 永続化の検証付きシリアライザとして存続。",
+      "evidence": [
+        {
+          "type": "diff",
+          "summary": "src/ui/ScenarioPanel.tsx: removed the JSON エクスポート / インポート buttons, hidden file input, exportJson/importJson handlers and the parseScenario/serializeScenario + useRef imports; panel header comment now describes localStorage-only persistence. styles.css: dropped the orphaned .file-input-hidden rule. README: Status and シナリオ passages no longer mention JSON export/import. The domain codec (scenarioCodec) stays as the validated serializer behind localStorage (scenarioStore)."
+        },
+        {
+          "type": "command",
+          "command": "npm test",
+          "exit_code": 0,
+          "summary": "vitest 128/128 pass — scenario save/reload/replay tests (localStorage path) unchanged and green; no test referenced the removed file I/O."
+        },
+        {
+          "type": "command",
+          "command": "npm run typecheck && npm run build",
+          "exit_code": 0,
+          "summary": "tsc --noEmit and vite build both exit 0 with the removed code."
+        }
+      ]
+    },
+    {
+      "id": "T-026",
+      "title": "型一覧ページ: ドメイン層の型を上から下への依存グラフ(無依存型が最上段)で表示し、実装の型定義と一致させる",
+      "status": "pending",
+      "priority": "must",
+      "spec": [
+        "S-025"
+      ],
+      "executor": {
+        "mode": "atlas-builder"
+      },
+      "batch_group": "e2-pages",
+      "context_cost": 4,
+      "risk_level": "normal"
+    },
+    {
+      "id": "T-027",
+      "title": "UI ビジュアル刷新: pbs.show を参考にしたフォント・色遣い・全体的な雰囲気(衝突する大きなデザイン判断は人間に戻す)",
+      "status": "pending",
+      "priority": "must",
+      "spec": [
+        "S-027"
+      ],
+      "executor": {
+        "mode": "atlas-builder"
+      },
+      "batch_group": "e2-polish",
+      "context_cost": 4,
+      "risk_level": "normal"
+    },
+    {
+      "id": "T-028",
+      "title": "総点検: 3 観点(ESSENCE・仕様・実装の整合/引き算の美学/複雑条件のバグ)の自己批判的点検、発見問題の全解消、点検記録、検証ゲート全通し",
+      "status": "pending",
+      "priority": "must",
+      "spec": [
+        "S-026",
+        "S-014"
+      ],
+      "executor": {
+        "mode": "atlas-builder"
+      },
+      "batch_group": "e2-final",
+      "context_cost": 5,
+      "risk_level": "normal",
+      "notes": "最後の必須。他のすべての must Todo 完了後に実施し、点検の観点・発見・対処を記録として残す(成功条件 12)。"
     }
   ]
 }

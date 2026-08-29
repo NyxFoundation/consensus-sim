@@ -8,7 +8,7 @@
  * nothing more.
  */
 
-import { observe, latestVotes, instantDelivery } from '../../domain'
+import { observe, latestVotes, instantDelivery, validatorName } from '../../domain'
 import type {
   Delivery,
   SimulationState,
@@ -58,7 +58,7 @@ function VoteTable({ votes }: { readonly votes: readonly Vote[] }) {
                 className="validator-dot"
                 style={{ background: validatorColor(validator) }}
               />
-              V{validator}
+              {validatorName(validator)}
             </td>
             <td>{vote.slot}</td>
             <td>{blockName(vote.head)}</td>
@@ -126,7 +126,7 @@ export function ChainMode({
                   className="validator-dot"
                   style={{ background: validatorColor(v) }}
                 />
-                V{v}
+                {validatorName(v)}
               </button>
             ))}
           </div>
@@ -147,7 +147,7 @@ export function ChainMode({
         <div className="panel">
           <h3>
             {perspective === 'local'
-              ? `V${selectedValidator} の局所状態`
+              ? `${validatorName(selectedValidator)} の局所状態`
               : '神視点の状態'}
           </h3>
           <dl className="status-list">
@@ -163,7 +163,7 @@ export function ChainMode({
                 <dd>
                   {[...heads.entries()]
                     .sort((a, b) => a[0] - b[0])
-                    .map(([v, h]) => `V${v}:${blockName(h)}`)
+                    .map(([v, h]) => `${validatorName(v)}:${blockName(h)}`)
                     .join(' / ')}
                 </dd>
               </>

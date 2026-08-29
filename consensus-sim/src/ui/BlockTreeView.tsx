@@ -7,8 +7,11 @@
  */
 
 import {
+  isAncestor,
   latestVotes,
   pathToAnchor,
+  validatorInitial,
+  validatorName,
   NO_PROPOSER,
 } from '../domain'
 import type {
@@ -141,8 +144,13 @@ export function BlockTreeView({
         const row = layout.rows.get(block.index)
         if (row === undefined) return null
         const { x, y } = center(block.slot, row)
+        // Every checkpoint at or below the finalized frontier is finalized —
+        // F never regresses to J on older checkpoints (成功条件 8).
         const justified = finality.justified.has(block.index)
-        const finalized = finality.finalized === block.index
+        const finalized =
+          justified &&
+          (block.index === finality.finalized ||
+            isAncestor(tree, block.index, finality.finalized))
         const headChips = headsOf.get(block.index) ?? []
         const voteChips = supportersOf.get(block.index) ?? []
         const classes = [
@@ -167,7 +175,7 @@ export function BlockTreeView({
               B{block.index}
             </text>
             <text className="block-sublabel" x={x} y={y + 11} textAnchor="middle">
-              {block.proposer === NO_PROPOSER ? '錨' : `提案 V${block.proposer}`}
+              {block.proposer === NO_PROPOSER ? '錨' : validatorName(block.proposer)}
             </text>
 
             {(finalized || justified) && (
@@ -206,7 +214,7 @@ export function BlockTreeView({
                   y={y - BLOCK_H / 2 - 8}
                   textAnchor="middle"
                 >
-                  {validator}
+                  {validatorInitial(validator)}
                 </text>
               </g>
             ))}
@@ -229,7 +237,7 @@ export function BlockTreeView({
                   y={y + BLOCK_H / 2 + 15}
                   textAnchor="middle"
                 >
-                  {validator}
+                  {validatorInitial(validator)}
                 </text>
               </g>
             ))}

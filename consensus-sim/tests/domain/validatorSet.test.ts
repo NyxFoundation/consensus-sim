@@ -3,9 +3,12 @@ import {
   DEFAULT_VALIDATOR_COUNT,
   MAX_VALIDATOR_COUNT,
   MIN_VALIDATOR_COUNT,
+  VALIDATOR_NAMES,
   assertValidatorCount,
   isValidValidatorCount,
   validatorIndices,
+  validatorInitial,
+  validatorName,
 } from "../../src/domain";
 
 describe("validator count bounds", () => {
@@ -29,5 +32,19 @@ describe("validator count bounds", () => {
   it("enumerates validator indices deterministically", () => {
     expect(validatorIndices(4)).toEqual([0, 1, 2, 3]);
     expect(() => validatorIndices(2)).toThrow();
+  });
+});
+
+describe("validator names (カタカナ人名)", () => {
+  it("covers the maximum validator count with distinct names", () => {
+    expect(VALIDATOR_NAMES).toHaveLength(MAX_VALIDATOR_COUNT);
+    expect(new Set(VALIDATOR_NAMES).size).toBe(MAX_VALIDATOR_COUNT);
+    expect(validatorName(0)).toBe("アリス");
+    expect(validatorName(1)).toBe("ボブ");
+  });
+
+  it("keeps every initial distinct so the initial alone identifies a validator", () => {
+    const initials = validatorIndices(MAX_VALIDATOR_COUNT).map(validatorInitial);
+    expect(new Set(initials).size).toBe(MAX_VALIDATOR_COUNT);
   });
 });

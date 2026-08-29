@@ -17,8 +17,8 @@ delivery/directives axes) is complete and fully tested. The UI ships all
 three modes — chain (local / god perspectives), network (per-validator
 cards with hover views) and global (chain + network side by side) — plus
 the intervention panel (partition, stop/resume, equivocation, per-message
-delay/drop), slot rewind, and scenario save/reload/replay (localStorage
-list plus JSON export/import). Every scenario operation is discoverable
+delay/drop), slot rewind, and scenario save/reload/replay (a
+localStorage-backed list). Every scenario operation is discoverable
 from the UI itself: panels collapse but summarize their contents, empty
 lists explain the next step, and the message selector groups the log per
 publish slot.
@@ -55,8 +55,7 @@ truncates the discarded future.
 The シナリオ panel saves the current run — initial conditions (seed
 included) plus the intervention list and how far it advanced — to a
 browser-local list, and reloading replays it deterministically to the
-identical states. JSON エクスポート/インポート exchanges the same
-versioned format as a file.
+identical states.
 
 Sanity check:
 
@@ -69,8 +68,9 @@ npm run build      # static bundle in dist/ (no backend; plain static SPA)
 ## The model
 
 - **Validators** (4–10, default 4) act as proposers and attesters in a
-  round-robin schedule. Time advances in slots; epoch boundaries fall every
-  4 slots.
+  round-robin schedule, and carry recognizable katakana names (アリス, ボブ,
+  キャロル, …) throughout the UI. Time advances in slots; epoch boundaries
+  fall every 4 slots.
 - **Blocks** form a tree rooted at the **anchor block** (slot 0), which every
   validator already agrees is finalized — there is no genesis ceremony.
 - **Votes** are `{validator, slot, head, source, target}`: an LMD-GHOST-style

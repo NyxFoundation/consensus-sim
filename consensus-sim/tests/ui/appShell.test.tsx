@@ -8,6 +8,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
+import { validatorName } from '../../src/domain'
 import { App } from '../../src/ui/App'
 
 declare global {
@@ -58,7 +59,7 @@ function buttonByText(label: string): Element | undefined {
  * panel also renders per-validator buttons, so scope matters). */
 function chainValidatorButton(v: number): Element | undefined {
   return all('.chain-mode .segmented button').find(
-    (b) => b.textContent?.includes(`V${v}`),
+    (b) => b.textContent?.includes(validatorName(v)),
   )
 }
 
@@ -112,9 +113,9 @@ describe('App shell (T-006)', () => {
 describe('Chain mode perspectives (T-007)', () => {
   it('shows the selected validator local state and switches validators', async () => {
     await advance(4)
-    expect(text('.panel h3')).toContain('V0 の局所状態')
+    expect(text('.panel h3')).toContain('アリス の局所状態')
     await click(chainValidatorButton(2))
-    expect(text('.panel h3')).toContain('V2 の局所状態')
+    expect(text('.panel h3')).toContain('キャロル の局所状態')
     expect(text('.status-list')).toContain('head')
   })
 
@@ -122,12 +123,14 @@ describe('Chain mode perspectives (T-007)', () => {
     await advance(4)
     await click(buttonByText('神視点'))
     const status = text('.status-list')
-    for (const v of [0, 1, 2, 3]) expect(status).toContain(`V${v}:`)
+    for (const v of [0, 1, 2, 3]) expect(status).toContain(`${validatorName(v)}:`)
   })
 
   it('marks justified and finalized checkpoints with badges as epochs pass', async () => {
     await advance(9)
-    expect(all('.badge-finalized')).toHaveLength(1)
+    // Slot 9: finalized = B4, so the anchor and B4 both carry F (成功条件 8);
+    // the justified frontier B8 stays J.
+    expect(all('.badge-finalized')).toHaveLength(2)
     expect(all('.badge-justified').length).toBeGreaterThan(0)
     expect(text('.status-list')).toContain('finalized')
   })
@@ -165,12 +168,12 @@ describe('Network mode (T-008)', () => {
 
     const cards = all('.validator-card')
     await hover(cards[2])
-    expect(text('.network-detail h3')).toContain('V2 のビュー')
+    expect(text('.network-detail h3')).toContain('キャロル のビュー')
     // 5 blocks visible in V2's local view at slot 4 (anchor + one per slot).
     expect(all('.network-detail .tree-block')).toHaveLength(5)
 
     await hover(cards[0])
-    expect(text('.network-detail h3')).toContain('V0 のビュー')
+    expect(text('.network-detail h3')).toContain('アリス のビュー')
   })
 
   it('reflects the validator count in the card grid', async () => {
@@ -200,9 +203,9 @@ describe('Global mode (T-008)', () => {
     await advance(4)
     await click(buttonByText('全体モード'))
     await click(chainValidatorButton(2))
-    expect(text('.chain-mode .panel h3')).toContain('V2 の局所状態')
+    expect(text('.chain-mode .panel h3')).toContain('キャロル の局所状態')
     const cards = all('.validator-card')
     await hover(cards[1])
-    expect(text('.network-detail h3')).toContain('V1 のビュー')
+    expect(text('.network-detail h3')).toContain('ボブ のビュー')
   })
 })

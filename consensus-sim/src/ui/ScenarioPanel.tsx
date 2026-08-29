@@ -1,13 +1,12 @@
 /**
  * Scenario panel (シナリオ): save the current run (config + interventions +
- * how far it advanced), reload a saved one — replay is deterministic
- * recomputation, so a reloaded scenario reproduces the identical run — and
- * exchange scenarios as JSON files. Storage I/O lives here and in
- * scenarioStore; all structural validation is the domain codec's.
+ * how far it advanced) to localStorage and reload a saved one — replay is
+ * deterministic recomputation, so a reloaded scenario reproduces the
+ * identical run. Storage I/O lives in scenarioStore; all structural
+ * validation is the domain codec's.
  */
 
-import { useRef, useState } from 'react'
-import { parseScenario, serializeScenario } from '../domain'
+import { useState } from 'react'
 import {
   listScenarios,
   loadStored,
@@ -32,7 +31,6 @@ function entryLabel(e: StoredScenario): string {
 export function ScenarioPanel({ session }: ScenarioPanelProps) {
   const [entries, setEntries] = useState<StoredScenario[]>(() => listScenarios())
   const [status, setStatus] = useState('')
-  const fileInput = useRef<HTMLInputElement>(null)
 
   const currentScenario = {
     config: session.config,
@@ -60,30 +58,6 @@ export function ScenarioPanel({ session }: ScenarioPanelProps) {
     setEntries(listScenarios())
   }
 
-  const exportJson = () => {
-    const data = serializeScenario(currentScenario, session.runSlot)
-    const blob = new Blob([JSON.stringify(data, null, 2)], {
-      type: 'application/json',
-    })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'consensus-sim-scenario.json'
-    a.click()
-    URL.revokeObjectURL(url)
-    setStatus('シナリオを JSON ファイルとして書き出しました。')
-  }
-
-  const importJson = async (file: File) => {
-    try {
-      const { scenario, runSlot } = parseScenario(JSON.parse(await file.text()))
-      session.loadScenario(scenario, runSlot)
-      setStatus(`ファイルからシナリオを再実行しました（スロット ${runSlot} まで再計算）。`)
-    } catch (e) {
-      setStatus(`インポートに失敗しました: ${e instanceof Error ? e.message : String(e)}`)
-    }
-  }
-
   return (
     <section className="scenario-panel" aria-label="シナリオ">
       <details open>
@@ -101,24 +75,6 @@ export function ScenarioPanel({ session }: ScenarioPanelProps) {
         <button type="button" onClick={save}>
           現在のシナリオを保存
         </button>
-        <button type="button" onClick={exportJson}>
-          JSON エクスポート
-        </button>
-        <button type="button" onClick={() => fileInput.current?.click()}>
-          JSON インポート
-        </button>
-        <input
-          ref={fileInput}
-          type="file"
-          accept="application/json"
-          className="file-input-hidden"
-          aria-label="シナリオ JSON ファイル"
-          onChange={(e) => {
-            const file = e.target.files?.[0]
-            if (file) void importJson(file)
-            e.target.value = ''
-          }}
-        />
         {status && (
           <span className="scenario-status" role="status">
             {status}

@@ -66,8 +66,8 @@ async function advance(times: number) {
 
 describe('scenario save / reload / replay (T-011)', () => {
   it('reproduces the saved run identically after the live scenario was mutated', async () => {
-    // Build a distinctive run: V1 stopped from slot 1, advanced to slot 3.
-    await click(buttonByText('V1 稼働中 → 停止'))
+    // Build a distinctive run: V1 (ボブ) stopped from slot 1, advanced to slot 3.
+    await click(buttonByText('ボブ 稼働中 → 停止'))
     await advance(3)
     // Slot 1 is empty (stopped proposer): anchor + blocks at slots 2, 3.
     expect(all('.tree-block')).toHaveLength(3)
@@ -94,7 +94,7 @@ describe('scenario save / reload / replay (T-011)', () => {
     expect(all('.tree-block')).toHaveLength(3)
     expect(all('.vote-table tbody tr')).toHaveLength(3)
     // The stop intervention is part of the scenario and is listed again.
-    expect(text('.intervention-panel .intervention-list')).toContain('停止 V1')
+    expect(text('.intervention-panel .intervention-list')).toContain('停止 ボブ')
   })
 
   it('restores the saved validator count', async () => {

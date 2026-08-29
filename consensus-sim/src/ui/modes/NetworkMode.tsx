@@ -11,7 +11,7 @@
  */
 
 import { useState } from 'react'
-import { instantDelivery, latestVotes, observe } from '../../domain'
+import { instantDelivery, latestVotes, observe, validatorName } from '../../domain'
 import type {
   Delivery,
   LocalObservation,
@@ -90,7 +90,7 @@ export function NetworkMode({
                   className="validator-dot"
                   style={{ background: validatorColor(v) }}
                 />
-                V{v}
+                {validatorName(v)}
                 {diverged && <span className="card-flag">分岐中</span>}
               </span>
               <dl className="status-list card-status">
@@ -126,7 +126,7 @@ export function NetworkMode({
               className="validator-dot"
               style={{ background: validatorColor(inspected) }}
             />
-            V{inspected} のビュー
+            {validatorName(inspected)} のビュー
           </h3>
           <div className="tree-scroll">
             <BlockTreeView

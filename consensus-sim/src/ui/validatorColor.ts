@@ -1,7 +1,8 @@
 /**
  * Stable colour per validator index (0..9). Colour is always accompanied by
- * the validator number itself (chips carry the digit), so identity never
- * rides on colour alone; the ramp only helps the eye group marks quickly.
+ * the validator's name or its initial kana (chips carry the initial), so
+ * identity never rides on colour alone; the ramp only helps the eye group
+ * marks quickly.
  */
 
 const VALIDATOR_COLORS: readonly string[] = [
