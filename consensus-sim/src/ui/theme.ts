@@ -1,6 +1,9 @@
 /**
  * The two surfaces and the ink and series steps that sit on each.
  *
+ * The base ramp is achromatic (pure neutral greys): saturated colour is
+ * reserved for data series and consensus state, never for chrome.
+ *
  * Dark is not an inversion of light. Each mode takes its own step from the same
  * hue ramps, chosen for that surface's lightness band — flipping the light
  * values would drop several of them below the contrast floor. The two columns
@@ -48,39 +51,39 @@ export interface Palette {
 }
 
 const LIGHT: Palette = {
-  surface: '#fcfcfb',
-  plane: '#f9f9f7',
-  inkPrimary: '#0b0b0b',
-  inkSecondary: '#52514e',
-  inkMuted: '#898781',
-  gridline: '#e1e0d9',
-  baseline: '#c3c2b7',
-  blockFill: '#f0efec',
-  neutralCell: '#e1e0d9',
+  surface: '#fbfbfb',
+  plane: '#f1f1f1',
+  inkPrimary: '#131313',
+  inkSecondary: '#4f4f4f',
+  inkMuted: '#8a8a8a',
+  gridline: '#dedede',
+  baseline: '#bfbfbf',
+  blockFill: '#efefef',
+  neutralCell: '#e7e7e7',
   series: ['#2a78d6', '#eb6834', '#1baf7a'],
-  otherSeries: '#898781',
+  otherSeries: '#8a8a8a',
   statusGood: '#0ca30c',
   statusWarning: '#fab219',
   statusCritical: '#d03b3b',
-  border: 'rgba(11,11,11,0.10)',
+  border: '#dedede',
 }
 
 const DARK: Palette = {
-  surface: '#1a1a19',
+  surface: '#161616',
   plane: '#0d0d0d',
-  inkPrimary: '#ffffff',
-  inkSecondary: '#c3c2b7',
-  inkMuted: '#898781',
-  gridline: '#2c2c2a',
-  baseline: '#383835',
-  blockFill: '#2c2c2a',
-  neutralCell: '#383835',
+  inkPrimary: '#f4f4f4',
+  inkSecondary: '#c2c2c2',
+  inkMuted: '#8a8a8a',
+  gridline: '#2b2b2b',
+  baseline: '#3a3a3a',
+  blockFill: '#262626',
+  neutralCell: '#2f2f2f',
   series: ['#3987e5', '#d95926', '#199e70'],
-  otherSeries: '#898781',
+  otherSeries: '#8a8a8a',
   statusGood: '#0ca30c',
   statusWarning: '#fab219',
   statusCritical: '#d03b3b',
-  border: 'rgba(255,255,255,0.10)',
+  border: '#2b2b2b',
 }
 
 export function paletteFor(mode: ThemeMode): Palette {

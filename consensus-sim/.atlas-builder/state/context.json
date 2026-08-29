@@ -6,11 +6,11 @@
     "stop_after_infra_fails": 2
   },
   "progress": {
-    "last_signature": "ab3752edc711b2801a8d7c45070f338701631e9cfe2efc5ee75042f290628c49",
+    "last_signature": "e173ee781bf74a5ec95458feaf3dabf43386f6584e318f241a250940321efb46",
     "idle_cycles_since_progress": 0,
     "infra_fails_since_ok": 0,
-    "last_progress_at": "2026-08-30T01:53:48+09:00",
-    "last_checked_at": "2026-08-30T01:53:48+09:00",
+    "last_progress_at": "2026-08-30T02:28:21+09:00",
+    "last_checked_at": "2026-08-30T02:28:21+09:00",
     "usage_limited_since_ok": 0
   },
   "reset_policy": {
@@ -21,19 +21,22 @@
     "reset_after_decisions": 5
   },
   "counters": {
-    "context_usage_estimate": 0.55,
+    "context_usage_estimate": 0.4,
     "failed_attempts_since_reset": 0,
-    "changed_files_since_reset": 13,
-    "completed_todos_since_reset": 2,
-    "important_decisions_since_reset": 3,
+    "changed_files_since_reset": 15,
+    "completed_todos_since_reset": 3,
+    "important_decisions_since_reset": 4,
     "major_spec_rewrite_since_reset": false,
     "high_risk_change_completed": false
   },
   "handoff": {
-    "written_at": "2026-08-30T02:16:36+09:00",
-    "summary": "Human resume: pbs.show 参照へのアクセス不能(R-002)は、参照 URL 自体を ESSENCE.mdから削除し、言語化したデザイン方針(知的で無骨なデータ中心UI・高情報密度・モノクロ基調+アクセントカラー・フラット・Sans Serif と等幅の使い分け)へ置き換える update-essence改訂で根治した。提示選択肢 A/B/C のいずれも採らない。柱 2 の延期は維持。次サイクルは新 Essence から Specを再投影し、新デザイン方針でビジュアル刷新(旧 T-027 相当)を継続する。",
-    "next_actions": [],
+    "written_at": "2026-08-30T02:26:00+09:00",
+    "summary": "改訂 Essence(attest 済み bcb5982e)から Spec を再投影: S-027 を pbs.show 参照から言語化デザイン方針(知的で無骨なデータ中心 UI・高情報密度・モノクロ/低彩度基調+アクセント・フラット薄境界線・Sans Serif 基本と等幅の使い分け)に置換し、projected_from_essence_sha256 を更新(validation ok・警告ゼロ)。T-027 をブロック解除して同方針の CSS 刷新を実施し done(styles.css 全面改稿+theme.ts 中立グレー同期、マークアップ不変更、typecheck/167 tests/build 全 exit 0)。実ブラウザ smoke は sandbox の Mach ポート制約で不可(既知)。残る must は T-028(総点検)のみ。",
+    "next_actions": [
+      "T-028(総点検)を単独バッチで実施する: (1) ESSENCE・Spec(S-001..S-030)・実装の全項目トレース照合、(2) 引き算の美学(不要コード・死に CSS・冗長コメント・ドキュメント過不足の洗い出し)、(3) 複雑条件の組み合わせバグ(介入の複合・巻き戻し・シナリオ再実行の境界ケースを追加テストで攻める)。観点・発見・対処を記録として残し(成功条件 12)、発見問題を全解消してから done にする。",
+      "総点検で新デザインの見た目の人間目視確認が未了である旨を記録に含める(npm run dev / scripts/verify-ui.mjs は人間の手元実行)。"
+    ],
     "open_questions": [],
-    "pending_cycle": true
+    "pending_cycle": false
   }
 }

@@ -837,8 +837,8 @@
     },
     {
       "id": "T-027",
-      "title": "UI ビジュアル刷新: pbs.show を参考にしたフォント・色遣い・全体的な雰囲気(衝突する大きなデザイン判断は人間に戻す)",
-      "status": "blocked",
+      "title": "UI ビジュアル刷新: 言語化されたデザイン方針の適用(知的で無骨なデータ中心 UI・高情報密度・モノクロ/低彩度基調+アクセントカラー・フラット薄境界線・Sans Serif 基本と等幅の使い分け)",
+      "status": "done",
       "priority": "must",
       "spec": [
         "S-027"
@@ -849,7 +849,31 @@
       "batch_group": "e2-polish",
       "context_cost": 4,
       "risk_level": "normal",
-      "blocked_reason": "参照サイト https://pbs.show/ にエージェント環境から到達する手段がない: pbs.show:443 と web.archive.org:443 は sandbox ネットワーク許可リストで拒否(user denied)、WebFetch ツールは非対話セッションで許可されず、essences/ に参考資料はなく、過去サイクルにもスタイル情報の収集記録がない。実観測なしの推測ベース刷新は、参考元と衝突する大きなデザイン判断を人間に戻すという思想節の定めに照らして自律実行できない(衝突の有無自体が判定不能)。人間の選択待ち — R-002 参照。"
+      "notes": "改訂 Essence(2026-08-30 resume attest)が pbs.show 参照を撤去し言語化したデザイン方針に置換したため、ブロック解除して再定義。方針は前提事項に明文化済みなので自律実行可(方針と衝突する大きなデザイン判断のみ人間に戻す)。最終的な見た目の目視確認は人間の手元実行(scripts/verify-ui.mjs / npm run dev)が前提。 実ブラウザ smoke(scripts/verify-ui.mjs)は sandbox の Mach ポート制約で chromium が起動できず exit 1(環境制約、アプリ欠陥ではない — 2026-08-30 実測)。UI 挙動は jsdom スイートで全通過を確認済み。最終的な見た目の目視確認は人間の手元実行(npm run dev / scripts/verify-ui.mjs)が前提。",
+      "evidence": [
+        {
+          "type": "diff",
+          "summary": "src/ui/styles.css rewritten to the verbalized design policy: achromatic neutral grey ramp (light #fbfbfb sheet / dark #161616; saturated colour only for accent, J/F state, warnings and validator series), one flat analysis sheet (body carries the single surface; header/slot-bar/panels/cards lose their raised backgrounds and separate by 1px hairline gridlines), small radii (--radius: 3px everywhere, pill removed), flat underline mode tabs and hairline segmented controls, tightened density (header/slot-bar/panel/table paddings and gaps reduced), and a --font-mono face applied only to numbers/IDs/slots/code (slot number, state-table headers+cells, vote-table value columns, status-list values, SVG slot/block labels, J/F badge letters, slot inputs, type catalog names/declarations); prose stays on the neutral --font-sans. src/ui/theme.ts palette constants synced to the same neutral ramp (series hexes untouched — their colour-vision validation stands). No markup changes: every component renders the same DOM."
+        },
+        {
+          "type": "command",
+          "command": "npm run typecheck",
+          "exit_code": 0,
+          "summary": "tsc --noEmit exits 0 after the restyle."
+        },
+        {
+          "type": "command",
+          "command": "npx vitest run",
+          "exit_code": 0,
+          "summary": "17 files / 167 tests pass unchanged — the refresh is CSS + palette constants only, so all DOM-level behaviour tests (shell, state table, interventions, scenario, type catalog) are unaffected."
+        },
+        {
+          "type": "command",
+          "command": "npm run build",
+          "exit_code": 0,
+          "summary": "vite build emits the static dist/ bundle (11.82 kB CSS) with exit 0."
+        }
+      ]
     },
     {
       "id": "T-028",
