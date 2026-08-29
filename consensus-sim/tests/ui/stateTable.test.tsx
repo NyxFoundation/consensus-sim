@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * State table (T-020), driven through the real DOM: one row per validator
+ * State table, driven through the real DOM: one row per validator
  * and one column per slot aligned with the chain display, dynamic selection
  * of the cell item, difference highlighting that shows divergence during a
  * partition and reconvergence after healing (成功条件 3・4), and cell
@@ -14,7 +14,6 @@ import { validatorName } from '../../src/domain'
 import { App } from '../../src/ui/App'
 
 declare global {
-  // eslint-disable-next-line no-var
   var IS_REACT_ACT_ENVIRONMENT: boolean
 }
 globalThis.IS_REACT_ACT_ENVIRONMENT = true
@@ -82,7 +81,7 @@ async function checkPartitionValidator(v: number) {
   await click(box)
 }
 
-describe('table shape and alignment (T-020)', () => {
+describe('table shape and alignment', () => {
   it('renders one row per validator and one column per slot', async () => {
     await advance(4)
     const rows = tableRows()
@@ -111,7 +110,7 @@ describe('table shape and alignment (T-020)', () => {
   })
 })
 
-describe('dynamic cell item selection (T-020)', () => {
+describe('dynamic cell item selection', () => {
   it('switches the displayed item from head to finalized', async () => {
     await advance(9)
     // Default item: head — everyone follows B9 at slot 9 under instant delivery.
@@ -166,7 +165,7 @@ describe('difference highlighting (成功条件 3・4)', () => {
   })
 })
 
-describe('cell expansion into the local observation (T-020, S-005)', () => {
+describe('cell expansion into the local observation', () => {
   it('expands a cell into that validator view at that slot and closes again', async () => {
     await advance(4)
     expect(container.querySelector('.state-detail')).toBeNull()
@@ -175,12 +174,41 @@ describe('cell expansion into the local observation (T-020, S-005)', () => {
     expect(text('.state-detail h3')).toContain('スロット 2')
     // View at slot 2: anchor + B1 + B2.
     expect(all('.state-detail .tree-block')).toHaveLength(3)
-    // Vote table inside the expansion shows which block each vote supported.
-    expect(all('.state-detail .vote-table tbody tr')).toHaveLength(4)
+    // The expansion lists every vote in the view (slots 1 and 2, 4 voters
+    // each), not just the latest per validator.
+    expect(text('.state-detail')).toContain('全 8 件')
+    expect(all('.state-detail .vote-table tbody tr')).toHaveLength(8)
     expect(text('.state-detail .status-list')).toContain('finalized')
 
     await click(buttonByText('閉じる'))
     expect(container.querySelector('.state-detail')).toBeNull()
+  })
+
+  it('lists both votes of a double vote individually (各投票の支持先)', async () => {
+    await advance(1)
+    // アリス double-votes at s2: her honest vote and the conflicting second
+    // one must both stay observable in the expansion.
+    const select = container.querySelector<HTMLSelectElement>(
+      'select[aria-label="二重投票するバリデータ"]',
+    )
+    expect(select).not.toBeNull()
+    await act(async () => {
+      select!.value = '0'
+      select!.dispatchEvent(new Event('change', { bubbles: true }))
+    })
+    await click(buttonByText('次スロットで二重投票'))
+    await advance(1)
+    await click(cell(1, 2))
+    const rows = all('.state-detail .vote-table tbody tr')
+    // 4 honest slot-1 votes + 4 honest slot-2 votes + 1 equivocal vote.
+    expect(rows).toHaveLength(9)
+    const aliceSlot2 = rows.filter(
+      (r) =>
+        r.textContent?.includes('アリス') && r.children[1]?.textContent === '2',
+    )
+    expect(aliceSlot2).toHaveLength(2)
+    const heads = new Set(aliceSlot2.map((r) => r.children[2]?.textContent))
+    expect(heads.size).toBe(2)
   })
 
   it('toggles the same cell closed on a second click', async () => {

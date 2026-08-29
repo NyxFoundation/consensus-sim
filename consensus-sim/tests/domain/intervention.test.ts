@@ -16,6 +16,7 @@ import {
   closeSpanAt,
   latestVotes,
   observe,
+  operatingStateAt,
   proposerForSlot,
   scenarioDelivery,
   type SpanIntervention,
@@ -342,7 +343,7 @@ describe("scenario determinism (決定性)", () => {
   });
 });
 
-describe("closeSpanAt (介入キューの健全性, T-024)", () => {
+describe("closeSpanAt (介入キューの健全性)", () => {
   const spans: SpanIntervention[] = [
     { kind: "partition", fromSlot: 2, groups: [[0, 1]] },
     { kind: "stop", fromSlot: 2, validators: [1] },
@@ -370,5 +371,34 @@ describe("closeSpanAt (介入キューの健全性, T-024)", () => {
         if (closed) expect(closed.toSlot).toBeGreaterThanOrEqual(closed.fromSlot);
       }
     }
+  });
+});
+
+describe("operatingStateAt (稼働状態)", () => {
+  const interventions: Intervention[] = [
+    { kind: "stop", fromSlot: 2, toSlot: 5, validators: [1] },
+    { kind: "offline", fromSlot: 4, toSlot: 6, validators: [1, 2] },
+  ];
+
+  it("reads active outside every span and at span boundaries", () => {
+    expect(operatingStateAt(interventions, 1, 1)).toBe("active");
+    expect(operatingStateAt(interventions, 1, 7)).toBe("active");
+    expect(operatingStateAt(interventions, 0, 4)).toBe("active");
+  });
+
+  it("reads stopped inside a stop span and offline wins where spans overlap", () => {
+    expect(operatingStateAt(interventions, 1, 2)).toBe("stopped");
+    expect(operatingStateAt(interventions, 1, 4)).toBe("offline");
+    expect(operatingStateAt(interventions, 1, 6)).toBe("offline");
+    expect(operatingStateAt(interventions, 2, 4)).toBe("offline");
+    expect(operatingStateAt(interventions, 2, 3)).toBe("active");
+  });
+
+  it("treats an open-ended span as covering every later slot", () => {
+    const open: Intervention[] = [
+      { kind: "stop", fromSlot: 3, validators: [0] },
+    ];
+    expect(operatingStateAt(open, 0, 2)).toBe("active");
+    expect(operatingStateAt(open, 0, 100)).toBe("stopped");
   });
 });

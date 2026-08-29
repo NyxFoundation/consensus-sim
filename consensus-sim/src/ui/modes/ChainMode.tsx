@@ -14,6 +14,7 @@ import { useMemo, useState } from 'react'
 import { instantDelivery, observe, validatorName } from '../../domain'
 import type { Delivery, SimulationState } from '../../domain'
 import { BlockTreeView } from '../BlockTreeView'
+import { blockName } from '../format'
 import { StateTable, STATE_CELL_ITEMS } from '../StateTable'
 import type { ExpandedCell, StateCellItem } from '../StateTable'
 import { LABEL_W } from '../treeGeometry'
@@ -25,10 +26,6 @@ export interface ChainModeProps {
   readonly validatorCount: number
   /** The scenario's delivery rule — local views are filtered through it. */
   readonly delivery?: Delivery | undefined
-}
-
-function blockName(index: number): string {
-  return `B${index}`
 }
 
 export function ChainMode({
@@ -143,7 +140,10 @@ export function ChainMode({
               throughSlot={detail.slot}
             />
           </div>
-          <VoteTable votes={detail.obs.view.votes} />
+          <h4 className="pane-title">
+            このビューの投票（全 {detail.obs.view.votes.length} 件）
+          </h4>
+          <VoteTable votes={detail.obs.view.votes} all />
         </div>
       )}
 

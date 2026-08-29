@@ -878,7 +878,7 @@
     {
       "id": "T-028",
       "title": "総点検: 3 観点(ESSENCE・仕様・実装の整合/引き算の美学/複雑条件のバグ)の自己批判的点検、発見問題の全解消、点検記録、検証ゲート全通し",
-      "status": "pending",
+      "status": "done",
       "priority": "must",
       "spec": [
         "S-026",
@@ -890,7 +890,37 @@
       "batch_group": "e2-final",
       "context_cost": 5,
       "risk_level": "normal",
-      "notes": "最後の必須。他のすべての must Todo 完了後に実施し、点検の観点・発見・対処を記録として残す(成功条件 12)。"
+      "notes": "最後の必須。他のすべての must Todo 完了後に実施し、点検の観点・発見・対処を記録として残す(成功条件 12)。 点検の記録は docs/INSPECTION.md(製品側ドキュメント)。新ビジュアルの見た目の最終目視確認は人間の手元実行(npm run dev / scripts/verify-ui.mjs)が残る既知の制約として記録済み。",
+      "evidence": [
+        {
+          "type": "diff",
+          "summary": "総点検(3 観点)を実施し、発見問題を全解消した。記録: docs/INSPECTION.md(点検内容・発見・対処、日本語)。観点(1)整合の修正 — scripts/verify-ui.mjs を旧 UI 前提(視点切替・旧タブ名・V0 表記・プレースホルダ・F バッジ 1 個)から現行 UI(4 タブ・状態表・カタカナ人名・歴代 F バッジ 2 個・介入パネル・型一覧・稼働状態チップ)へ全面改稿; セル展開の投票表を LMD 畳み込みから全投票の個別列挙(VoteTable all モード)へ変更し「各投票がどのブロックを支持したか」を観測可能に; ネットワークカードに稼働状態(停止中/オフライン)のテキストチップを追加(domain の operatingStateAt 新設、App/GlobalMode 経由で interventions を配線); README の 6 箇所を実装に一致させた(Status 圧縮・seed 記述・フォーク上限・テーマ切替・カード項目・INSPECTION への導線)。観点(2)引き算 — src/ui/theme.ts(別プロダクト由来コメント付き死蔵パレット 92 行)と usePrefersReducedMotion を削除し useTheme を最小化; domain の hasBlock/leafIndices(テスト専用)を削除; 未使用 CSS 変数 --border を削除; blockName の 4 重複定義を src/ui/format.ts に一本化; 存在しない ESLint への抑制コメント 6 件を削除; 開発管理 ID(T-0xx/S-0xx 等)をソース・テスト説明文から全除去; StateTable の不要 export を非公開化。観点(3)複合バグ — InterventionPanel.setOpState が巻き戻し後に未来予約スパンを無告知削除する欠陥を発見・修正(対象を表示と同じ次スロット掛かりのスパンに限定)し回帰テストを追加。"
+        },
+        {
+          "type": "command",
+          "command": "npx vitest run tests/domain/combined.test.ts",
+          "exit_code": 0,
+          "summary": "観点(3)の敵対的複合テスト新設・全通過(12 cases): 全 8 介入種同時での決定性(再計算完全一致)・巻き戻し prefix 性・codec 往復後の再実行同一性・可視性の単調性(一度見えたら見え続ける)・二重提案兄弟と強制 parent の複合適用・欠落の恒久性と対象限定、停止×オフラインのスパン重複(沈黙・凍結・追いつき境界)、遅延×分断の同時充足(両条件が同一スロットで揃って初めて到達)、分断内エクイボケーションの閉じ込めと解消後の全員一致 LMD 解決。"
+        },
+        {
+          "type": "command",
+          "command": "npm run typecheck",
+          "exit_code": 0,
+          "summary": "tsc --noEmit exits 0 after all inspection fixes."
+        },
+        {
+          "type": "command",
+          "command": "npx vitest run",
+          "exit_code": 0,
+          "summary": "受け入れ確認(成功条件 12・13): 総点検の記録(3 観点ごとの点検内容・発見した問題・対処)が docs/INSPECTION.md に残り、発見された問題がすべて解消済み。ビルド・型検査・ユニットテスト(コアのモデル・fork choice・決定性・巻き戻しを含む)がすべて exit 0 — vitest 18 files / 184 tests 全通過(167→184: 複合 12+稼働状態 domain 3+UI 回帰 2+全投票展開 1 ほか、死蔵 API 分 2 削減)。"
+        },
+        {
+          "type": "command",
+          "command": "npm run build",
+          "exit_code": 0,
+          "summary": "vite build exits 0; static dist/ bundle unchanged in size (≈286.8 kB js)."
+        }
+      ]
     }
   ]
 }

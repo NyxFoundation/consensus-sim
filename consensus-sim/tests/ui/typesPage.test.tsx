@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * Type catalog page (型一覧, T-026), driven through the real DOM: the tab
+ * Type catalog page (型一覧), driven through the real DOM: the tab
  * renders the domain types as a layered dependency graph, and selecting a
  * node shows the verbatim implementation declaration with its dependency
  * links.
@@ -13,7 +13,6 @@ import { App } from '../../src/ui/App'
 import { DOMAIN_SOURCES } from '../../src/ui/domainSources'
 
 declare global {
-  // eslint-disable-next-line no-var
   var IS_REACT_ACT_ENVIRONMENT: boolean
 }
 globalThis.IS_REACT_ACT_ENVIRONMENT = true
@@ -58,7 +57,7 @@ function nodeButton(name: string): Element | undefined {
   )
 }
 
-describe('type catalog page (T-026)', () => {
+describe('type catalog page', () => {
   it('renders the domain types as a graph with edges', async () => {
     await click(buttonByText('型一覧'))
     const names = all('.type-node .type-node-name').map((n) => n.textContent)

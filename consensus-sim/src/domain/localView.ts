@@ -103,7 +103,7 @@ export function localHeadOf(
 }
 
 /** A validator's vote is invisible to the tree until its head arrives; this
- * bundles the three per-validator observations the UI needs (S-005). */
+ * bundles the three per-validator observations the UI needs. */
 export interface LocalObservation {
   readonly view: View;
   readonly finality: FinalityState;

@@ -148,6 +148,7 @@ export function App() {
             state={current}
             validatorCount={config.validatorCount}
             delivery={delivery}
+            interventions={session.interventions}
           />
         )}
         {mode === 'global' && (
@@ -155,6 +156,7 @@ export function App() {
             state={current}
             validatorCount={config.validatorCount}
             delivery={delivery}
+            interventions={session.interventions}
           />
         )}
         {mode === 'types' && <TypesPage />}

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * Interventions (T-009) and rewind (T-010), driven through the real DOM:
+ * Interventions and rewind, driven through the real DOM:
  * partitions diverge the network cards, stops silence validators, double
  * proposals fork the tree, drops rewrite the displayed history, and the
  * slot cursor rewinds and truncates — the same operations a user performs.
@@ -12,7 +12,6 @@ import { createRoot, type Root } from 'react-dom/client'
 import { App } from '../../src/ui/App'
 
 declare global {
-  // eslint-disable-next-line no-var
   var IS_REACT_ACT_ENVIRONMENT: boolean
 }
 globalThis.IS_REACT_ACT_ENVIRONMENT = true
@@ -73,7 +72,7 @@ async function checkPartitionValidator(v: number) {
   await click(box)
 }
 
-describe('partition intervention from the UI (T-009)', () => {
+describe('partition intervention from the UI', () => {
   it('diverges the network cards and reconverges after healing', async () => {
     await checkPartitionValidator(0)
     await checkPartitionValidator(1)
@@ -98,7 +97,7 @@ function expectNoInvalidSpanInQueue() {
   }
 }
 
-describe('intervention queue soundness (T-024)', () => {
+describe('intervention queue soundness', () => {
   it('healing a partition before it takes effect removes it outright', async () => {
     await checkPartitionValidator(0)
     await checkPartitionValidator(1)
@@ -159,7 +158,7 @@ function opStateButton(name: string, label: string): Element | undefined {
   )
 }
 
-describe('operating states from the UI (T-009 / T-021)', () => {
+describe('operating states from the UI', () => {
   it('a stopped proposer leaves the slot empty and resuming restores votes', async () => {
     // Slot 1's proposer is V1 (ボブ): stop it before the first advance.
     await click(opStateButton('ボブ', '停止'))
@@ -175,31 +174,61 @@ describe('operating states from the UI (T-009 / T-021)', () => {
     expect(all('.vote-table tbody tr')).toHaveLength(4)
   })
 
-  it('an offline validator freezes and catches up after returning (T-021)', async () => {
+  it('an offline validator freezes and catches up after returning', async () => {
     await click(opStateButton('ボブ', 'オフライン'))
     expect(text('.intervention-list')).toContain('オフライン ボブ')
     await advance(3)
     // Slot 1 (ボブ's proposal) is empty; slots 2 and 3 propose.
     expect(all('.tree-block')).toHaveLength(3)
 
-    // ボブ's card is frozen at the anchor while everyone else moved on.
+    // ボブ's card is frozen at the anchor while everyone else moved on, and
+    // its operating state is readable at a glance.
     await click(buttonByText('ネットワーク表示'))
     const diverged = all('.validator-card.diverged')
     expect(diverged).toHaveLength(1)
     expect(diverged[0]?.textContent).toContain('ボブ')
     expect(diverged[0]?.textContent).toContain('B0')
+    const opFlags = all('.card-flag-op')
+    expect(opFlags).toHaveLength(1)
+    expect(opFlags[0]?.textContent).toBe('オフライン')
 
     // Return to 稼働: pent-up messages arrive through normal propagation
-    // and the views reconverge.
+    // and the views reconverge; the operating-state flag disappears.
     await click(opStateButton('ボブ', '稼働'))
     await advance(2)
     expect(all('.validator-card.diverged')).toHaveLength(0)
+    expect(all('.card-flag-op')).toHaveLength(0)
     await click(buttonByText('チェーン表示'))
     expect(all('.vote-table tbody tr')).toHaveLength(4)
   })
+
+  it('shows 停止中 on the card of a merely stopped validator', async () => {
+    await click(opStateButton('キャロル', '停止'))
+    await advance(1)
+    await click(buttonByText('ネットワーク表示'))
+    const opFlags = all('.card-flag-op')
+    expect(opFlags).toHaveLength(1)
+    expect(opFlags[0]?.textContent).toBe('停止中')
+  })
+
+  it('leaves a span scheduled beyond the cursor untouched when the state is changed after a rewind', async () => {
+    // Schedule ボブ offline from s2, then rewind so the span lies ahead of
+    // the control's next slot: the control reads 稼働 and setting 停止 must
+    // add a new span without silently deleting the scheduled one.
+    await advance(1)
+    await click(opStateButton('ボブ', 'オフライン'))
+    expect(text('.intervention-list')).toContain('オフライン ボブ s2〜')
+    const back = container.querySelector('button[aria-label="1 スロット戻る"]')
+    await click(back)
+    expect(opStateButton('ボブ', '稼働')?.getAttribute('aria-pressed')).toBe('true')
+    await click(opStateButton('ボブ', '停止'))
+    expect(text('.intervention-list')).toContain('オフライン ボブ s2〜')
+    expect(text('.intervention-list')).toContain('停止 ボブ s1〜')
+    expectNoInvalidSpanInQueue()
+  })
 })
 
-describe('fork creation from the UI (T-022)', () => {
+describe('fork creation from the UI', () => {
   async function designateParent(value: string) {
     const select = container.querySelector(
       'select[aria-label="提案の parent ブロック"]',
@@ -249,7 +278,7 @@ describe('fork creation from the UI (T-022)', () => {
   })
 })
 
-describe('equivocation from the UI (T-009)', () => {
+describe('equivocation from the UI', () => {
   it('double propose forks the next slot into two sibling blocks', async () => {
     await click(buttonByText('次スロットで二重提案（提案者 ボブ）'))
     expect(text('.intervention-list')).toContain('二重提案 ボブ @ s1')
@@ -276,7 +305,7 @@ describe('equivocation from the UI (T-009)', () => {
   })
 })
 
-describe('message drop from the UI (T-009)', () => {
+describe('message drop from the UI', () => {
   it('dropping a block rewrites history deterministically for its observers', async () => {
     await advance(1)
     const select = container.querySelector('select[aria-label="対象メッセージ"]')
@@ -302,7 +331,7 @@ describe('message drop from the UI (T-009)', () => {
   })
 })
 
-describe('rewind (T-010)', () => {
+describe('rewind', () => {
   it('rewinds to a past slot and reproduces that state exactly', async () => {
     await advance(5)
     expect(text('.slot-current')).toContain('5')

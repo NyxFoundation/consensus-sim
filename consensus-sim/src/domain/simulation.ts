@@ -201,9 +201,10 @@ export function advanceSlot(
 }
 
 /**
- * The state at `slot`, recomputed from the anchor. This is both the initial
- * run and the rewind path: rewinding never replays mutable history, it
- * re-derives it.
+ * The state at `slot`, recomputed from the anchor with honest per-slot
+ * behaviour. `delivery` filters what each validator sees, but no slot
+ * directives apply — for a scenario whose interventions also silence or
+ * equivocate validators, use `scenarioStates`, which compiles both axes.
  */
 export function stateAtSlot(
   config: SimulationConfig,

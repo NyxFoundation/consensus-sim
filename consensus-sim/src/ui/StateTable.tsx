@@ -9,6 +9,7 @@
 
 import { latestVotes, validatorName } from '../domain'
 import type { LocalObservation, ValidatorIndex } from '../domain'
+import { blockName } from './format'
 import { COL_W, LABEL_W, TABLE_OFFSET } from './treeGeometry'
 import { validatorColor } from './validatorColor'
 
@@ -46,11 +47,7 @@ export interface StateTableProps {
   onToggleCell(cell: ExpandedCell): void
 }
 
-function blockName(index: number): string {
-  return `B${index}`
-}
-
-export function cellValue(
+function cellValue(
   obs: LocalObservation,
   validator: ValidatorIndex,
   item: StateCellItem,
@@ -78,7 +75,7 @@ export function cellValue(
  * column's plurality value. When no single value wins the plurality (e.g. a
  * 2-2 partition), the disagreement is mutual and every cell is highlighted.
  */
-export function diffFlags(values: readonly string[]): readonly boolean[] {
+function diffFlags(values: readonly string[]): readonly boolean[] {
   const counts = new Map<string, number>()
   for (const v of values) counts.set(v, (counts.get(v) ?? 0) + 1)
   if (counts.size <= 1) return values.map(() => false)

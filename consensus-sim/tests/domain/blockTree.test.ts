@@ -9,9 +9,7 @@ import {
   childrenOf,
   createBlockTree,
   getBlock,
-  hasBlock,
   isAncestor,
-  leafIndices,
   pathToAnchor,
   type Block,
 } from "../../src/domain";
@@ -43,14 +41,14 @@ describe("anchor block", () => {
 describe("addBlock", () => {
   it("adds a child of the anchor", () => {
     const tree = addBlock(createBlockTree(), block(1, 0, 1));
-    expect(hasBlock(tree, 1)).toBe(true);
+    expect(tree.blocks.has(1)).toBe(true);
     expect(childrenOf(tree, 0)).toEqual([1]);
   });
 
   it("does not mutate the original tree", () => {
     const before = createBlockTree();
     addBlock(before, block(1, 0, 1));
-    expect(hasBlock(before, 1)).toBe(false);
+    expect(before.blocks.has(1)).toBe(false);
   });
 
   it("is a no-op for an identical duplicate", () => {
@@ -104,10 +102,5 @@ describe("tree queries", () => {
 
   it("pathToAnchor lists the chain from the block to the root", () => {
     expect(pathToAnchor(tree, 2).map((b) => b.index)).toEqual([2, 1, 0]);
-  });
-
-  it("leafIndices lists blocks without children", () => {
-    expect(leafIndices(tree)).toEqual([2, 3]);
-    expect(leafIndices(createBlockTree())).toEqual([0]);
   });
 });

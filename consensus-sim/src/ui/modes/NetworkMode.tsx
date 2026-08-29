@@ -1,24 +1,33 @@
 /**
- * Network mode (ネットワークモード): every validator's state at a glance —
- * one card per validator with head / justified / finalized / latest vote —
- * and, on mouse-over (or keyboard focus), that validator's full local view
- * rendered as its block tree below the grid.
+ * Network display (ネットワーク表示): every validator's state at a glance —
+ * one card per validator with its operating state (稼働状態), head /
+ * justified / finalized and latest vote — and, on mouse-over (or keyboard
+ * focus), that validator's full local view rendered as its block tree below
+ * the grid.
  *
- * Each card is computed with `observe` — the same pure filter chain mode
- * uses — so a card shows exactly what that validator knows. A card whose
- * head disagrees with the most common head is flagged (colour never carries
- * the signal alone; the flag is a text label).
+ * Each card is computed with `observe` — the same pure filter the chain
+ * display uses — so a card shows exactly what that validator knows. A card
+ * whose head disagrees with the most common head is flagged (colour never
+ * carries the signal alone; the flags are text labels).
  */
 
 import { useState } from 'react'
-import { instantDelivery, latestVotes, observe, validatorName } from '../../domain'
+import {
+  instantDelivery,
+  latestVotes,
+  observe,
+  operatingStateAt,
+  validatorName,
+} from '../../domain'
 import type {
   Delivery,
+  Intervention,
   LocalObservation,
   SimulationState,
   ValidatorIndex,
 } from '../../domain'
 import { BlockTreeView } from '../BlockTreeView'
+import { blockName } from '../format'
 import { validatorColor } from '../validatorColor'
 
 export interface NetworkModeProps {
@@ -26,11 +35,11 @@ export interface NetworkModeProps {
   readonly validatorCount: number
   /** The scenario's delivery rule — local views are filtered through it. */
   readonly delivery?: Delivery | undefined
+  /** The scenario's interventions — the cards read the operating states. */
+  readonly interventions?: readonly Intervention[] | undefined
 }
 
-function blockName(index: number): string {
-  return `B${index}`
-}
+const OP_STATE_FLAGS = { stopped: '停止中', offline: 'オフライン' } as const
 
 function majorityHead(
   observations: readonly LocalObservation[],
@@ -54,6 +63,7 @@ export function NetworkMode({
   state,
   validatorCount,
   delivery = instantDelivery,
+  interventions = [],
 }: NetworkModeProps) {
   const [inspected, setInspected] = useState<ValidatorIndex | undefined>()
 
@@ -70,6 +80,7 @@ export function NetworkMode({
         {observations.map((o, v) => {
           const myVote = latestVotes(o.view.votes).get(v)
           const diverged = commonHead !== undefined && o.head !== commonHead
+          const opState = operatingStateAt(interventions, v, state.slot)
           return (
             <button
               type="button"
@@ -91,6 +102,11 @@ export function NetworkMode({
                   style={{ background: validatorColor(v) }}
                 />
                 {validatorName(v)}
+                {opState !== 'active' && (
+                  <span className="card-flag card-flag-op">
+                    {OP_STATE_FLAGS[opState]}
+                  </span>
+                )}
                 {diverged && <span className="card-flag">分岐中</span>}
               </span>
               <dl className="status-list card-status">

@@ -5,24 +5,28 @@
  * behaves identically here.
  */
 
+import type { Intervention } from '../../domain'
 import { ChainMode, type ChainModeProps } from './ChainMode'
 import { NetworkMode } from './NetworkMode'
 
-export type GlobalModeProps = ChainModeProps
+export interface GlobalModeProps extends ChainModeProps {
+  readonly interventions?: readonly Intervention[] | undefined
+}
 
-export function GlobalMode(props: GlobalModeProps) {
+export function GlobalMode({ interventions, ...chain }: GlobalModeProps) {
   return (
     <section className="global-mode">
       <div className="global-pane">
         <h2 className="pane-title">チェーン</h2>
-        <ChainMode {...props} />
+        <ChainMode {...chain} />
       </div>
       <div className="global-pane">
         <h2 className="pane-title">ネットワーク</h2>
         <NetworkMode
-          state={props.state}
-          validatorCount={props.validatorCount}
-          delivery={props.delivery}
+          state={chain.state}
+          validatorCount={chain.validatorCount}
+          delivery={chain.delivery}
+          interventions={interventions}
         />
       </div>
     </section>

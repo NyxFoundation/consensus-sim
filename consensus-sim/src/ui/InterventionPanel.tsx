@@ -8,10 +8,17 @@
  */
 
 import { useState } from 'react'
-import { closeSpanAt, proposerForSlot, validatorName, viewOf } from '../domain'
+import {
+  closeSpanAt,
+  operatingStateAt,
+  proposerForSlot,
+  validatorName,
+  viewOf,
+} from '../domain'
 import type {
   Intervention,
   MessageRef,
+  OperatingState,
   PartitionIntervention,
   SimulationState,
   ValidatorIndex,
@@ -19,15 +26,13 @@ import type {
 import type { SimulationSession } from './useSimulation'
 import { validatorColor } from './validatorColor'
 
-type OpState = 'active' | 'stopped' | 'offline'
-
-const OP_STATE_LABELS: Readonly<Record<OpState, string>> = {
+const OP_STATE_LABELS: Readonly<Record<OperatingState, string>> = {
   active: '稼働',
   stopped: '停止',
   offline: 'オフライン',
 }
 
-/** UI-side cap on simultaneous fork-creation designations (必須 10). */
+/** UI-side cap on simultaneous fork-creation designations. */
 const MAX_FORK_DESIGNATIONS = 4
 
 const validatorLabel = (v: ValidatorIndex) => validatorName(v)
@@ -146,34 +151,24 @@ export function InterventionPanel({ session }: InterventionPanelProps) {
   const openPartition = (i: Intervention): i is PartitionIntervention =>
     i.kind === 'partition' && (i.toSlot === undefined || i.toSlot >= nextSlot)
 
-  // Operating state (稼働状態): derived from the open stop/offline spans at
-  // the next slot. Offline wins when both are somehow open.
-  const openSpanWith = (
-    i: Intervention,
-    kind: 'stop' | 'offline',
-    v: ValidatorIndex,
-  ): boolean =>
-    i.kind === kind &&
-    i.validators.includes(v) &&
-    i.fromSlot <= nextSlot &&
-    (i.toSlot === undefined || i.toSlot >= nextSlot)
-  const opStateOf = (v: ValidatorIndex): OpState =>
-    interventions.some((i) => openSpanWith(i, 'offline', v))
-      ? 'offline'
-      : interventions.some((i) => openSpanWith(i, 'stop', v))
-        ? 'stopped'
-        : 'active'
+  // Operating state (稼働状態) of the next slot — what the control displays.
+  const opStateOf = (v: ValidatorIndex): OperatingState =>
+    operatingStateAt(interventions, v, nextSlot)
 
-  /** Move v to `target` from the next slot: close every open stop/offline
-   * span covering v (closeSpanAt removes a span that has not started yet, so
-   * no toSlot-before-fromSlot entry can be produced), then open the new one. */
-  const setOpState = (v: ValidatorIndex, target: OpState) => {
+  /** Move v to `target` from the next slot: close every stop/offline span
+   * covering v at the next slot (closeSpanAt removes one starting exactly
+   * there, so no toSlot-before-fromSlot entry can be produced), then open
+   * the new one. Spans starting later than the next slot — scheduled ahead
+   * after a rewind — are not what the control displays, so they are left
+   * untouched. */
+  const setOpState = (v: ValidatorIndex, target: OperatingState) => {
     if (opStateOf(v) === target) return
     const next: Intervention[] = []
     for (const i of interventions) {
       if (
         (i.kind === 'stop' || i.kind === 'offline') &&
         i.validators.includes(v) &&
+        i.fromSlot <= nextSlot &&
         (i.toSlot === undefined || i.toSlot >= nextSlot)
       ) {
         const others = i.validators.filter((x) => x !== v)
@@ -304,7 +299,7 @@ export function InterventionPanel({ session }: InterventionPanelProps) {
                   role="group"
                   aria-label={`${validatorLabel(v)} の稼働状態`}
                 >
-                  {(Object.keys(OP_STATE_LABELS) as OpState[]).map((s) => (
+                  {(Object.keys(OP_STATE_LABELS) as OperatingState[]).map((s) => (
                     <button
                       type="button"
                       key={s}

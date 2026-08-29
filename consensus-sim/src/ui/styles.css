@@ -26,7 +26,6 @@
   --accent: #2a78d6;
   --status-warning: #fab219;
   --status-good: #0ca30c;
-  --border: #dedede;
   --control-bg: #ffffff;
   --block-fill: #efefef;
 }
@@ -45,7 +44,6 @@
     --accent: #3987e5;
     --status-warning: #fab219;
     --status-good: #0ca30c;
-    --border: #2b2b2b;
     --control-bg: #202020;
     --block-fill: #262626;
   }
@@ -64,7 +62,6 @@
   --accent: #3987e5;
   --status-warning: #fab219;
   --status-good: #0ca30c;
-  --border: #2b2b2b;
   --control-bg: #202020;
   --block-fill: #262626;
 }
@@ -752,6 +749,17 @@ body {
   background: var(--status-warning);
   border-radius: var(--radius);
   padding: 0 6px;
+}
+
+.card-flag + .card-flag {
+  margin-left: 4px;
+}
+
+/* Operating state (稼働状態) is chrome-adjacent model state: monochrome chip,
+   the text carries the signal. */
+.card-flag-op {
+  color: var(--ink-primary);
+  background: var(--neutral-cell);
 }
 
 .network-hint {

@@ -25,10 +25,6 @@ export function getBlock(tree: BlockTree, index: BlockIndex): Block | undefined 
   return tree.blocks.get(index);
 }
 
-export function hasBlock(tree: BlockTree, index: BlockIndex): boolean {
-  return tree.blocks.has(index);
-}
-
 /**
  * Add a block. Rejects blocks whose parent is unknown, whose index is
  * already present with different content, or whose slot does not come after
@@ -103,17 +99,4 @@ export function pathToAnchor(tree: BlockTree, index: BlockIndex): Block[] {
     current = tree.blocks.get(current.parent);
   }
   return path;
-}
-
-/** Blocks with no children — the candidate heads, in ascending index order. */
-export function leafIndices(tree: BlockTree): BlockIndex[] {
-  const hasChild = new Set<BlockIndex>();
-  for (const block of tree.blocks.values()) {
-    if (block.parent !== NO_PARENT) hasChild.add(block.parent);
-  }
-  const leaves: BlockIndex[] = [];
-  for (const block of tree.blocks.values()) {
-    if (!hasChild.has(block.index)) leaves.push(block.index);
-  }
-  return leaves.sort((a, b) => a - b);
 }

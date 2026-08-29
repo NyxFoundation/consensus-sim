@@ -6,11 +6,11 @@
     "stop_after_infra_fails": 2
   },
   "progress": {
-    "last_signature": "e173ee781bf74a5ec95458feaf3dabf43386f6584e318f241a250940321efb46",
+    "last_signature": "32cac367ef5e13eeb5c77f784a3d956c0fac3f2084cd00ff1f4ed61e09161346",
     "idle_cycles_since_progress": 0,
     "infra_fails_since_ok": 0,
-    "last_progress_at": "2026-08-30T02:28:21+09:00",
-    "last_checked_at": "2026-08-30T02:28:21+09:00",
+    "last_progress_at": "2026-08-30T02:49:20+09:00",
+    "last_checked_at": "2026-08-30T02:49:20+09:00",
     "usage_limited_since_ok": 0
   },
   "reset_policy": {
@@ -21,20 +21,20 @@
     "reset_after_decisions": 5
   },
   "counters": {
-    "context_usage_estimate": 0.4,
+    "context_usage_estimate": 0.5,
     "failed_attempts_since_reset": 0,
-    "changed_files_since_reset": 15,
-    "completed_todos_since_reset": 3,
-    "important_decisions_since_reset": 4,
+    "changed_files_since_reset": 42,
+    "completed_todos_since_reset": 4,
+    "important_decisions_since_reset": 7,
     "major_spec_rewrite_since_reset": false,
     "high_risk_change_completed": false
   },
   "handoff": {
-    "written_at": "2026-08-30T02:26:00+09:00",
-    "summary": "改訂 Essence(attest 済み bcb5982e)から Spec を再投影: S-027 を pbs.show 参照から言語化デザイン方針(知的で無骨なデータ中心 UI・高情報密度・モノクロ/低彩度基調+アクセント・フラット薄境界線・Sans Serif 基本と等幅の使い分け)に置換し、projected_from_essence_sha256 を更新(validation ok・警告ゼロ)。T-027 をブロック解除して同方針の CSS 刷新を実施し done(styles.css 全面改稿+theme.ts 中立グレー同期、マークアップ不変更、typecheck/167 tests/build 全 exit 0)。実ブラウザ smoke は sandbox の Mach ポート制約で不可(既知)。残る must は T-028(総点検)のみ。",
+    "written_at": "2026-08-30T02:48:00+09:00",
+    "summary": "T-028(総点検)を完了し、must 全 14 Todo が done。総点検は 2 並行の読み取り専用監査(全数トレース/引き算スキャン)+自前の複合条件テスト新設で実施し、発見問題を全解消: verify-ui.mjs 全面改稿(旧 UI 前提で全チェック失敗する状態だった)、セル展開の全投票列挙化(必須 5)、ネットワークカードへの稼働状態チップ(必須 8, operatingStateAt 新設)、setOpState の未来スパン無告知削除の修正、死蔵コード削除(theme.ts 一式・hasBlock/leafIndices・--border・eslint コメント・作業 ID 露出)、README 6 箇所整合、docs/INSPECTION.md(点検記録, 成功条件 12)作成、Spec の essence_refs に成功条件 13 項中 11 項のトレースを追加。最終ゲート typecheck/vitest 18 files 184 tests/build 全 exit 0。ループ境界で must_complete_awaiting_phase_approval が立ち、人間のフェーズ判断(--approve-should / --close-at-must)待ちになる想定。",
     "next_actions": [
-      "T-028(総点検)を単独バッチで実施する: (1) ESSENCE・Spec(S-001..S-030)・実装の全項目トレース照合、(2) 引き算の美学(不要コード・死に CSS・冗長コメント・ドキュメント過不足の洗い出し)、(3) 複雑条件の組み合わせバグ(介入の複合・巻き戻し・シナリオ再実行の境界ケースを追加テストで攻める)。観点・発見・対処を記録として残し(成功条件 12)、発見問題を全解消してから done にする。",
-      "総点検で新デザインの見た目の人間目視確認が未了である旨を記録に含める(npm run dev / scripts/verify-ui.mjs は人間の手元実行)。"
+      "人間のフェーズ判断待ち(must 境界)。approve-should なら T-014(自動再生)/T-015(ショートカット)/T-017(シナリオのメモ・命名)が走行可能になる。",
+      "人間への引き継ぎ事項: 新ビジュアル(モノクロ基調・フラット・高密度)の見た目の最終目視確認が未了 — npm run dev または npm run build && node scripts/verify-ui.mjs(Playwright chromium はインストール済み、sandbox 外の手元実行が必要)。"
     ],
     "open_questions": [],
     "pending_cycle": false

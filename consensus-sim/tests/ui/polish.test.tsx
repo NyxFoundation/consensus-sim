@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * No-manual operability polish (T-012): every panel explains itself in place —
+ * No-manual operability polish: every panel explains itself in place —
  * empty states carry hints, the message selector stays readable by grouping
  * per publish slot, panel headers summarize their contents and collapse, and
  * the equivocation legend is glossed in Japanese like the rest of the UI.
@@ -12,7 +12,6 @@ import { createRoot, type Root } from 'react-dom/client'
 import { App } from '../../src/ui/App'
 
 declare global {
-  // eslint-disable-next-line no-var
   var IS_REACT_ACT_ENVIRONMENT: boolean
 }
 globalThis.IS_REACT_ACT_ENVIRONMENT = true
@@ -62,7 +61,7 @@ async function advance(times: number) {
   }
 }
 
-describe('empty states explain the next step (T-012)', () => {
+describe('empty states explain the next step', () => {
   it('shows hints for the empty intervention list, scenario list and message log', () => {
     expect(text('.intervention-panel .empty-hint')).toContain(
       '介入はまだありません',
@@ -92,7 +91,7 @@ describe('empty states explain the next step (T-012)', () => {
   })
 })
 
-describe('message selector grouped by publish slot (T-012)', () => {
+describe('message selector grouped by publish slot', () => {
   it('groups messages per slot, newest slot first, and stays selectable', async () => {
     await advance(2)
     const select = container.querySelector(
@@ -118,7 +117,7 @@ describe('message selector grouped by publish slot (T-012)', () => {
   })
 })
 
-describe('panel headers summarize and collapse (T-012)', () => {
+describe('panel headers summarize and collapse', () => {
   it('summarizes scheduled interventions and saved scenarios in the summary line', async () => {
     await advance(1)
     const group = all('.intervention-group').find((g) =>
@@ -142,7 +141,7 @@ describe('panel headers summarize and collapse (T-012)', () => {
   })
 })
 
-describe('equivocation legend is glossed in Japanese (T-012)', () => {
+describe('equivocation legend is glossed in Japanese', () => {
   it('labels the equivocation group with 二重提案・二重投票', () => {
     const legends = all('.intervention-group legend').map(
       (l) => l.textContent ?? '',

@@ -12,7 +12,6 @@ import { validatorName } from '../../src/domain'
 import { App } from '../../src/ui/App'
 
 declare global {
-  // eslint-disable-next-line no-var
   var IS_REACT_ACT_ENVIRONMENT: boolean
 }
 globalThis.IS_REACT_ACT_ENVIRONMENT = true
@@ -59,7 +58,7 @@ async function advance(times: number) {
   for (let i = 0; i < times; i++) await click(buttonByText('＋1 スロット進める'))
 }
 
-describe('App shell (T-006)', () => {
+describe('App shell', () => {
   it('starts at slot 0 with the anchor block only and three mode tabs', () => {
     expect(text('h1')).toBe('consensus-sim')
     expect(text('.slot-current')).toContain('0')
@@ -103,7 +102,7 @@ describe('App shell (T-006)', () => {
   })
 })
 
-describe('Chain display overlay (T-019)', () => {
+describe('Chain display overlay', () => {
   it('always overlays every validator head with no perspective toggle', async () => {
     await advance(4)
     const status = text('.status-list')
@@ -129,7 +128,7 @@ async function hover(el: Element | null | undefined) {
   })
 }
 
-describe('Network mode (T-008)', () => {
+describe('Network mode', () => {
   it('shows one card per validator with head / justified / finalized / vote', async () => {
     await advance(9)
     await click(buttonByText('ネットワーク表示'))
@@ -174,7 +173,7 @@ describe('Network mode (T-008)', () => {
   })
 })
 
-describe('Global mode (T-008)', () => {
+describe('Global mode', () => {
   it('shows the chain pane on the left and the network pane on the right', async () => {
     await advance(4)
     await click(buttonByText('全体表示'))

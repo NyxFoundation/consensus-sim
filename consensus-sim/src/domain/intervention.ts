@@ -125,6 +125,26 @@ const activeAt = (
   slot: SlotIndex,
 ): boolean => slot >= fromSlot && (toSlot === undefined || slot <= toSlot);
 
+/** 稼働状態: online-and-acting, silenced, or fully cut off. */
+export type OperatingState = "active" | "stopped" | "offline";
+
+/** A validator's operating state at `slot` under the scheduled spans.
+ * Offline wins over stopped when both spans cover the slot. */
+export function operatingStateAt(
+  interventions: readonly Intervention[],
+  validator: ValidatorIndex,
+  slot: SlotIndex,
+): OperatingState {
+  const covers = (kind: "stop" | "offline"): boolean =>
+    interventions.some(
+      (i) =>
+        i.kind === kind &&
+        i.validators.includes(validator) &&
+        activeAt(i.fromSlot, i.toSlot, slot),
+    );
+  return covers("offline") ? "offline" : covers("stop") ? "stopped" : "active";
+}
+
 /** Group id of `v` under `groups`; unlisted validators share group -1. */
 function groupOf(
   groups: readonly (readonly ValidatorIndex[])[],

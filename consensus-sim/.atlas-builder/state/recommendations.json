@@ -70,6 +70,39 @@
       "resolved_at": "2026-08-30T02:16:36+09:00",
       "resolved_by": "human",
       "resolution": "pbs.show 参照へのアクセス不能(R-002)は、参照 URL 自体を ESSENCE.mdから削除し、言語化したデザイン方針(知的で無骨なデータ中心UI・高情報密度・モノクロ基調+アクセントカラー・フラット・Sans Serif と等幅の使い分け)へ置き換える update-essence改訂で根治した。提示選択肢 A/B/C のいずれも採らない。柱 2 の延期は維持。次サイクルは新 Essence から Specを再投影し、新デザイン方針でビジュアル刷新(旧 T-027 相当)を継続する。"
+    },
+    {
+      "id": "R-LG-20260830T024920+0900-05f3",
+      "type": "Human-input Recommendation",
+      "status": "proposed",
+      "raised_by": "atlas-builder-loop",
+      "gate": "must_complete_awaiting_phase_approval",
+      "target": "todo.json",
+      "reason": "All must-priority Todos are done (a reviewable checkpoint, not the terminus, §19.3). Advancing to the should phase is a human budget / priority decision: `just resume` approves it (sets phase = extended_approved and makes should Todos runnable); not re-running the loop ends the project here. Editing ESSENCE.md is needed only to change the requirements themselves.",
+      "details": {
+        "must_done": 24,
+        "must_total": 24,
+        "pending_shoulds": [
+          {
+            "id": "T-014",
+            "status": "pending",
+            "title": "スロット送りの自動再生(速度調整付き)と一時停止"
+          },
+          {
+            "id": "T-015",
+            "status": "pending",
+            "title": "介入・シナリオ操作のキーボードショートカット"
+          },
+          {
+            "id": "T-017",
+            "status": "pending",
+            "title": "シナリオへのメモ・命名"
+          }
+        ]
+      },
+      "requires_human_approval": true,
+      "agent_action": "stop_until_human_review",
+      "created_at": "2026-08-30T02:49:20+09:00"
     }
   ]
 }

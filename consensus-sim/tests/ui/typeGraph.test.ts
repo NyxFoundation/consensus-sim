@@ -1,4 +1,4 @@
-// Type catalog (型一覧, T-026): the extractor reads the domain layer's real
+// Type catalog (型一覧): the extractor reads the domain layer's real
 // source text, so these tests pin both the extractor's mechanics (on a
 // synthetic module) and the resulting catalog's fidelity to the shipped
 // implementation (on the bundled domain sources).

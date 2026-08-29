@@ -10,22 +10,13 @@ state at any slot is a pure function of the scenario, so any run can be
 replayed, rewound and inspected from any validator's point of view. The UI
 text is Japanese; code and documentation are English.
 
-**Status:** the domain layer (block tree, LMD-GHOST fork choice,
-justification/finality over source→target checkpoints, per-validator local
-views, deterministic slot driver, interventions compiled onto the
-delivery/directives axes) is complete and fully tested. The UI ships all
-three displays — chain (the tree overlaid with every validator's
-information, plus the state table beneath it), network (per-validator
-cards with hover views) and global (chain + network side by side) — plus
-the intervention panel (partition, the three operating states, equivocation,
-per-message delay/drop, fork creation), slot rewind, and scenario
-save/reload/replay (a
-localStorage-backed list), and a type catalog page (型一覧) that renders
-the domain layer's exported types as a top-down dependency graph straight
-from the bundled source text. Every scenario operation is discoverable
-from the UI itself: panels collapse but summarize their contents, empty
-lists explain the next step, and the message selector groups the log per
-publish slot.
+**Status:** feature-complete for the most-abstract level. The pure domain
+layer is fully tested (including adversarial combinations of every
+intervention at once), and the UI ships the four tabs described below with
+the intervention panel, slot rewind and localStorage-backed scenarios.
+Every scenario operation is discoverable from the UI itself: panels
+collapse but summarize their contents, empty lists explain the next step,
+and the message selector groups the log per publish slot.
 
 ## Quickstart
 
@@ -35,8 +26,9 @@ npm run dev        # http://localhost:5173
 ```
 
 Open the page, press **＋1 スロット進める** to advance a slot, and watch the
-proposal, the votes and each validator's head update. The header tabs
-switch between three displays and the type catalog:
+proposal, the votes and each validator's head update. The header also holds
+the validator count (4–10) and a light/dark toggle (light is the default).
+The header tabs switch between three displays and the type catalog:
 
 - **チェーン表示** — the block tree with every validator's information
   overlaid (heads, latest votes, J/F checkpoint badges). Below it, the
@@ -44,11 +36,12 @@ switch between three displays and the type catalog:
   per validator, the cell item (head / justified / finalized / latest vote /
   view element counts) selectable from the UI, cells that disagree with the
   other validators highlighted, and any cell expandable into that
-  validator's full local view at that slot — block tree, votes and which
-  block each vote supported, head, justified/finalized.
-- **ネットワーク表示** — one card per validator (head / justified /
-  finalized / latest vote at a glance); hover a card to see that
-  validator's own block tree.
+  validator's full local view at that slot — block tree, every vote it has
+  seen (equivocating double votes listed individually) and which block each
+  vote supported, head, justified/finalized.
+- **ネットワーク表示** — one card per validator (operating state, head /
+  justified / finalized / latest vote at a glance); hover a card to see
+  that validator's own block tree.
 - **全体表示** — chain on the left, network on the right.
 - **型一覧** — the domain layer's exported types as a top-down dependency
   graph (types depending on no other type on the top row). The catalog is
@@ -63,17 +56,19 @@ receiving / オフライン = fully cut off with a frozen view that catches up
 through normal propagation after returning), schedule a double proposal or
 double vote (equivocation), delay or drop one specific message, and create
 a fork by designating the next proposal's parent from the proposer's own
-view (フォーク作成 — at most 4 simultaneous designations; forks arising
-naturally from other interventions are not capped). Scheduled
+view (フォーク作成 — the queue holds at most 4 such designations at a time,
+so designated forks never exceed 4 at once; forks arising naturally from
+other interventions are not capped). Scheduled
 interventions stay listed — healing, resuming or deleting one recomputes
 the whole displayed history deterministically. The ◀ / ▶ cursor rewinds to
 any past slot and reproduces that state exactly; advancing from a past slot
 truncates the discarded future.
 
-The シナリオ panel saves the current run — initial conditions (seed
-included) plus the intervention list and how far it advanced — to a
-browser-local list, and reloading replays it deterministically to the
-identical states.
+The シナリオ panel saves the current run — initial conditions plus the
+intervention list and how far it advanced — to a browser-local list, and
+reloading replays it deterministically to the identical states. A seed is
+part of the saved identity for forward compatibility, but the current
+skeleton has no random choice, so there is no seed control in the UI yet.
 
 Sanity check:
 
@@ -118,6 +113,10 @@ and never the other way around (`tests/domain/purity.test.ts` enforces
 this mechanically). More concrete abstraction levels (delta/discrete-event
 timing, full Gasper semantics, stochastic networks) are future additions
 the boundary is designed not to obstruct.
+
+`docs/INSPECTION.md` records the pre-release inspection: the
+requirement-to-implementation trace, the subtractive design review, and the
+adversarial combined-intervention test campaign.
 
 `scripts/verify-ui.mjs` smoke-drives the built bundle in a real Chromium
 via Playwright (`npx playwright install chromium` once, then

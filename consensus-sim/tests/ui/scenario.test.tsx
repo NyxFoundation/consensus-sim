@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * Scenario save / reload / replay (T-011), driven through the real DOM:
+ * Scenario save / reload / replay, driven through the real DOM:
  * saving captures the run's identity (config + interventions + how far it
  * advanced), and reloading reproduces the identical displayed run even
  * after the live scenario has been mutated — determinism made visible.
@@ -12,7 +12,6 @@ import { createRoot, type Root } from 'react-dom/client'
 import { App } from '../../src/ui/App'
 
 declare global {
-  // eslint-disable-next-line no-var
   var IS_REACT_ACT_ENVIRONMENT: boolean
 }
 globalThis.IS_REACT_ACT_ENVIRONMENT = true
@@ -73,7 +72,7 @@ async function setOpState(name: string, label: string) {
   await click(btn)
 }
 
-describe('scenario save / reload / replay (T-011)', () => {
+describe('scenario save / reload / replay', () => {
   it('reproduces the saved run identically after the live scenario was mutated', async () => {
     // Build a distinctive run: V1 (ボブ) stopped from slot 1, advanced to slot 3.
     await setOpState('ボブ', '停止')

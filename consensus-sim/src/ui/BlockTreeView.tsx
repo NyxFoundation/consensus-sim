@@ -146,7 +146,7 @@ export function BlockTreeView({
         if (row === undefined) return null
         const { x, y } = center(block.slot, row)
         // Every checkpoint at or below the finalized frontier is finalized —
-        // F never regresses to J on older checkpoints (成功条件 8).
+        // F never regresses to J on older checkpoints.
         const justified = finality.justified.has(block.index)
         const finalized =
           justified &&
