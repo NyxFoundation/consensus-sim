@@ -14,7 +14,8 @@ text is Japanese; code and documentation are English.
 justification/finality over source→target checkpoints, per-validator local
 views, deterministic slot driver, interventions compiled onto the
 delivery/directives axes) is complete and fully tested. The UI ships all
-three modes — chain (local / god perspectives), network (per-validator
+three displays — chain (the tree overlaid with every validator's
+information, plus the state table beneath it), network (per-validator
 cards with hover views) and global (chain + network side by side) — plus
 the intervention panel (partition, stop/resume, equivocation, per-message
 delay/drop), slot rewind, and scenario save/reload/replay (a
@@ -31,17 +32,21 @@ npm run dev        # http://localhost:5173
 ```
 
 Open the page, press **＋1 スロット進める** to advance a slot, and watch the
-proposal, the votes and each validator's head update. Three modes are
+proposal, the votes and each validator's head update. Three displays are
 available from the header tabs:
 
-- **チェーンモード** — the block tree, switchable between 局所視点 (one
-  validator's view) and 神視点 (the overlay of everyone's information);
-  pick a validator to inspect its block tree, latest votes, head and
-  justified/finalized checkpoints.
-- **ネットワークモード** — one card per validator (head / justified /
+- **チェーン表示** — the block tree with every validator's information
+  overlaid (heads, latest votes, J/F checkpoint badges). Below it, the
+  **state table** (状態表) lines its slot columns up with the tree: one row
+  per validator, the cell item (head / justified / finalized / latest vote /
+  view element counts) selectable from the UI, cells that disagree with the
+  other validators highlighted, and any cell expandable into that
+  validator's full local view at that slot — block tree, votes and which
+  block each vote supported, head, justified/finalized.
+- **ネットワーク表示** — one card per validator (head / justified /
   finalized / latest vote at a glance); hover a card to see that
   validator's own block tree.
-- **全体モード** — chain on the left, network on the right.
+- **全体表示** — chain on the left, network on the right.
 
 The 介入 panel between the slot bar and the mode body injects disturbances
 at the next slot boundary: partition a validator set (分断), stop and

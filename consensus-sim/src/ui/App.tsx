@@ -1,7 +1,7 @@
 /**
- * Application shell: mode tabs (チェーン / ネットワーク / 全体), the slot
- * cursor with rewind and advance controls, the intervention panel, and the
- * scenario's validator count.
+ * Application shell: display tabs (チェーン / ネットワーク / 全体表示), the
+ * slot cursor with rewind and advance controls, the intervention panel, and
+ * the scenario's validator count.
  * All model computation stays behind useSimulation / src/domain.
  */
 
@@ -12,9 +12,7 @@ import {
   proposerForSlot,
   validatorName,
 } from '../domain'
-import type { ValidatorIndex } from '../domain'
 import { ChainMode } from './modes/ChainMode'
-import type { Perspective } from './modes/ChainMode'
 import { GlobalMode } from './modes/GlobalMode'
 import { NetworkMode } from './modes/NetworkMode'
 import { InterventionPanel } from './InterventionPanel'
@@ -39,19 +37,10 @@ export function App() {
   const session = useSimulation()
   const { mode: themeMode, toggle: toggleTheme } = useThemeMode()
   const [mode, setMode] = useState<Mode>('chain')
-  const [perspective, setPerspective] = useState<Perspective>('local')
-  const [selectedValidator, setSelectedValidator] = useState<ValidatorIndex>(0)
 
   const { current, config, delivery, cursor, runSlot } = session
   const inPast = cursor < runSlot
   const nextProposer = proposerForSlot(cursor + 1, config.validatorCount)
-  // A loaded scenario may have fewer validators than the current selection.
-  const safeSelected = Math.min(selectedValidator, config.validatorCount - 1)
-
-  const changeValidatorCount = (count: number) => {
-    session.setValidatorCount(count)
-    setSelectedValidator(0)
-  }
 
   return (
     <div className="app">
@@ -61,7 +50,7 @@ export function App() {
           <span className="app-subtitle">最抽象モデル・シミュレータ</span>
         </div>
 
-        <nav className="mode-tabs" aria-label="表示モード">
+        <nav className="mode-tabs" aria-label="表示切替">
           {(Object.keys(MODE_LABELS) as Mode[]).map((m) => (
             <button
               type="button"
@@ -69,7 +58,7 @@ export function App() {
               className={mode === m ? 'active' : ''}
               onClick={() => setMode(m)}
             >
-              {MODE_LABELS[m]}モード
+              {MODE_LABELS[m]}表示
             </button>
           ))}
         </nav>
@@ -79,7 +68,7 @@ export function App() {
             バリデータ数
             <select
               value={config.validatorCount}
-              onChange={(e) => changeValidatorCount(Number(e.target.value))}
+              onChange={(e) => session.setValidatorCount(Number(e.target.value))}
             >
               {VALIDATOR_COUNTS.map((n) => (
                 <option key={n} value={n}>
@@ -150,10 +139,6 @@ export function App() {
             state={current}
             validatorCount={config.validatorCount}
             delivery={delivery}
-            perspective={perspective}
-            selectedValidator={safeSelected}
-            onPerspectiveChange={setPerspective}
-            onSelectValidator={setSelectedValidator}
           />
         )}
         {mode === 'network' && (
@@ -168,10 +153,6 @@ export function App() {
             state={current}
             validatorCount={config.validatorCount}
             delivery={delivery}
-            perspective={perspective}
-            selectedValidator={safeSelected}
-            onPerspectiveChange={setPerspective}
-            onSelectValidator={setSelectedValidator}
           />
         )}
       </main>

@@ -1,186 +1,179 @@
 /**
- * Chain mode (チェーンモード): the block tree, switchable between one
- * validator's local view (局所視点) and the god view (神視点) that overlays
- * every validator's information on the full published tree.
+ * Chain display (チェーン表示): the block tree with every validator's
+ * information overlaid — per-validator heads, latest votes and J/F
+ * checkpoint badges — and, below it, the state table (状態表) whose slot
+ * columns line up with the tree's.
  *
- * Local view is computed with `observe` — a pure filter over the message
- * log — so what this mode shows for validator v is exactly what v knows,
- * nothing more.
+ * Per-validator local observation lives in the state table: clicking a cell
+ * expands that validator's view at that slot (computed with `observe`, a
+ * pure filter over the message log — exactly what that validator knows,
+ * nothing more).
  */
 
-import { observe, latestVotes, instantDelivery, validatorName } from '../../domain'
-import type {
-  Delivery,
-  SimulationState,
-  ValidatorIndex,
-  Vote,
-} from '../../domain'
+import { useMemo, useState } from 'react'
+import { instantDelivery, observe, validatorName } from '../../domain'
+import type { Delivery, SimulationState } from '../../domain'
 import { BlockTreeView } from '../BlockTreeView'
+import { StateTable, STATE_CELL_ITEMS } from '../StateTable'
+import type { ExpandedCell, StateCellItem } from '../StateTable'
+import { LABEL_W } from '../treeGeometry'
 import { validatorColor } from '../validatorColor'
-
-export type Perspective = 'local' | 'god'
+import { VoteTable } from '../VoteTable'
 
 export interface ChainModeProps {
   readonly state: SimulationState
   readonly validatorCount: number
   /** The scenario's delivery rule — local views are filtered through it. */
-  readonly delivery?: Delivery
-  readonly perspective: Perspective
-  readonly selectedValidator: ValidatorIndex
-  onPerspectiveChange(perspective: Perspective): void
-  onSelectValidator(validator: ValidatorIndex): void
+  readonly delivery?: Delivery | undefined
 }
 
 function blockName(index: number): string {
   return `B${index}`
 }
 
-function VoteTable({ votes }: { readonly votes: readonly Vote[] }) {
-  const latest = [...latestVotes(votes).entries()].sort((a, b) => a[0] - b[0])
-  if (latest.length === 0) {
-    return <p className="panel-empty">まだ投票はありません。</p>
-  }
-  return (
-    <table className="vote-table">
-      <thead>
-        <tr>
-          <th>バリデータ</th>
-          <th>スロット</th>
-          <th>head 支持</th>
-          <th>source → target</th>
-        </tr>
-      </thead>
-      <tbody>
-        {latest.map(([validator, vote]) => (
-          <tr key={validator}>
-            <td>
-              <span
-                className="validator-dot"
-                style={{ background: validatorColor(validator) }}
-              />
-              {validatorName(validator)}
-            </td>
-            <td>{vote.slot}</td>
-            <td>{blockName(vote.head)}</td>
-            <td>
-              {blockName(vote.source)} → {blockName(vote.target)}
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  )
-}
-
 export function ChainMode({
   state,
   validatorCount,
   delivery = instantDelivery,
-  perspective,
-  selectedValidator,
-  onPerspectiveChange,
-  onSelectValidator,
 }: ChainModeProps) {
-  const local =
-    perspective === 'local'
-      ? observe(state.log, selectedValidator, state.slot, validatorCount, delivery)
-      : undefined
+  const [item, setItem] = useState<StateCellItem>('head')
+  const [expanded, setExpanded] = useState<ExpandedCell | undefined>()
 
-  const tree = local ? local.view.blockTree : state.tree
-  const votes = local ? local.view.votes : state.votes
-  const finality = local ? local.finality : state.finality
-  const heads = local
-    ? new Map([[selectedValidator, local.head]])
-    : state.heads
+  // observations[slot][validator]: each validator's local observation at the
+  // end of each slot up to the cursor. The log is append-only along a run and
+  // viewOf filters by publishedAt, so the current log serves every past slot.
+  const observations = useMemo(
+    () =>
+      Array.from({ length: state.slot + 1 }, (_, s) =>
+        Array.from({ length: validatorCount }, (_, v) =>
+          observe(state.log, v, s, validatorCount, delivery),
+        ),
+      ),
+    [state.log, state.slot, validatorCount, delivery],
+  )
+
+  const toggleCell = (cell: ExpandedCell) => {
+    setExpanded((prev) =>
+      prev?.validator === cell.validator && prev.slot === cell.slot
+        ? undefined
+        : cell,
+    )
+  }
+
+  // A rewind or validator-count change can orphan the expanded cell.
+  const detail =
+    expanded !== undefined &&
+    expanded.slot <= state.slot &&
+    expanded.validator < validatorCount
+      ? { ...expanded, obs: observations[expanded.slot]![expanded.validator]! }
+      : undefined
 
   return (
     <section className="chain-mode">
-      <div className="mode-toolbar">
-        <div className="segmented" role="group" aria-label="視点">
-          <button
-            type="button"
-            className={perspective === 'local' ? 'active' : ''}
-            onClick={() => onPerspectiveChange('local')}
-          >
-            局所視点
-          </button>
-          <button
-            type="button"
-            className={perspective === 'god' ? 'active' : ''}
-            onClick={() => onPerspectiveChange('god')}
-          >
-            神視点
-          </button>
+      <div className="tree-scroll chain-scroll">
+        <div style={{ marginLeft: LABEL_W }}>
+          <BlockTreeView
+            tree={state.tree}
+            votes={state.votes}
+            heads={state.heads}
+            finality={state.finality}
+            throughSlot={state.slot}
+          />
         </div>
-
-        {perspective === 'local' && (
-          <div className="segmented" role="group" aria-label="バリデータ選択">
-            {Array.from({ length: validatorCount }, (_, v) => (
+        <div className="state-table-toolbar">
+          <span className="state-table-caption">状態表の表示項目</span>
+          <div className="segmented" role="group" aria-label="状態表の表示項目">
+            {STATE_CELL_ITEMS.map(({ key, label }) => (
               <button
                 type="button"
-                key={v}
-                className={selectedValidator === v ? 'active' : ''}
-                onClick={() => onSelectValidator(v)}
+                key={key}
+                className={item === key ? 'active' : ''}
+                onClick={() => setItem(key)}
               >
-                <span
-                  className="validator-dot"
-                  style={{ background: validatorColor(v) }}
-                />
-                {validatorName(v)}
+                {label}
               </button>
             ))}
           </div>
-        )}
-      </div>
-
-      <div className="tree-scroll">
-        <BlockTreeView
-          tree={tree}
-          votes={votes}
-          heads={heads}
-          finality={finality}
-          throughSlot={state.slot}
+        </div>
+        <StateTable
+          observations={observations}
+          validatorCount={validatorCount}
+          item={item}
+          expanded={detail}
+          onToggleCell={toggleCell}
         />
       </div>
 
-      <div className="panel-row">
-        <div className="panel">
+      {detail && (
+        <div className="panel state-detail">
           <h3>
-            {perspective === 'local'
-              ? `${validatorName(selectedValidator)} の局所状態`
-              : '神視点の状態'}
+            <span
+              className="validator-dot"
+              style={{ background: validatorColor(detail.validator) }}
+            />
+            {validatorName(detail.validator)} の視点 — スロット {detail.slot}
+            <button
+              type="button"
+              className="detail-close"
+              onClick={() => setExpanded(undefined)}
+            >
+              閉じる
+            </button>
           </h3>
           <dl className="status-list">
-            {perspective === 'local' && (
-              <>
-                <dt>head</dt>
-                <dd>{blockName(local ? local.head : 0)}</dd>
-              </>
-            )}
-            {perspective === 'god' && (
-              <>
-                <dt>各バリデータの head</dt>
-                <dd>
-                  {[...heads.entries()]
-                    .sort((a, b) => a[0] - b[0])
-                    .map(([v, h]) => `${validatorName(v)}:${blockName(h)}`)
-                    .join(' / ')}
-                </dd>
-              </>
-            )}
+            <dt>head</dt>
+            <dd>{blockName(detail.obs.head)}</dd>
             <dt>justified</dt>
             <dd>
-              {[...finality.justified].sort((a, b) => a - b).map(blockName).join(', ')}
-              （先頭 {blockName(finality.justifiedHead)}）
+              {[...detail.obs.finality.justified]
+                .sort((a, b) => a - b)
+                .map(blockName)
+                .join(', ')}
+              （先頭 {blockName(detail.obs.finality.justifiedHead)}）
             </dd>
             <dt>finalized</dt>
-            <dd>{blockName(finality.finalized)}</dd>
+            <dd>{blockName(detail.obs.finality.finalized)}</dd>
+          </dl>
+          <div className="tree-scroll">
+            <BlockTreeView
+              tree={detail.obs.view.blockTree}
+              votes={detail.obs.view.votes}
+              heads={new Map([[detail.validator, detail.obs.head]])}
+              finality={detail.obs.finality}
+              throughSlot={detail.slot}
+            />
+          </div>
+          <VoteTable votes={detail.obs.view.votes} />
+        </div>
+      )}
+
+      <div className="panel-row">
+        <div className="panel">
+          <h3>全バリデータの状態</h3>
+          <dl className="status-list">
+            <dt>各バリデータの head</dt>
+            <dd>
+              {[...state.heads.entries()]
+                .sort((a, b) => a[0] - b[0])
+                .map(([v, h]) => `${validatorName(v)}:${blockName(h)}`)
+                .join(' / ')}
+            </dd>
+            <dt>justified</dt>
+            <dd>
+              {[...state.finality.justified]
+                .sort((a, b) => a - b)
+                .map(blockName)
+                .join(', ')}
+              （先頭 {blockName(state.finality.justifiedHead)}）
+            </dd>
+            <dt>finalized</dt>
+            <dd>{blockName(state.finality.finalized)}</dd>
           </dl>
         </div>
 
         <div className="panel">
           <h3>最新投票（LMD）</h3>
-          <VoteTable votes={votes} />
+          <VoteTable votes={state.votes} />
         </div>
       </div>
     </section>

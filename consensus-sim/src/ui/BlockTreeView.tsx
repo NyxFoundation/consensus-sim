@@ -21,16 +21,17 @@ import type {
   ValidatorIndex,
   Vote,
 } from '../domain'
+import {
+  BLOCK_H,
+  BLOCK_W,
+  COL_W,
+  PAD_BOTTOM,
+  PAD_TOP,
+  PAD_X,
+  ROW_H,
+} from './treeGeometry'
 import { layoutTree } from './treeLayout'
 import { validatorColor } from './validatorColor'
-
-const COL_W = 88
-const ROW_H = 78
-const BLOCK_W = 56
-const BLOCK_H = 34
-const PAD_X = 24
-const PAD_TOP = 34
-const PAD_BOTTOM = 30
 
 export interface BlockTreeViewProps {
   readonly tree: BlockTree

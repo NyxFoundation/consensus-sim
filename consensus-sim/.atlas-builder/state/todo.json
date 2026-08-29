@@ -570,7 +570,7 @@
     {
       "id": "T-019",
       "title": "チェーン表示の刷新: 局所視点/神視点切替を廃止し、常に全バリデータの情報を重ねた表示に一本化する",
-      "status": "pending",
+      "status": "done",
       "priority": "must",
       "spec": [
         "S-023",
@@ -582,12 +582,30 @@
       "batch_group": "e2-table",
       "context_cost": 3,
       "risk_level": "normal",
-      "notes": "改訂 Essence の明示指定(必須 7)。局所視点の個別観測は状態表(T-020)のセル展開が引き継ぐ。UI 文言も「モード」→「表示」へ統一。"
+      "notes": "改訂 Essence 必須 7 の明示指定。局所/神視点切替とバリデータ選択トグルを撤去し、チェーン表示は常に全バリデータ重ね(state.tree/votes/heads/finality)に一本化。UI 文言を「モード」→「表示」に統一(タブ: チェーン表示/ネットワーク表示/全体表示)。局所観測は T-020 状態表のセル展開が引き継いだ。ジオメトリ定数は treeGeometry.ts に抽出し状態表と共有。",
+      "evidence": [
+        {
+          "type": "diff",
+          "summary": "src/ui/modes/ChainMode.tsx: Perspective type, local/god toggle and validator selector removed — the tree always renders the full overlay (state.tree/votes/heads/finality); status panel shows every validator's head. src/ui/App.tsx: perspective/selectedValidator state removed, tabs relabelled チェーン表示/ネットワーク表示/全体表示 (nav aria-label 表示切替). src/ui/modes/GlobalMode.tsx: props reduced to state/validatorCount/delivery. src/ui/VoteTable.tsx extracted from ChainMode for reuse; src/ui/treeGeometry.ts extracted from BlockTreeView (shared with the state table); dead .mode-toolbar CSS removed. README updated to the three displays."
+        },
+        {
+          "type": "command",
+          "command": "npx vitest run tests/ui/stateTable.test.tsx tests/ui/appShell.test.tsx",
+          "exit_code": 0,
+          "summary": "19 tests pass: the overlay shows every validator's head with no 神視点/局所視点 buttons anywhere (T-019 case), tabs read チェーン表示/ネットワーク表示/全体表示, badges unchanged."
+        },
+        {
+          "type": "command",
+          "command": "npm run typecheck && npx vitest run && npm run build",
+          "exit_code": 0,
+          "summary": "tsc --noEmit, vitest 15 files / 135 tests, and vite build all exit 0 after the removal."
+        }
+      ]
     },
     {
       "id": "T-020",
       "title": "状態表: 行=バリデータ・列=スロット(チェーン表示の slotIndex と横位置整列)、セル項目の UI からの動的選択、差分強調、約 10 スロット幅+横スクロール、セル展開による個別観測",
-      "status": "pending",
+      "status": "done",
       "priority": "must",
       "spec": [
         "S-023",
@@ -599,7 +617,25 @@
       "batch_group": "e2-table",
       "context_cost": 5,
       "risk_level": "normal",
-      "notes": "改訂 Essence の中核新機能(必須 5・7、成功条件 3・4)。セルはそのスロット時点の head / justified / finalized / View 要素から動的選択。分断中の食い違い→収束が表上で確認できること(成功条件 4)をテストで固める。"
+      "notes": "状態表は ChainMode 内でブロック木と同一の横スクロールコンテナに置き、treeGeometry.ts の共有定数(COL_W/PAD_X/BLOCK_W/LABEL_W)でスロット列の横位置を木と厳密に一致させた(96+10×88≈984px で標準 PC 幅に約 10 スロット、超過は横スクロール)。セル項目は head/justified/finalized/最新投票/ブロック数/投票数(View の要素)から動的選択。差分強調は列内の最頻値と異なるセル(最頻値がタイの場合は相互不一致として全セル)を色+太字で標示。セルクリックで observe(純フィルタ)によるそのスロット時点の局所観測(ブロック木・投票と支持先・head・justified/finalized)を展開表示。",
+      "evidence": [
+        {
+          "type": "diff",
+          "summary": "src/ui/StateTable.tsx (new): rows=validators, columns=slots table with colgroup widths from treeGeometry, dynamic cell items (head/justified/finalized/latestVote/blockCount/voteCount), plurality-based diff flags (mutual-tie ⇒ all flagged), sticky validator-label column, cell buttons with aria-pressed. src/ui/modes/ChainMode.tsx: observations[slot][validator] matrix via observe over the append-only log, item selector (segmented, sticky in the shared scroll container), cell-expansion detail panel (local block tree + status list + VoteTable showing which block each vote supported). styles.css: state-table/-toolbar/-detail rules, diff highlight = colour + weight (never colour alone)."
+        },
+        {
+          "type": "command",
+          "command": "npx vitest run tests/ui/stateTable.test.tsx tests/ui/appShell.test.tsx",
+          "exit_code": 0,
+          "summary": "受け入れ確認(成功条件 3・4): 行=バリデータ×列=スロット(ヘッダ 0..4)、バリデータ数変更が行数に反映、セル項目の動的切替(head→finalized で B9→B4、ブロック数=View 要素)、全員一致時は強調ゼロ、分断 {アリス,ボブ} 中は差分セルが強調され解消+2 スロットで最新列の強調が消えて収束が表上で確認でき(履歴列の強調は残存)、セル展開でキャロルのスロット 2 時点の局所観測(木 3 ブロック・投票表 4 行・head/justified/finalized)が表示され閉じる/再クリックで閉じる — 19 tests exit 0."
+        },
+        {
+          "type": "command",
+          "command": "npm run typecheck && npx vitest run && npm run build",
+          "exit_code": 0,
+          "summary": "Full gate: tsc --noEmit, vitest 15 files / 135 tests (128 → 135: +8 state-table, −1 removed perspective case), vite build — all exit 0."
+        }
+      ]
     },
     {
       "id": "T-021",

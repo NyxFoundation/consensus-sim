@@ -81,7 +81,7 @@ describe('partition intervention from the UI (T-009)', () => {
     expect(text('.intervention-list')).toContain('分断')
 
     await advance(6)
-    await click(buttonByText('ネットワークモード'))
+    await click(buttonByText('ネットワーク表示'))
     expect(all('.validator-card.diverged').length).toBeGreaterThan(0)
 
     await click(buttonByText('解消（次スロットから）'))
@@ -111,8 +111,7 @@ describe('equivocation from the UI (T-009)', () => {
     await click(buttonByText('次スロットで二重提案（提案者 ボブ）'))
     expect(text('.intervention-list')).toContain('二重提案 ボブ @ s1')
     await advance(1)
-    // God view: anchor + two competing slot-1 blocks.
-    await click(buttonByText('神視点'))
+    // The overlaid chain display: anchor + two competing slot-1 blocks.
     expect(all('.tree-block')).toHaveLength(3)
   })
 
@@ -129,8 +128,7 @@ describe('equivocation from the UI (T-009)', () => {
     await click(buttonByText('次スロットで二重投票'))
     expect(text('.intervention-list')).toContain('二重投票 デイブ @ s3')
     await advance(1)
-    await click(buttonByText('神視点'))
-    // The god-view latest-vote table still shows one resolved row per validator.
+    // The latest-vote table still shows one resolved row per validator.
     expect(all('.vote-table tbody tr')).toHaveLength(4)
   })
 })
@@ -152,7 +150,7 @@ describe('message drop from the UI (T-009)', () => {
     expect(text('.intervention-list')).toContain('欠落 ブロック B1')
 
     // Everyone but the sender (V1) loses B1: the network cards diverge.
-    await click(buttonByText('ネットワークモード'))
+    await click(buttonByText('ネットワーク表示'))
     expect(all('.validator-card.diverged').length).toBeGreaterThan(0)
 
     // Removing the intervention restores the original history.

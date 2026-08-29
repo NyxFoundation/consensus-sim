@@ -1,7 +1,7 @@
 /**
- * Global mode (全体モード): the chain view on the left and the network view
- * on the right, side by side. Both panes are the real mode components, so
- * every interaction (perspective toggle, validator selection, hover views)
+ * Global display (全体表示): the chain display on the left and the network
+ * display on the right, side by side. Both panes are the real display
+ * components, so every interaction (state-table cell expansion, hover views)
  * behaves identically here.
  */
 
