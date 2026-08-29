@@ -16,7 +16,7 @@
     {
       "id": "R-LG-20260828T000954+0900-d2cf",
       "type": "Human-input Recommendation",
-      "status": "proposed",
+      "status": "resolved",
       "raised_by": "atlas-builder-loop",
       "gate": "must_complete_awaiting_phase_approval",
       "target": "todo.json",
@@ -49,7 +49,10 @@
       },
       "requires_human_approval": true,
       "agent_action": "stop_until_human_review",
-      "created_at": "2026-08-28T00:09:54+09:00"
+      "created_at": "2026-08-28T00:09:54+09:00",
+      "resolved_at": "2026-08-30T00:58:21+09:00",
+      "resolved_by": "human",
+      "resolution": "ESSENCE.md を update-essence で改訂し、直近の human update チェックポイント(f32614b)で attest 済み。must 境界ゲート R-LG-20260828T000954+0900-d2cf は旧 Essence の must 完了を根拠とするため解除し、フェーズは must のまま、新 Essence から Spec/Todo を再投影して必須対応を継続する(approve-should / close-at-must のいずれも選ばない)。\nPlaywright chromium は人間がインストール済み: 実ブラウザ検証経路(scripts/verify-ui.mjs、R-001 参照)が利用可能になった。"
     }
   ]
 }

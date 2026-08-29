@@ -30,14 +30,10 @@
     "high_risk_change_completed": false
   },
   "handoff": {
-    "written_at": "2026-08-28T00:09:00+09:00",
-    "summary": "Cycle 8 completed T-012 + T-013 (phase5-polish): ALL 13 must Todos are done and validation is ok with zero warnings. T-012 polish: intervention/scenario panels are collapsible <details> with count-bearing summaries, message delay/drop selector groups per publish slot (optgroup, newest first), equivocation legend glossed in Japanese, empty-state hints in 3 places (intervention list / scenario list / empty message log with disabled selector), scenario status has role=status. T-013 gate: typecheck 0, vitest 14 files / 126 tests 0, build 0; Pages path verified (vite base './', dist relative asset refs only) and README documents Pages deployment (no workflow added — .github/workflows is high-risk; Pages enablement is a human repo setting). Acceptance evidence for 成功条件 4 (post-heal convergence) recorded on T-013 after an initial validate warning.",
-    "next_actions": [
-      "Expect the loop to stop at the must boundary (must_complete_awaiting_phase_approval): the human decides --approve-should (unlocks T-014..T-017: autoplay, keyboard shortcuts, image/data export, scenario notes/naming — phase6-optional, cost 2 each) or --close-at-must.",
-      "If the should phase is approved, a sensible first batch is T-014 + T-015 (autoplay + shortcuts, cost 4); keep the established UI conventions (panel-summary / empty-hint patterns, Japanese UI text).",
-      "R-001 (proposed, non-blocking) remains: human may enable real-browser verification via 'npx playwright install chromium' once; until then jsdom DOM tests are the autonomous verification layer.",
-      "Essence gates on record: (a) View/Vote/protocol-skeleton semantics changes and (b) large UI look/info-design pivots go back to the human. Discretionary semantics: SLOTS_PER_EPOCH=4, lexicographic equivocation resolution, anchor slot 0 / first proposal slot 1, votes visible through s-1 (reflection cycle 6 decision entry)."
-    ],
-    "open_questions": []
+    "written_at": "2026-08-30T00:58:21+09:00",
+    "summary": "Human resume: ESSENCE.md を update-essence で改訂し、直近の human update チェックポイント(f32614b)で attest 済み。must 境界ゲート R-LG-20260828T000954+0900-d2cf は旧 Essence の must 完了を根拠とするため解除し、フェーズは must のまま、新 Essence から Spec/Todo を再投影して必須対応を継続する(approve-should / close-at-must のいずれも選ばない)。\nPlaywright chromium は人間がインストール済み: 実ブラウザ検証経路(scripts/verify-ui.mjs、R-001 参照)が利用可能になった。",
+    "next_actions": [],
+    "open_questions": [],
+    "pending_cycle": true
   }
 }
