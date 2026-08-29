@@ -838,7 +838,7 @@
     {
       "id": "T-027",
       "title": "UI ビジュアル刷新: pbs.show を参考にしたフォント・色遣い・全体的な雰囲気(衝突する大きなデザイン判断は人間に戻す)",
-      "status": "pending",
+      "status": "blocked",
       "priority": "must",
       "spec": [
         "S-027"
@@ -848,7 +848,8 @@
       },
       "batch_group": "e2-polish",
       "context_cost": 4,
-      "risk_level": "normal"
+      "risk_level": "normal",
+      "blocked_reason": "参照サイト https://pbs.show/ にエージェント環境から到達する手段がない: pbs.show:443 と web.archive.org:443 は sandbox ネットワーク許可リストで拒否(user denied)、WebFetch ツールは非対話セッションで許可されず、essences/ に参考資料はなく、過去サイクルにもスタイル情報の収集記録がない。実観測なしの推測ベース刷新は、参考元と衝突する大きなデザイン判断を人間に戻すという思想節の定めに照らして自律実行できない(衝突の有無自体が判定不能)。人間の選択待ち — R-002 参照。"
     },
     {
       "id": "T-028",
