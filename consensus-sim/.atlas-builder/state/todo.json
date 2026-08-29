@@ -736,7 +736,7 @@
     {
       "id": "T-024",
       "title": "介入キューの健全性: 指定・取り消しの連続でも無効イベント(終了<開始等)が生成・残留しない検証と修正+テスト",
-      "status": "pending",
+      "status": "done",
       "priority": "must",
       "spec": [
         "S-029"
@@ -746,7 +746,26 @@
       },
       "batch_group": "e2-model",
       "context_cost": 2,
-      "risk_level": "normal"
+      "risk_level": "normal",
+      "notes": "疑い箇所(分断の「解消（次スロットから）」が未発効エントリに toSlot=cursor を書き込み終了<開始の無効スパンを生成・残留)を確定・修正。防御はドメイン層の純関数 closeSpanAt(スパンを cursor で閉鎖、未発効なら undefined を返し呼び出し側は削除)に一本化し、分断の解消と稼働状態の setOpState の双方が経由する。連続指定・取り消し(即時解消、停止→オフライン→稼働の連打、advance を挟む反復)で無効イベントが生成・残留しないことをドメイン・DOM 両層で検証。",
+      "evidence": [
+        {
+          "type": "diff",
+          "summary": "src/domain/intervention.ts: SpanIntervention type + closeSpanAt(span, cursor) — closes an effective span at the cursor, returns undefined for a not-yet-effective span (fromSlot > cursor) so the caller removes it and no toSlot-before-fromSlot entry can be produced. src/ui/InterventionPanel.tsx: the partition 解消 button now removes a not-yet-effective partition via closeSpanAt instead of writing toSlot=cursor (the confirmed invalid-span path), and setOpState routes its span closing through the same domain function."
+        },
+        {
+          "type": "command",
+          "command": "npx vitest run tests/domain/intervention.test.ts tests/ui/interventions.test.tsx",
+          "exit_code": 0,
+          "summary": "38 tests pass. New domain cases (closeSpanAt): closes partition/stop/offline at the cursor inclusive, refuses a not-yet-effective span, and a cursor sweep never yields toSlot<fromSlot. New DOM cases (queue soundness): healing a partition before it takes effect removes the entry outright (list empty, no invalid span); healing an effective partition closes it as s1〜s3; 停止→オフライン→稼働 rapid toggling without advancing leaves an empty queue; repeated designate/heal cycles across advances leave only valid spans (s1〜s2), asserted by a from≤to scan over every listed span."
+        },
+        {
+          "type": "command",
+          "command": "npm run typecheck && npx vitest run && npm run build",
+          "exit_code": 0,
+          "summary": "Full gate: tsc --noEmit, vitest 17 files / 167 tests, vite build — all exit 0."
+        }
+      ]
     },
     {
       "id": "T-025",
@@ -785,7 +804,7 @@
     {
       "id": "T-026",
       "title": "型一覧ページ: ドメイン層の型を上から下への依存グラフ(無依存型が最上段)で表示し、実装の型定義と一致させる",
-      "status": "pending",
+      "status": "done",
       "priority": "must",
       "spec": [
         "S-025"
@@ -795,7 +814,26 @@
       },
       "batch_group": "e2-pages",
       "context_cost": 4,
-      "risk_level": "normal"
+      "risk_level": "normal",
+      "notes": "型一覧は第 4 のタブ。実装との一致は生成方式で構造的に保証: ドメイン層ソースを import.meta.glob(\"?raw\") でビルド時にそのまま同梱し(domainSources.ts、新規ドメインファイルは自動追随)、純関数 extractTypeGraph が export interface / export type 宣言をコメント・文字列を遮蔽した影テキスト上で抽出、依存は宣言本文中の他型名参照から導出。layoutTypeGraph が無依存型=第 0 層、以深は 1+max(依存層) で上から下に配置(層内はバリセンタ順)。描画は SVG エッジ+絶対配置ノード、選択で実装ソースの宣言全文(doc コメント含む)と依存/被依存リンクを表示。",
+      "evidence": [
+        {
+          "type": "diff",
+          "summary": "src/ui/domainSources.ts (domain sources bundled verbatim via import.meta.glob ?raw), src/ui/typeGraph.ts (comment/string-shadowed extractor for export interface/type declarations with attached doc comments; dependency detection by cross-referencing extracted names; top-down layering: layer 0 = no deps, 1+max(dep layers), barycenter column ordering), src/ui/modes/TypesPage.tsx (SVG edge graph + selectable nodes, detail pane with verbatim declaration and dependency/dependent links), App.tsx (4th tab 型一覧; tab labels moved into MODE_LABELS), styles.css type-catalog rules, README updated."
+        },
+        {
+          "type": "command",
+          "command": "npx vitest run tests/ui/typeGraph.test.ts tests/ui/typesPage.test.tsx tests/ui/appShell.test.tsx",
+          "exit_code": 0,
+          "summary": "受け入れ確認(成功条件 10): 23 tests pass. 実カタログが ValidatorIndex/Block/Vote/View/BlockTree/MessageRef/Delivery/Intervention/Scenario 等を含み、全宣言テキストがモジュールソースの逐語的スライスであること、Vote の依存が BlockIndex/SlotIndex/ValidatorIndex と一致、無依存のインデックス型が最上段、全依存辺が厳密に上の層を指すことを検証。DOM では 型一覧 タブがグラフ(ノード+エッジ)を描画し、最上段判定を style.top で確認、Vote 選択で export interface Vote の逐語宣言と依存リンク遷移が動作。"
+        },
+        {
+          "type": "command",
+          "command": "npm run typecheck && npx vitest run && npm run build",
+          "exit_code": 0,
+          "summary": "Full gate: tsc --noEmit, vitest 17 files / 167 tests (148 → 167), vite build — all exit 0."
+        }
+      ]
     },
     {
       "id": "T-027",

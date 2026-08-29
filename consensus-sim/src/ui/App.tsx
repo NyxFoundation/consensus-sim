@@ -1,7 +1,7 @@
 /**
- * Application shell: display tabs (チェーン / ネットワーク / 全体表示), the
- * slot cursor with rewind and advance controls, the intervention panel, and
- * the scenario's validator count.
+ * Application shell: display tabs (チェーン / ネットワーク / 全体表示 /
+ * 型一覧), the slot cursor with rewind and advance controls, the
+ * intervention panel, and the scenario's validator count.
  * All model computation stays behind useSimulation / src/domain.
  */
 
@@ -15,17 +15,19 @@ import {
 import { ChainMode } from './modes/ChainMode'
 import { GlobalMode } from './modes/GlobalMode'
 import { NetworkMode } from './modes/NetworkMode'
+import { TypesPage } from './modes/TypesPage'
 import { InterventionPanel } from './InterventionPanel'
 import { ScenarioPanel } from './ScenarioPanel'
 import { useSimulation } from './useSimulation'
 import { useThemeMode } from './useTheme'
 
-type Mode = 'chain' | 'network' | 'global'
+type Mode = 'chain' | 'network' | 'global' | 'types'
 
 const MODE_LABELS: Readonly<Record<Mode, string>> = {
-  chain: 'チェーン',
-  network: 'ネットワーク',
-  global: '全体',
+  chain: 'チェーン表示',
+  network: 'ネットワーク表示',
+  global: '全体表示',
+  types: '型一覧',
 }
 
 const VALIDATOR_COUNTS = Array.from(
@@ -58,7 +60,7 @@ export function App() {
               className={mode === m ? 'active' : ''}
               onClick={() => setMode(m)}
             >
-              {MODE_LABELS[m]}表示
+              {MODE_LABELS[m]}
             </button>
           ))}
         </nav>
@@ -155,6 +157,7 @@ export function App() {
             delivery={delivery}
           />
         )}
+        {mode === 'types' && <TypesPage />}
       </main>
     </div>
   )

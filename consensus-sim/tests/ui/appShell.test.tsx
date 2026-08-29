@@ -67,6 +67,7 @@ describe('App shell (T-006)', () => {
       'チェーン表示',
       'ネットワーク表示',
       '全体表示',
+      '型一覧',
     ])
     expect(all('.tree-block')).toHaveLength(1)
   })

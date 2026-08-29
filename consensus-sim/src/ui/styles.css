@@ -745,3 +745,151 @@ body {
   font-weight: 600;
   color: var(--ink-secondary);
 }
+
+/* ---- type catalog (型一覧) ---- */
+
+.types-page {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.types-caption {
+  margin: 0;
+  color: var(--ink-secondary);
+}
+
+.types-scroll {
+  overflow-x: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.type-graph {
+  position: relative;
+}
+
+.type-edges {
+  position: absolute;
+  inset: 0;
+}
+
+.type-edge {
+  stroke: var(--gridline);
+  stroke-width: 1.5;
+}
+
+.type-edge-active {
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+
+.type-node {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2px;
+  padding: 4px 10px;
+  background: var(--control-bg);
+  border: 1px solid var(--baseline);
+  border-radius: 6px;
+  color: var(--ink-primary);
+  font: inherit;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.type-node:hover {
+  border-color: var(--accent);
+}
+
+.type-node.related {
+  border-color: var(--accent);
+}
+
+.type-node.active {
+  border-color: var(--accent);
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.type-node-name {
+  font-weight: 600;
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.type-node-module {
+  color: var(--ink-muted);
+  font-size: 11px;
+}
+
+.type-detail {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 16px;
+}
+
+.type-detail h3 {
+  margin: 0 0 8px;
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+}
+
+.type-detail-module {
+  margin-left: 8px;
+  color: var(--ink-muted);
+  font-size: 11px;
+  font-family: inherit;
+  font-weight: 400;
+}
+
+.type-detail-links {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+  margin: 0 0 8px;
+}
+
+.type-detail-links dt {
+  color: var(--ink-secondary);
+}
+
+.type-detail-links dd {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.type-link {
+  padding: 1px 8px;
+  background: var(--block-fill);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--ink-primary);
+  font-size: 12px;
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  cursor: pointer;
+}
+
+.type-link:hover {
+  border-color: var(--accent);
+}
+
+.type-source {
+  margin: 0;
+  padding: 10px 12px;
+  background: var(--plane);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow-x: auto;
+  font-size: 12px;
+  line-height: 1.5;
+}

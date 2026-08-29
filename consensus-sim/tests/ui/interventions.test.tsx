@@ -90,6 +90,67 @@ describe('partition intervention from the UI (T-009)', () => {
   })
 })
 
+/** Every span shown in the queue as s<from>〜s<to> must satisfy from ≤ to. */
+function expectNoInvalidSpanInQueue() {
+  for (const item of all('.intervention-list li')) {
+    const m = item.textContent?.match(/s(\d+)〜s(\d+)/)
+    if (m) expect(Number(m[2])).toBeGreaterThanOrEqual(Number(m[1]))
+  }
+}
+
+describe('intervention queue soundness (T-024)', () => {
+  it('healing a partition before it takes effect removes it outright', async () => {
+    await checkPartitionValidator(0)
+    await checkPartitionValidator(1)
+    await click(buttonByText('選択集合を残りから分断'))
+    expect(text('.intervention-list')).toContain('分断')
+
+    // Heal immediately: fromSlot (1) is still ahead of the cursor (0), so
+    // closing would create a toSlot-before-fromSlot span — the entry must
+    // disappear instead of turning invalid.
+    await click(buttonByText('解消（次スロットから）'))
+    expect(all('.intervention-list li')).toHaveLength(0)
+    expect(text('.intervention-panel')).toContain('介入はまだありません')
+  })
+
+  it('healing an effective partition closes it at the cursor', async () => {
+    await checkPartitionValidator(0)
+    await checkPartitionValidator(1)
+    await click(buttonByText('選択集合を残りから分断'))
+    await advance(3)
+    await click(buttonByText('解消（次スロットから）'))
+    expect(text('.intervention-list')).toContain('s1〜s3')
+    expectNoInvalidSpanInQueue()
+  })
+
+  it('rapid operating-state toggling leaves no invalid or stale span', async () => {
+    // 停止 → オフライン → 稼働 without ever advancing: each transition
+    // touches a span that has not taken effect yet, so the queue must end
+    // empty rather than holding closed-before-open remnants.
+    await click(opStateButton('ボブ', '停止'))
+    await click(opStateButton('ボブ', 'オフライン'))
+    expect(text('.intervention-list')).toContain('オフライン ボブ')
+    expectNoInvalidSpanInQueue()
+    await click(opStateButton('ボブ', '稼働'))
+    expect(all('.intervention-list li')).toHaveLength(0)
+  })
+
+  it('repeated designate/heal cycles across advances keep every span valid', async () => {
+    await checkPartitionValidator(0)
+    await click(buttonByText('選択集合を残りから分断'))
+    await advance(2)
+    await click(buttonByText('解消（次スロットから）'))
+    await checkPartitionValidator(1)
+    await click(buttonByText('選択集合を残りから分断'))
+    await click(buttonByText('解消（次スロットから）'))
+    await advance(1)
+    // First heal closed s1〜s2; the second entry (never effective) vanished.
+    expect(all('.intervention-list li')).toHaveLength(1)
+    expect(text('.intervention-list')).toContain('s1〜s2')
+    expectNoInvalidSpanInQueue()
+  })
+})
+
 /** The operating-state control (稼働 / 停止 / オフライン) for a validator. */
 function opStateButton(name: string, label: string): Element | undefined {
   const group = container.querySelector(`[aria-label="${name} の稼働状態"]`)

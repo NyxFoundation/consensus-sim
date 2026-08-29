@@ -8,7 +8,7 @@
  */
 
 import { useState } from 'react'
-import { proposerForSlot, validatorName, viewOf } from '../domain'
+import { closeSpanAt, proposerForSlot, validatorName, viewOf } from '../domain'
 import type {
   Intervention,
   MessageRef,
@@ -165,7 +165,7 @@ export function InterventionPanel({ session }: InterventionPanelProps) {
         : 'active'
 
   /** Move v to `target` from the next slot: close every open stop/offline
-   * span covering v (a span that has not started yet is removed outright, so
+   * span covering v (closeSpanAt removes a span that has not started yet, so
    * no toSlot-before-fromSlot entry can be produced), then open the new one. */
   const setOpState = (v: ValidatorIndex, target: OpState) => {
     if (opStateOf(v) === target) return
@@ -178,9 +178,8 @@ export function InterventionPanel({ session }: InterventionPanelProps) {
       ) {
         const others = i.validators.filter((x) => x !== v)
         if (others.length > 0) next.push({ ...i, validators: others })
-        if (i.fromSlot <= cursor) {
-          next.push({ ...i, toSlot: cursor, validators: [v] })
-        }
+        const closed = closeSpanAt({ ...i, validators: [v] }, cursor)
+        if (closed) next.push(closed)
       } else {
         next.push(i)
       }
@@ -499,7 +498,11 @@ export function InterventionPanel({ session }: InterventionPanelProps) {
               {openPartition(i) && (
                 <button
                   type="button"
-                  onClick={() => replaceAt(index, { ...i, toSlot: cursor })}
+                  onClick={() => {
+                    const closed = closeSpanAt(i, cursor)
+                    if (closed) replaceAt(index, closed)
+                    else removeAt(index)
+                  }}
                 >
                   解消（次スロットから）
                 </button>

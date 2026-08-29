@@ -6,11 +6,11 @@
     "stop_after_infra_fails": 2
   },
   "progress": {
-    "last_signature": "5d6ff7658b7d0566db1bc0a5c20dcc8f74e55f95b2973383497117689669c1ae",
+    "last_signature": "e0f31d58d80428ca7358663a0508c15b5f6331b8ec5a1d59342fe227b7e040b8",
     "idle_cycles_since_progress": 0,
     "infra_fails_since_ok": 0,
-    "last_progress_at": "2026-08-30T01:38:54+09:00",
-    "last_checked_at": "2026-08-30T01:38:54+09:00",
+    "last_progress_at": "2026-08-30T01:49:37+09:00",
+    "last_checked_at": "2026-08-30T01:49:37+09:00",
     "usage_limited_since_ok": 0
   },
   "reset_policy": {
@@ -21,21 +21,21 @@
     "reset_after_decisions": 5
   },
   "counters": {
-    "context_usage_estimate": 0.3,
+    "context_usage_estimate": 0.5,
     "failed_attempts_since_reset": 0,
-    "changed_files_since_reset": 20,
-    "completed_todos_since_reset": 4,
-    "important_decisions_since_reset": 6,
+    "changed_files_since_reset": 13,
+    "completed_todos_since_reset": 2,
+    "important_decisions_since_reset": 2,
     "major_spec_rewrite_since_reset": false,
     "high_risk_change_completed": false
   },
   "handoff": {
-    "written_at": "2026-08-30T01:38:30+09:00",
-    "summary": "サイクル 11: バッチ e2-model 前半完了(T-021 オフライン 3 状態 / T-022 フォーク作成)。配送規則は点単位の単調配送に一般化(オフライン=観測者オンライン条件、分断と同一原理、既存テスト無修正で通過)。UI は稼働状態 3 状態セグメント+フォーク作成 fieldset(指定同時 4 本で拒否)。検証 typecheck / vitest 148 件 / build すべて exit 0。残 must: T-024(介入キュー健全性)、T-026(型一覧ページ)、T-027(pbs.show ビジュアル刷新)、T-028(総点検・最後に実施)。実ブラウザ検証は不可(L-20260830T012720+0900-05b0)。",
+    "written_at": "2026-08-30T01:49:30+09:00",
+    "summary": "サイクル 12: バッチ [T-024, T-026] 完了。T-024: 分断の解消ボタンが未発効エントリに toSlot=cursor を書き込み終了<開始の無効スパンを作る欠陥を確定し、ドメイン純関数 closeSpanAt(未発効は削除指示)に防御を一本化、分断解消と稼働状態変更の両経路が経由。T-026: 型一覧を第 4 タブとして追加 — ドメインソースを import.meta.glob('?raw') で逐語同梱し、抽出器(コメント/文字列遮蔽)で export 型宣言と依存を導出、無依存型最上段の層状 SVG グラフ+選択で実装宣言全文を表示(一致は生成方式で構造保証)。検証 typecheck / vitest 167 件 / build すべて exit 0。残 must: T-027(pbs.show ビジュアル刷新)、T-028(総点検・最後に実施)。実ブラウザ検証は不可(L-20260830T012720+0900-05b0)。",
     "next_actions": [
-      "次バッチ: T-024(介入キューの無効イベント防止 — 検証観点: 終了<開始のスパン、範囲外バリデータ/スロット、削除・解消の連続操作。稼働状態 UI は未発効スパンを削除する方式で先回り済みだが、分断の『解消（次スロットから）』は fromSlot=nextSlot の未発効エントリに toSlot=cursor を書き込み無効スパンを作る疑いあり — InterventionPanel.tsx の openPartition 側を確認して同じ削除方式に揃え、ドメイン側にも防御(不変条件検証 or 正規化)を検討)+ 余力があれば T-026(型一覧ページ: ドメイン型の上→下依存グラフ、実装と一致、cost 4)を同時または次サイクルで",
-      "その後 T-027(pbs.show 参照ビジュアル刷新 — jsdom+CSS 精査で進め、目視確認が必要な段階で人間へのスクリーンショット確認を Human-input Recommendation として切り出す)、最後に T-028(総点検+検証ゲート全通し)",
-      "mutating な state コマンドがロックで拒否されたら lessons.jsonl の単一実行ロック継承の項(L-20260830T011600+0900-b044)を参照(.agent/tmp/loop.lock/token の明示渡し、コマンドは必ず CONTROL_ROOT の絶対パスから)"
+      "次バッチ: T-027(pbs.show 参照のビジュアル刷新 — フォント・色遣い・全体的な雰囲気。jsdom+CSS 精査で進め、WebFetch で pbs.show の実スタイル(フォントファミリ・パレット・余白感)を取得してから着手。既存の検証済みパレット CSS 変数体系(styles.css :root)の上に載せ替え、衝突する大きなデザイン判断は Human-input Recommendation で人間に戻す。目視確認が必要な段階でスクリーンショット確認を人間へ切り出す)",
+      "その後 T-028(総点検: 3 観点 — ESSENCE・仕様・実装の整合/引き算の美学/複雑条件のバグ — の自己批判的点検、発見問題の全解消、点検記録を評価で残す。全 must done 後に検証ゲート全通し。T-028 完了で must 境界の停止が来る想定)",
+      "mutating な state コマンドがロックで拒否されたら lessons.jsonl の単一実行ロック継承の項(L-20260830T011600+0900-b044)を参照(ATLAS_BUILDER_LOCK_TOKEN=$(cat .agent/tmp/loop.lock/token) を前置、コマンドは必ず CONTROL_ROOT の絶対パスから)"
     ],
     "open_questions": [],
     "pending_cycle": false

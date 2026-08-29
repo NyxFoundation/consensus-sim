@@ -20,7 +20,9 @@ cards with hover views) and global (chain + network side by side) — plus
 the intervention panel (partition, the three operating states, equivocation,
 per-message delay/drop, fork creation), slot rewind, and scenario
 save/reload/replay (a
-localStorage-backed list). Every scenario operation is discoverable
+localStorage-backed list), and a type catalog page (型一覧) that renders
+the domain layer's exported types as a top-down dependency graph straight
+from the bundled source text. Every scenario operation is discoverable
 from the UI itself: panels collapse but summarize their contents, empty
 lists explain the next step, and the message selector groups the log per
 publish slot.
@@ -33,8 +35,8 @@ npm run dev        # http://localhost:5173
 ```
 
 Open the page, press **＋1 スロット進める** to advance a slot, and watch the
-proposal, the votes and each validator's head update. Three displays are
-available from the header tabs:
+proposal, the votes and each validator's head update. The header tabs
+switch between three displays and the type catalog:
 
 - **チェーン表示** — the block tree with every validator's information
   overlaid (heads, latest votes, J/F checkpoint badges). Below it, the
@@ -48,6 +50,11 @@ available from the header tabs:
   finalized / latest vote at a glance); hover a card to see that
   validator's own block tree.
 - **全体表示** — chain on the left, network on the right.
+- **型一覧** — the domain layer's exported types as a top-down dependency
+  graph (types depending on no other type on the top row). The catalog is
+  extracted from the domain source bundled verbatim into the app, so what
+  it shows is exactly what the implementation defines; selecting a type
+  shows its declaration and its dependency links.
 
 The 介入 panel between the slot bar and the mode body injects disturbances
 at the next slot boundary: partition a validator set (分断), switch a

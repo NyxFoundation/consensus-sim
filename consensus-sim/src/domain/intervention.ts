@@ -100,6 +100,25 @@ export type Intervention =
   | DropIntervention
   | ProposeParentIntervention;
 
+/** The interventions that live as a slot span (fromSlot..toSlot). */
+export type SpanIntervention =
+  | PartitionIntervention
+  | StopIntervention
+  | OfflineIntervention;
+
+/**
+ * End a span at `cursor` (inclusive) so it no longer covers cursor + 1.
+ * A span that has not taken effect yet (fromSlot > cursor) cannot be closed
+ * — closing it would produce a toSlot-before-fromSlot event — so the caller
+ * must remove the entry instead, signalled by `undefined`.
+ */
+export function closeSpanAt<I extends SpanIntervention>(
+  span: I,
+  cursor: SlotIndex,
+): I | undefined {
+  return span.fromSlot > cursor ? undefined : { ...span, toSlot: cursor };
+}
+
 const activeAt = (
   fromSlot: SlotIndex,
   toSlot: SlotIndex | undefined,

@@ -13,10 +13,12 @@ import {
   type SimulationState,
 } from "../../src/domain";
 import {
+  closeSpanAt,
   latestVotes,
   observe,
   proposerForSlot,
   scenarioDelivery,
+  type SpanIntervention,
 } from "../../src/domain";
 
 const scenario = (
@@ -337,5 +339,36 @@ describe("scenario determinism (決定性)", () => {
   it("scenarioStates(s, n)[i] is the state at slot i", () => {
     const states = statesAt(scenario([]), 5);
     expect(states.map((s) => s.slot)).toEqual([0, 1, 2, 3, 4, 5]);
+  });
+});
+
+describe("closeSpanAt (介入キューの健全性, T-024)", () => {
+  const spans: SpanIntervention[] = [
+    { kind: "partition", fromSlot: 2, groups: [[0, 1]] },
+    { kind: "stop", fromSlot: 2, validators: [1] },
+    { kind: "offline", fromSlot: 2, validators: [1] },
+  ];
+
+  it("closes an effective span at the cursor (inclusive)", () => {
+    for (const span of spans) {
+      const closed = closeSpanAt(span, 5);
+      expect(closed).toEqual({ ...span, toSlot: 5 });
+    }
+  });
+
+  it("refuses to close a span that has not taken effect yet", () => {
+    for (const span of spans) {
+      // Cursor 1, fromSlot 2: closing would yield toSlot < fromSlot.
+      expect(closeSpanAt(span, 1)).toBeUndefined();
+    }
+  });
+
+  it("never produces a toSlot-before-fromSlot span", () => {
+    for (const span of spans) {
+      for (let cursor = 0; cursor <= 6; cursor++) {
+        const closed = closeSpanAt(span, cursor);
+        if (closed) expect(closed.toSlot).toBeGreaterThanOrEqual(closed.fromSlot);
+      }
+    }
   });
 });
