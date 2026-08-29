@@ -1,0 +1,1 @@
+{"at": "2026-08-30T00:50:58+09:00", "project": "consensus-sim", "project_root": "../consensus-sim", "essence_sha256": "a81c8cdc6210d8355846c03f61c7b7d265ca7384f379d65a0cb417d9885438b1", "essences": {}, "mode": "steering", "note": "must境界にて要求を引き上げ:状態表への刷新、稼働状態3値化、フォーク作成・型一覧ページ・総点検の追加、シナリオはlocalStorage保存へ"}
