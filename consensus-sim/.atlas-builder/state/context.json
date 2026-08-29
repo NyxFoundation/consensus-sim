@@ -30,17 +30,10 @@
     "high_risk_change_completed": false
   },
   "handoff": {
-    "written_at": "2026-08-30T01:53:20+09:00",
-    "summary": "サイクル 13: T-027(pbs.show 参照ビジュアル刷新)は参照サイトへの到達手段がエージェント環境にない(pbs.show/アーカイブとも sandbox 拒否、WebFetch 非対話許可なし、essences/ 資料なし、実ブラウザ起動不可)ため blocked。Human-input Recommendation R-002 を記録して停止(選択肢: A=許可ドメイン追加(推奨)/B=essences/ に参考資料提供/C=推測ベース明示承認(非推奨))。T-028(総点検)は遂行順序 6 により T-027 完了まで非着手 — 実行可能 must ゼロ。実装変更なし。人間の resume 待ち。",
-    "next_actions": [
-      "resume 後: R-002 の resolution を読み、選ばれた選択肢に従って T-027 を再開する。A なら WebFetch/curl で pbs.show の実スタイル(フォントファミリ・パレット・余白感・独特の表現)を取得してから styles.css の :root 変数体系の上に載せ替え。B なら essences/ の資料を読み取って同様に。C なら承認範囲を resolution で確認してから慎重に。いずれも衝突する大きなデザイン判断は人間へ戻す(思想 (b))",
-      "T-027 完了後に T-028(総点検: 3 観点 — ESSENCE・仕様・実装の整合/引き算の美学/複雑条件のバグ — の自己批判的点検、発見問題の全解消、点検記録、検証ゲート全通し)。T-028 完了で must 境界停止が来る想定",
-      "ビジュアル刷新の目視確認は人間の手元実行(scripts/verify-ui.mjs)前提 — 実装後に確認依頼を Recommendation で切り出す",
-      "mutating な state コマンドがロックで拒否されたら ATLAS_BUILDER_LOCK_TOKEN=$(cat .agent/tmp/loop.lock/token) を前置(L-20260830T011600+0900-b044)。守衛フックはヒアドキュメント本文の語にも反応する — 状態編集スクリプト/JSON は Write ツールで PROJECT_STATE_ROOT/tmp/ に書いてから実行・--file 渡しする"
-    ],
-    "open_questions": [
-      "R-002: pbs.show 参照手段の人間選択(A/B/C)待ち"
-    ],
-    "pending_cycle": false
+    "written_at": "2026-08-30T02:16:36+09:00",
+    "summary": "Human resume: pbs.show 参照へのアクセス不能(R-002)は、参照 URL 自体を ESSENCE.mdから削除し、言語化したデザイン方針(知的で無骨なデータ中心UI・高情報密度・モノクロ基調+アクセントカラー・フラット・Sans Serif と等幅の使い分け)へ置き換える update-essence改訂で根治した。提示選択肢 A/B/C のいずれも採らない。柱 2 の延期は維持。次サイクルは新 Essence から Specを再投影し、新デザイン方針でビジュアル刷新(旧 T-027 相当)を継続する。",
+    "next_actions": [],
+    "open_questions": [],
+    "pending_cycle": true
   }
 }
