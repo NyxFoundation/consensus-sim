@@ -64,10 +64,19 @@ async function advance(times: number) {
   }
 }
 
+/** Click the operating-state button (稼働 / 停止 / オフライン) for a validator. */
+async function setOpState(name: string, label: string) {
+  const group = container.querySelector(`[aria-label="${name} の稼働状態"]`)
+  const btn = [...(group?.querySelectorAll('button') ?? [])].find(
+    (b) => b.textContent === label,
+  )
+  await click(btn)
+}
+
 describe('scenario save / reload / replay (T-011)', () => {
   it('reproduces the saved run identically after the live scenario was mutated', async () => {
     // Build a distinctive run: V1 (ボブ) stopped from slot 1, advanced to slot 3.
-    await click(buttonByText('ボブ 稼働中 → 停止'))
+    await setOpState('ボブ', '停止')
     await advance(3)
     // Slot 1 is empty (stopped proposer): anchor + blocks at slots 2, 3.
     expect(all('.tree-block')).toHaveLength(3)

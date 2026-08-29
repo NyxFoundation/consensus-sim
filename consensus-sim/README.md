@@ -17,8 +17,9 @@ delivery/directives axes) is complete and fully tested. The UI ships all
 three displays — chain (the tree overlaid with every validator's
 information, plus the state table beneath it), network (per-validator
 cards with hover views) and global (chain + network side by side) — plus
-the intervention panel (partition, stop/resume, equivocation, per-message
-delay/drop), slot rewind, and scenario save/reload/replay (a
+the intervention panel (partition, the three operating states, equivocation,
+per-message delay/drop, fork creation), slot rewind, and scenario
+save/reload/replay (a
 localStorage-backed list). Every scenario operation is discoverable
 from the UI itself: panels collapse but summarize their contents, empty
 lists explain the next step, and the message selector groups the log per
@@ -49,9 +50,14 @@ available from the header tabs:
 - **全体表示** — chain on the left, network on the right.
 
 The 介入 panel between the slot bar and the mode body injects disturbances
-at the next slot boundary: partition a validator set (分断), stop and
-resume validators (停止/復帰), schedule a double proposal or double vote
-(equivocation), and delay or drop one specific message. Scheduled
+at the next slot boundary: partition a validator set (分断), switch a
+validator's operating state (稼働状態 — 稼働 / 停止 = silent but still
+receiving / オフライン = fully cut off with a frozen view that catches up
+through normal propagation after returning), schedule a double proposal or
+double vote (equivocation), delay or drop one specific message, and create
+a fork by designating the next proposal's parent from the proposer's own
+view (フォーク作成 — at most 4 simultaneous designations; forks arising
+naturally from other interventions are not capped). Scheduled
 interventions stay listed — healing, resuming or deleting one recomputes
 the whole displayed history deterministically. The ◀ / ▶ cursor rewinds to
 any past slot and reproduces that state exactly; advancing from a past slot

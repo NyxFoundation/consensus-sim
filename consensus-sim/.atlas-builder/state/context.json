@@ -6,11 +6,11 @@
     "stop_after_infra_fails": 2
   },
   "progress": {
-    "last_signature": "4a443877c035a2755644f0074a1a2aeec66397cabd3bc5d37174abb02ef87644",
+    "last_signature": "5d6ff7658b7d0566db1bc0a5c20dcc8f74e55f95b2973383497117689669c1ae",
     "idle_cycles_since_progress": 0,
     "infra_fails_since_ok": 0,
-    "last_progress_at": "2026-08-30T01:28:16+09:00",
-    "last_checked_at": "2026-08-30T01:28:16+09:00",
+    "last_progress_at": "2026-08-30T01:38:54+09:00",
+    "last_checked_at": "2026-08-30T01:38:54+09:00",
     "usage_limited_since_ok": 0
   },
   "reset_policy": {
@@ -21,21 +21,21 @@
     "reset_after_decisions": 5
   },
   "counters": {
-    "context_usage_estimate": 0.15,
+    "context_usage_estimate": 0.3,
     "failed_attempts_since_reset": 0,
-    "changed_files_since_reset": 11,
-    "completed_todos_since_reset": 2,
-    "important_decisions_since_reset": 3,
+    "changed_files_since_reset": 20,
+    "completed_todos_since_reset": 4,
+    "important_decisions_since_reset": 6,
     "major_spec_rewrite_since_reset": false,
     "high_risk_change_completed": false
   },
   "handoff": {
-    "written_at": "2026-08-30T01:28:00+09:00",
-    "summary": "サイクル 10: バッチ e2-table 完了(T-019 視点切替廃止・常時全バリデータ重ね+「〜表示」文言統一 / T-020 状態表: 木と同一スクロールコンテナ+treeGeometry.ts 共有定数で横位置整列、セル項目動的選択、最頻値差分強調(タイは全セル)、セル展開で局所観測)。検証 typecheck / vitest 135 件 / build すべて exit 0。分断→解消の収束が表上で確認できることを DOM テストで固定。scripts/verify-ui.mjs はサンドボックスから Chromium 起動不可と判明(L-20260830T012720+0900-05b0)— 実ブラウザ検証は人間の手元実行専用。残 must: T-021(稼働状態 3 状態)、T-022(フォーク作成)、T-024(介入キュー健全性)、T-026(型一覧ページ)、T-027(pbs.show ビジュアル刷新)、T-028(総点検・最後に実施)。",
+    "written_at": "2026-08-30T01:38:30+09:00",
+    "summary": "サイクル 11: バッチ e2-model 前半完了(T-021 オフライン 3 状態 / T-022 フォーク作成)。配送規則は点単位の単調配送に一般化(オフライン=観測者オンライン条件、分断と同一原理、既存テスト無修正で通過)。UI は稼働状態 3 状態セグメント+フォーク作成 fieldset(指定同時 4 本で拒否)。検証 typecheck / vitest 148 件 / build すべて exit 0。残 must: T-024(介入キュー健全性)、T-026(型一覧ページ)、T-027(pbs.show ビジュアル刷新)、T-028(総点検・最後に実施)。実ブラウザ検証は不可(L-20260830T012720+0900-05b0)。",
     "next_actions": [
-      "バッチ e2-model を分割実行(context_cost 上限 8 のため一括不可): まず T-021(オフライン状態の追加: 送受信遮断・ビュー凍結・復帰後は通常伝搬のみで追いつく)+ T-022(フォーク作成: parent 指定、指定フォーク同時 4 本制限は UI 側で拒否)= cost 8、次サイクルで T-024(介入キューの無効イベント防止)",
-      "その後 T-026(型一覧ページ: ドメイン型の上→下依存グラフ、実装と一致)、T-027(pbs.show 参照ビジュアル刷新 — 実ブラウザは起動不可なので jsdom+CSS 精査で進め、目視確認が必要な段階で人間へのスクリーンショット確認を Human-input Recommendation として切り出す)、最後に T-028(総点検+検証ゲート全通し)",
-      "mutating な state コマンドがロックで拒否されたら lessons.jsonl の単一実行ロック継承の項(L-20260830T011600+0900-b044)を参照(このサイクルでも .agent/tmp/loop.lock/token の明示渡しで解決済み)"
+      "次バッチ: T-024(介入キューの無効イベント防止 — 検証観点: 終了<開始のスパン、範囲外バリデータ/スロット、削除・解消の連続操作。稼働状態 UI は未発効スパンを削除する方式で先回り済みだが、分断の『解消（次スロットから）』は fromSlot=nextSlot の未発効エントリに toSlot=cursor を書き込み無効スパンを作る疑いあり — InterventionPanel.tsx の openPartition 側を確認して同じ削除方式に揃え、ドメイン側にも防御(不変条件検証 or 正規化)を検討)+ 余力があれば T-026(型一覧ページ: ドメイン型の上→下依存グラフ、実装と一致、cost 4)を同時または次サイクルで",
+      "その後 T-027(pbs.show 参照ビジュアル刷新 — jsdom+CSS 精査で進め、目視確認が必要な段階で人間へのスクリーンショット確認を Human-input Recommendation として切り出す)、最後に T-028(総点検+検証ゲート全通し)",
+      "mutating な state コマンドがロックで拒否されたら lessons.jsonl の単一実行ロック継承の項(L-20260830T011600+0900-b044)を参照(.agent/tmp/loop.lock/token の明示渡し、コマンドは必ず CONTROL_ROOT の絶対パスから)"
     ],
     "open_questions": [],
     "pending_cycle": false

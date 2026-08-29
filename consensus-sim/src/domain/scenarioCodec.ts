@@ -157,8 +157,9 @@ function interventionOf(
       return { kind: "partition", ...spanOf(x, what), groups };
     }
     case "stop":
+    case "offline":
       return {
-        kind: "stop",
+        kind: x.kind,
         ...spanOf(x, what),
         validators: validatorsOf(x.validators, validatorCount, `${what}.validators`),
       };
@@ -182,6 +183,11 @@ function interventionOf(
         message: messageRefOf(x.message, validatorCount, `${what}.message`),
         ...observersOf(x, validatorCount, what),
       };
+    case "propose-parent": {
+      const parent = integer(x.parent, `${what}.parent`);
+      if (parent < 0) throw new ParseError(`${what}.parent must be ≥ 0`);
+      return { kind: "propose-parent", slot: slotOf(x.slot, `${what}.slot`), parent };
+    }
     default:
       throw new ParseError(`${what}.kind is unknown: ${String(x.kind)}`);
   }

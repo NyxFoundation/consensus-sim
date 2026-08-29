@@ -1,23 +1,34 @@
 /**
- * Intervention panel (介入): specify partitions, stops, equivocations and
- * per-message delay/drop from the UI, at slot boundaries — new interventions
- * take effect from the slot after the cursor. The scheduled list stays
- * visible and editable; removing or healing an entry deterministically
- * recomputes the displayed history.
+ * Intervention panel (介入): specify partitions, operating states
+ * (稼働/停止/オフライン), equivocations, per-message delay/drop and fork
+ * creation (提案 parent の指定) from the UI, at slot boundaries — new
+ * interventions take effect from the slot after the cursor. The scheduled
+ * list stays visible and editable; removing or healing an entry
+ * deterministically recomputes the displayed history.
  */
 
 import { useState } from 'react'
-import { proposerForSlot, validatorName } from '../domain'
+import { proposerForSlot, validatorName, viewOf } from '../domain'
 import type {
   Intervention,
   MessageRef,
   PartitionIntervention,
   SimulationState,
-  StopIntervention,
   ValidatorIndex,
 } from '../domain'
 import type { SimulationSession } from './useSimulation'
 import { validatorColor } from './validatorColor'
+
+type OpState = 'active' | 'stopped' | 'offline'
+
+const OP_STATE_LABELS: Readonly<Record<OpState, string>> = {
+  active: '稼働',
+  stopped: '停止',
+  offline: 'オフライン',
+}
+
+/** UI-side cap on simultaneous fork-creation designations (必須 10). */
+const MAX_FORK_DESIGNATIONS = 4
 
 const validatorLabel = (v: ValidatorIndex) => validatorName(v)
 const setLabel = (vs: readonly ValidatorIndex[]) =>
@@ -33,12 +44,18 @@ function spanLabel(fromSlot: number, toSlot: number | undefined): string {
   return toSlot === undefined ? `s${fromSlot}〜` : `s${fromSlot}〜s${toSlot}`
 }
 
-function describe(i: Intervention): string {
+function describe(i: Intervention, validatorCount: number): string {
   switch (i.kind) {
     case 'partition':
       return `分断 { ${i.groups.map(setLabel).join(' | ')} } ⇔ 残り全員 ${spanLabel(i.fromSlot, i.toSlot)}`
     case 'stop':
       return `停止 ${setLabel(i.validators)} ${spanLabel(i.fromSlot, i.toSlot)}`
+    case 'offline':
+      return `オフライン ${setLabel(i.validators)} ${spanLabel(i.fromSlot, i.toSlot)}`
+    case 'propose-parent':
+      return `フォーク作成 parent B${i.parent} @ s${i.slot}（提案者 ${validatorName(
+        proposerForSlot(i.slot, validatorCount),
+      )}）`
     case 'double-propose':
       return `二重提案 ${validatorLabel(i.validator)} @ s${i.slot}`
     case 'double-vote':
@@ -100,13 +117,14 @@ export interface InterventionPanelProps {
 }
 
 export function InterventionPanel({ session }: InterventionPanelProps) {
-  const { current, config, interventions, cursor } = session
+  const { current, config, interventions, cursor, delivery } = session
   const validators = Array.from({ length: config.validatorCount }, (_, v) => v)
   const nextSlot = cursor + 1
   const nextProposer = proposerForSlot(nextSlot, config.validatorCount)
 
   const [groupA, setGroupA] = useState<readonly ValidatorIndex[]>([])
   const [dvValidator, setDvValidator] = useState<ValidatorIndex>(0)
+  const [forkParent, setForkParent] = useState('')
   const [msgKey, setMsgKey] = useState('')
   const [msgAction, setMsgAction] = useState<'drop' | 'delay'>('drop')
   const [delayUntil, setDelayUntil] = useState('')
@@ -127,23 +145,68 @@ export function InterventionPanel({ session }: InterventionPanelProps) {
 
   const openPartition = (i: Intervention): i is PartitionIntervention =>
     i.kind === 'partition' && (i.toSlot === undefined || i.toSlot >= nextSlot)
-  const openStopWith = (i: Intervention, v: ValidatorIndex): i is StopIntervention =>
-    i.kind === 'stop' &&
-    i.validators.includes(v) &&
-    (i.toSlot === undefined || i.toSlot >= nextSlot) &&
-    i.fromSlot <= nextSlot
-  const isStopped = (v: ValidatorIndex) =>
-    interventions.some((i) => openStopWith(i, v))
 
-  const toggleStop = (v: ValidatorIndex) => {
-    const index = interventions.findIndex((i) => openStopWith(i, v))
-    if (index === -1) {
-      add({ kind: 'stop', fromSlot: nextSlot, validators: [v] })
-    } else {
-      const stop = interventions[index] as StopIntervention
-      replaceAt(index, { ...stop, toSlot: cursor })
+  // Operating state (稼働状態): derived from the open stop/offline spans at
+  // the next slot. Offline wins when both are somehow open.
+  const openSpanWith = (
+    i: Intervention,
+    kind: 'stop' | 'offline',
+    v: ValidatorIndex,
+  ): boolean =>
+    i.kind === kind &&
+    i.validators.includes(v) &&
+    i.fromSlot <= nextSlot &&
+    (i.toSlot === undefined || i.toSlot >= nextSlot)
+  const opStateOf = (v: ValidatorIndex): OpState =>
+    interventions.some((i) => openSpanWith(i, 'offline', v))
+      ? 'offline'
+      : interventions.some((i) => openSpanWith(i, 'stop', v))
+        ? 'stopped'
+        : 'active'
+
+  /** Move v to `target` from the next slot: close every open stop/offline
+   * span covering v (a span that has not started yet is removed outright, so
+   * no toSlot-before-fromSlot entry can be produced), then open the new one. */
+  const setOpState = (v: ValidatorIndex, target: OpState) => {
+    if (opStateOf(v) === target) return
+    const next: Intervention[] = []
+    for (const i of interventions) {
+      if (
+        (i.kind === 'stop' || i.kind === 'offline') &&
+        i.validators.includes(v) &&
+        (i.toSlot === undefined || i.toSlot >= nextSlot)
+      ) {
+        const others = i.validators.filter((x) => x !== v)
+        if (others.length > 0) next.push({ ...i, validators: others })
+        if (i.fromSlot <= cursor) {
+          next.push({ ...i, toSlot: cursor, validators: [v] })
+        }
+      } else {
+        next.push(i)
+      }
     }
+    if (target !== 'active') {
+      next.push({
+        kind: target === 'stopped' ? 'stop' : 'offline',
+        fromSlot: nextSlot,
+        validators: [v],
+      })
+    }
+    session.setInterventions(next)
   }
+
+  // Fork creation (フォーク作成): the next proposer's parent choice, offered
+  // from the blocks of its own view (提案は slot < nextSlot のビューから).
+  const forkDesignations = interventions.filter(
+    (i) => i.kind === 'propose-parent',
+  ).length
+  const forkScheduled = interventions.some(
+    (i) => i.kind === 'propose-parent' && i.slot === nextSlot,
+  )
+  const forkAtCap = forkDesignations >= MAX_FORK_DESIGNATIONS
+  const proposerBlocks = [
+    ...viewOf(current.log, nextProposer, cursor, delivery).blockTree.blocks.values(),
+  ].sort((a, b) => a.index - b.index)
 
   const doubleProposeScheduled = interventions.some(
     (i) => i.kind === 'double-propose' && i.slot === nextSlot,
@@ -219,23 +282,85 @@ export function InterventionPanel({ session }: InterventionPanelProps) {
         </fieldset>
 
         <fieldset className="intervention-group">
-          <legend>停止 / 復帰</legend>
-          <div className="validator-checks">
-            {validators.map((v) => (
-              <button
-                type="button"
-                key={v}
-                className={isStopped(v) ? 'stop-toggle stopped' : 'stop-toggle'}
-                onClick={() => toggleStop(v)}
-              >
-                <span
-                  className="validator-dot"
-                  style={{ background: validatorColor(v) }}
-                />
-                {validatorLabel(v)} {isStopped(v) ? '停止中 → 復帰' : '稼働中 → 停止'}
-              </button>
-            ))}
+          <legend>
+            稼働状態{' '}
+            <span className="intervention-note">
+              停止 = 提案・投票をやめる（受信は続く）／ オフライン =
+              送受信とも遮断（ビュー凍結、復帰後は通常の伝搬で追いつく）
+            </span>
+          </legend>
+          {validators.map((v) => {
+            const opState = opStateOf(v)
+            return (
+              <div className="form-line op-state-line" key={v}>
+                <span className="op-state-name">
+                  <span
+                    className="validator-dot"
+                    style={{ background: validatorColor(v) }}
+                  />
+                  {validatorLabel(v)}
+                </span>
+                <div
+                  className="segmented"
+                  role="group"
+                  aria-label={`${validatorLabel(v)} の稼働状態`}
+                >
+                  {(Object.keys(OP_STATE_LABELS) as OpState[]).map((s) => (
+                    <button
+                      type="button"
+                      key={s}
+                      className={opState === s ? 'active' : ''}
+                      aria-pressed={opState === s}
+                      onClick={() => setOpState(v, s)}
+                    >
+                      {OP_STATE_LABELS[s]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )
+          })}
+        </fieldset>
+
+        <fieldset className="intervention-group">
+          <legend>フォーク作成（提案 parent の指定）</legend>
+          <div className="form-line">
+            s{nextSlot} の提案者 {validatorLabel(nextProposer)} が
+            <select
+              aria-label="提案の parent ブロック"
+              value={forkParent}
+              onChange={(e) => setForkParent(e.target.value)}
+            >
+              <option value="">parent を選択…</option>
+              {proposerBlocks.map((b) => (
+                <option key={b.index} value={b.index}>
+                  B{b.index}（s{b.slot}）
+                </option>
+              ))}
+            </select>
+            の上に提案
           </div>
+          <button
+            type="button"
+            disabled={forkParent === '' || forkScheduled || forkAtCap}
+            onClick={() => {
+              add({
+                kind: 'propose-parent',
+                slot: nextSlot,
+                parent: Number(forkParent),
+              })
+              setForkParent('')
+            }}
+          >
+            {forkScheduled
+              ? `フォーク作成を予約済み（s${nextSlot}）`
+              : 'フォークを作成'}
+          </button>
+          <span className="intervention-note">
+            {forkAtCap
+              ? 'フォーク作成の指定は同時 4 本まで（既存の指定を削除すると追加できます）'
+              : '未指定時は fork choice が parent を選びます'}
+          </span>
         </fieldset>
 
         <fieldset className="intervention-group">
@@ -368,7 +493,9 @@ export function InterventionPanel({ session }: InterventionPanelProps) {
         <ul className="intervention-list">
           {interventions.map((i, index) => (
             <li key={index}>
-              <span className="intervention-desc">{describe(i)}</span>
+              <span className="intervention-desc">
+                {describe(i, config.validatorCount)}
+              </span>
               {openPartition(i) && (
                 <button
                   type="button"

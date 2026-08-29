@@ -90,19 +90,101 @@ describe('partition intervention from the UI (T-009)', () => {
   })
 })
 
-describe('stop / resume from the UI (T-009)', () => {
+/** The operating-state control (稼働 / 停止 / オフライン) for a validator. */
+function opStateButton(name: string, label: string): Element | undefined {
+  const group = container.querySelector(`[aria-label="${name} の稼働状態"]`)
+  return [...(group?.querySelectorAll('button') ?? [])].find(
+    (b) => b.textContent === label,
+  )
+}
+
+describe('operating states from the UI (T-009 / T-021)', () => {
   it('a stopped proposer leaves the slot empty and resuming restores votes', async () => {
     // Slot 1's proposer is V1 (ボブ): stop it before the first advance.
-    await click(buttonByText('ボブ 稼働中 → 停止'))
-    expect(buttonByText('ボブ 停止中 → 復帰')).toBeDefined()
+    await click(opStateButton('ボブ', '停止'))
+    expect(opStateButton('ボブ', '停止')?.getAttribute('aria-pressed')).toBe('true')
+    expect(text('.intervention-list')).toContain('停止 ボブ')
     await advance(1)
     // Anchor only — the stopped proposer published nothing.
     expect(all('.tree-block')).toHaveLength(1)
     expect(all('.vote-table tbody tr')).toHaveLength(3)
 
-    await click(buttonByText('ボブ 停止中 → 復帰'))
+    await click(opStateButton('ボブ', '稼働'))
     await advance(1)
     expect(all('.vote-table tbody tr')).toHaveLength(4)
+  })
+
+  it('an offline validator freezes and catches up after returning (T-021)', async () => {
+    await click(opStateButton('ボブ', 'オフライン'))
+    expect(text('.intervention-list')).toContain('オフライン ボブ')
+    await advance(3)
+    // Slot 1 (ボブ's proposal) is empty; slots 2 and 3 propose.
+    expect(all('.tree-block')).toHaveLength(3)
+
+    // ボブ's card is frozen at the anchor while everyone else moved on.
+    await click(buttonByText('ネットワーク表示'))
+    const diverged = all('.validator-card.diverged')
+    expect(diverged).toHaveLength(1)
+    expect(diverged[0]?.textContent).toContain('ボブ')
+    expect(diverged[0]?.textContent).toContain('B0')
+
+    // Return to 稼働: pent-up messages arrive through normal propagation
+    // and the views reconverge.
+    await click(opStateButton('ボブ', '稼働'))
+    await advance(2)
+    expect(all('.validator-card.diverged')).toHaveLength(0)
+    await click(buttonByText('チェーン表示'))
+    expect(all('.vote-table tbody tr')).toHaveLength(4)
+  })
+})
+
+describe('fork creation from the UI (T-022)', () => {
+  async function designateParent(value: string) {
+    const select = container.querySelector(
+      'select[aria-label="提案の parent ブロック"]',
+    )
+    if (!(select instanceof HTMLSelectElement)) throw new Error('select not found')
+    await act(async () => {
+      select.value = value
+      select.dispatchEvent(new Event('change', { bubbles: true }))
+    })
+    await click(buttonByText('フォークを作成'))
+  }
+
+  it('the designated parent forks the tree; unspecified slots follow fork choice', async () => {
+    await advance(2)
+    await designateParent('1')
+    expect(text('.intervention-list')).toContain('フォーク作成 parent B1 @ s3')
+    await advance(1)
+    // B3 was built on B1, not on the fork-choice head B2: 4 blocks, forked.
+    expect(all('.tree-block')).toHaveLength(4)
+  })
+
+  it('refuses a fifth simultaneous designation and frees up on deletion', async () => {
+    for (let i = 0; i < 4; i++) {
+      await designateParent('0')
+      await advance(1)
+    }
+    expect(all('.intervention-list li').length).toBe(4)
+    const button = buttonByText('フォークを作成')
+    expect((button as HTMLButtonElement).disabled).toBe(true)
+    expect(text('.intervention-panel')).toContain('フォーク作成の指定は同時 4 本まで')
+
+    // Deleting one designation makes room again.
+    await click(
+      all('.intervention-panel .intervention-list li button').find((b) =>
+        b.textContent?.includes('削除'),
+      ),
+    )
+    const select = container.querySelector(
+      'select[aria-label="提案の parent ブロック"]',
+    )
+    if (!(select instanceof HTMLSelectElement)) throw new Error('select not found')
+    await act(async () => {
+      select.value = '0'
+      select.dispatchEvent(new Event('change', { bubbles: true }))
+    })
+    expect((buttonByText('フォークを作成') as HTMLButtonElement).disabled).toBe(false)
   })
 })
 

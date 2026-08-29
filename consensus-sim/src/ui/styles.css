@@ -614,9 +614,16 @@ body {
   width: 56px;
 }
 
-.stop-toggle.stopped {
-  border-color: var(--status-warning);
-  background: color-mix(in srgb, var(--status-warning) 18%, var(--control-bg));
+.op-state-line {
+  gap: 8px;
+}
+
+.op-state-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 72px;
+  color: var(--ink-secondary);
 }
 
 .intervention-list {

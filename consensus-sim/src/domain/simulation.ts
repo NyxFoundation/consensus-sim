@@ -88,13 +88,17 @@ export function initialState(config: SimulationConfig): SimulationState {
  * who acts and whether they equivocate. Absent fields mean honest behaviour.
  */
 export interface SlotDirectives {
-  /** Validators that neither propose nor vote this slot (停止). They still
-   * observe: stopping silences a validator, it does not blind it. */
+  /** Validators that neither propose nor vote this slot (停止/オフライン).
+   * Whether they still receive is the Delivery axis's concern, not this
+   * one's: this set only silences a validator's own actions. */
   readonly stopped?: ReadonlySet<ValidatorIndex>;
   /** The slot's proposer publishes two blocks on the same parent (二重提案). */
   readonly doublePropose?: boolean;
   /** These validators each cast a second, conflicting vote (二重投票). */
   readonly doubleVote?: ReadonlySet<ValidatorIndex>;
+  /** The proposer builds on this block instead of its fork-choice head
+   * (フォーク作成) — ignored when the block is not in the proposer's view. */
+  readonly proposeParent?: BlockIndex;
 }
 
 /**
@@ -125,7 +129,7 @@ export function advanceSlot(
       proposerView,
       config.validatorCount,
     );
-    const proposal = buildProposal(
+    const honest = buildProposal(
       proposerView.blockTree,
       proposerView.votes,
       proposerFinality,
@@ -133,6 +137,11 @@ export function advanceSlot(
       proposer,
       state.nextBlockIndex,
     );
+    const forced = directives.proposeParent;
+    const proposal =
+      forced !== undefined && proposerView.blockTree.blocks.has(forced)
+        ? { ...honest, parent: forced }
+        : honest;
     proposals.push(proposal);
     if (directives.doublePropose) {
       proposals.push({

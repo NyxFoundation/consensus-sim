@@ -640,7 +640,7 @@
     {
       "id": "T-021",
       "title": "稼働状態 3 状態への拡張: オンライン稼働/オンライン停止(提案・投票停止、受信継続)/オフライン(送受信遮断・ビュー凍結、復帰後は通常伝搬で追いつく)+UI とテスト",
-      "status": "pending",
+      "status": "done",
       "priority": "must",
       "spec": [
         "S-009"
@@ -651,12 +651,30 @@
       "batch_group": "e2-model",
       "context_cost": 4,
       "risk_level": "normal",
-      "notes": "現行の停止/復帰(オンライン停止相当)にオフライン状態を追加。オフラインは送信も受信も遮断しビューが凍結、復帰スロット以降の通常伝搬のみで追いつく(遡及一括配送はしない)。"
+      "notes": "配送規則を点単位の単調配送に一般化して実装: メッセージは発行〜現在の間に「全条件が揃うスロット」が一度でもあれば到達し、以後見え続ける(分断の既存意味論の自然な拡張、既存テスト全通過で後方互換を確認)。オフライン = 観測者条件(オンラインのスロットでのみ受信可)+ directive の沈黙(停止と同じ行動抑止)。凍結ビューはこの規則から純粋に導出され、復帰スロットで滞留分が通常伝搬として一括到達(遡及配送なし)。UI は停止/復帰トグルを 3 状態セグメント(稼働/停止/オフライン)に刷新し、未発効スパンの閉鎖は toSlot<fromSlot を作らず削除する(T-024 の先回り防御)。",
+      "evidence": [
+        {
+          "type": "diff",
+          "summary": "src/domain/intervention.ts: OfflineIntervention {fromSlot,toSlot?,validators}; compileDelivery rewritten to monotone pointwise delivery (deliverableAt(u) = delays expired ∧ unpartitioned ∧ observer online; arrival = ∃u in [publishedAt, atSlot]); directivesForSlot silences offline validators like stopped ones (equivocations included). src/domain/scenarioCodec.ts: offline case (span + validators validation). src/ui/InterventionPanel.tsx: 3-state operating control (稼働/停止/オフライン segmented per validator, aria-pressed), setOpState closes open spans splitting multi-validator entries and deletes not-yet-effective spans instead of producing toSlot<fromSlot. styles.css: op-state rules replace dead .stop-toggle. README updated."
+        },
+        {
+          "type": "command",
+          "command": "npx vitest run tests/domain/intervention.test.ts tests/ui/interventions.test.tsx",
+          "exit_code": 0,
+          "summary": "受け入れ確認: オフライン中は提案・投票なし(担当スロットが空)、ビュー凍結(見えるブロックが B0,B1 のみに留まり神視点は先行)、復帰スロットで滞留メッセージが通常伝搬で一括到達し翌スロットで head が全体と一致(ドメイン 3 件)。UI では ボブ をオフライン→ネットワークカードが 分岐中 1 枚(B0 凍結)、稼働に戻して 2 スロットで収束、投票 4 行復活(DOM 1 件)。決定性テストにも offline を追加し同一再計算を確認。"
+        },
+        {
+          "type": "command",
+          "command": "npm run typecheck && npx vitest run && npm run build",
+          "exit_code": 0,
+          "summary": "Full gate: tsc --noEmit, vitest 15 files / 148 tests (135 → 148), vite build — all exit 0."
+        }
+      ]
     },
     {
       "id": "T-022",
       "title": "フォーク作成介入: 提案ブロックの parent をプロポーザーの View 内から UI で指定(未指定時は fork choice)。指定フォーク同時 4 本超は UI が受け付けない+テスト",
-      "status": "pending",
+      "status": "done",
       "priority": "must",
       "spec": [
         "S-024"
@@ -666,7 +684,26 @@
       },
       "batch_group": "e2-model",
       "context_cost": 4,
-      "risk_level": "normal"
+      "risk_level": "normal",
+      "notes": "propose-parent 介入 {slot, parent}: そのスロットの提案者が fork choice の代わりに指定 parent 上へ提案。指定 parent が提案者のビューに無い場合は fork choice へフォールバック(クラッシュも不正木もなし)。「同時に存在するフォーク 4 本超を UI が受け付けない」は、介入キュー内のフォーク作成指定数 4 で追加ボタンを無効化+理由表示として実装(指定の削除で再び追加可能、分断等で自然に生じる分岐は無制約 — Essence 必須 10 の明示どおり)。parent 候補は提案者自身のビュー(viewOf, slot<次スロット)から列挙。",
+      "evidence": [
+        {
+          "type": "diff",
+          "summary": "src/domain/intervention.ts: ProposeParentIntervention + directivesForSlot proposeParent (suppressed while the proposer is stopped/offline). src/domain/simulation.ts: SlotDirectives.proposeParent; advanceSlot builds honestly then overrides the parent only when the designated block is in the proposer's view. src/domain/scenarioCodec.ts: propose-parent case (slot + parent ≥ 0). src/ui/InterventionPanel.tsx: フォーク作成 fieldset — parent select from the proposer's own view, per-slot duplicate guard, MAX_FORK_DESIGNATIONS=4 cap with explanatory note, list label フォーク作成 parent B<i> @ s<n>（提案者 <name>）."
+        },
+        {
+          "type": "command",
+          "command": "npx vitest run tests/domain/intervention.test.ts tests/ui/interventions.test.tsx tests/domain/scenarioCodec.test.ts",
+          "exit_code": 0,
+          "summary": "受け入れ確認: 指定 parent B1 で s3 の提案が B1 上に載りフォークが生じ、未指定スロットは fork choice(B2)を選ぶ。ビューに無い parent 指定はフォールバック(欠落介入で B1 不可視 → 錨上に提案)。UI: parent B1 指定 → 一覧に『フォーク作成 parent B1 @ s3』、送り後に木が 4 ブロックへ分岐。5 本目の指定はボタン無効+『同時 4 本まで』表示、指定削除で再び有効。codec: offline/propose-parent の round-trip と 4 つの拒否ケース(不正 span・負 parent 等)を追加、全通過。"
+        },
+        {
+          "type": "command",
+          "command": "npm run typecheck && npx vitest run && npm run build",
+          "exit_code": 0,
+          "summary": "Full gate: tsc --noEmit, vitest 148/148, vite build — all exit 0."
+        }
+      ]
     },
     {
       "id": "T-023",

@@ -1,6 +1,7 @@
 // Interventions (介入) — scenario-level disturbances specified at slot
-// boundaries: partitions (分断), stops (停止/復帰), equivocations
-// (二重提案・二重投票), and per-message delay/drop (遅延・欠落).
+// boundaries: partitions (分断), operating states (稼働状態: 停止/オフライン),
+// equivocations (二重提案・二重投票), per-message delay/drop (遅延・欠落),
+// and fork creation (フォーク作成: 提案 parent の指定).
 //
 // Interventions are pure data (persistable as part of a scenario) and are
 // compiled into the two axes the engine already accepts: a Delivery rule
@@ -11,7 +12,7 @@ import type { Delivery } from "./localView";
 import { sameRef, type MessageRef } from "./messages";
 import { proposerForSlot } from "./protocol";
 import type { SlotDirectives } from "./simulation";
-import type { SlotIndex, ValidatorIndex } from "./types";
+import type { BlockIndex, SlotIndex, ValidatorIndex } from "./types";
 
 /** Messages do not cross group boundaries while the partition is active.
  * Validators listed in no group form one implicit remaining group. */
@@ -23,11 +24,24 @@ export interface PartitionIntervention {
   readonly groups: readonly (readonly ValidatorIndex[])[];
 }
 
-/** The validators neither propose nor vote while stopped; they still observe. */
+/** オンライン停止: the validators neither propose nor vote while stopped;
+ * they still observe (silenced, not blinded). */
 export interface StopIntervention {
   readonly kind: "stop";
   readonly fromSlot: SlotIndex;
   /** Last stopped slot (inclusive); absent = until resumed. */
+  readonly toSlot?: SlotIndex;
+  readonly validators: readonly ValidatorIndex[];
+}
+
+/** オフライン: the validators neither send (no proposals, no votes) nor
+ * receive — their views freeze at the state on entering offline. After
+ * returning they catch up through normal propagation only: pent-up messages
+ * arrive from the return slot on, never retroactively into the frozen span. */
+export interface OfflineIntervention {
+  readonly kind: "offline";
+  readonly fromSlot: SlotIndex;
+  /** Last offline slot (inclusive); absent = until returned. */
   readonly toSlot?: SlotIndex;
   readonly validators: readonly ValidatorIndex[];
 }
@@ -67,13 +81,24 @@ export interface DropIntervention {
   readonly observers?: readonly ValidatorIndex[];
 }
 
+/** フォーク作成: the proposer of `slot` builds on `parent` instead of the
+ * block its fork choice picks. Ignored — falling back to fork choice — when
+ * `parent` is not in the proposer's view at proposal time. */
+export interface ProposeParentIntervention {
+  readonly kind: "propose-parent";
+  readonly slot: SlotIndex;
+  readonly parent: BlockIndex;
+}
+
 export type Intervention =
   | PartitionIntervention
   | StopIntervention
+  | OfflineIntervention
   | DoubleProposeIntervention
   | DoubleVoteIntervention
   | DelayIntervention
-  | DropIntervention;
+  | DropIntervention
+  | ProposeParentIntervention;
 
 const activeAt = (
   fromSlot: SlotIndex,
@@ -100,17 +125,23 @@ const targets = (
 /**
  * Compile the interventions into one Delivery rule.
  *
- * Partition semantics: a message published at p reaches a cross-group
- * observer at slot s iff some slot u in [p, s] was unpartitioned between
- * sender and observer — so messages published before the partition are
- * already through, and healing releases everything held back. Delivery is
- * monotone in s (once seen, always seen).
+ * Monotone pointwise delivery: a message published at p reaches an observer
+ * at slot s iff some slot u in [p, s] let it through — every matching delay
+ * had expired, sender and observer were unpartitioned, and the observer was
+ * online — and it stays arrived (once seen, always seen). So messages
+ * published before a partition or an offline span are already through, an
+ * offline validator's view freezes (nothing arrives while it is offline),
+ * and healing a partition or returning from offline releases everything
+ * held back through normal propagation at that slot, never retroactively.
  */
 export function compileDelivery(
   interventions: readonly Intervention[],
 ): Delivery {
   const partitions = interventions.filter(
     (i): i is PartitionIntervention => i.kind === "partition",
+  );
+  const offlines = interventions.filter(
+    (i): i is OfflineIntervention => i.kind === "offline",
   );
   const delays = interventions.filter(
     (i): i is DelayIntervention => i.kind === "delay",
@@ -128,32 +159,40 @@ export function compileDelivery(
         return false;
       }
     }
-    for (const delay of delays) {
-      if (
-        sameRef(delay.message, message) &&
-        targets(delay.observers, observer) &&
-        atSlot < delay.untilSlot
-      ) {
-        return false;
-      }
-    }
 
-    if (partitions.length === 0) return true;
-    const separatedAt = (u: SlotIndex): boolean =>
-      partitions.some(
+    if (
+      partitions.length === 0 &&
+      offlines.length === 0 &&
+      delays.length === 0
+    ) {
+      return true;
+    }
+    const deliverableAt = (u: SlotIndex): boolean =>
+      delays.every(
+        (d) =>
+          !(sameRef(d.message, message) && targets(d.observers, observer)) ||
+          u >= d.untilSlot,
+      ) &&
+      !partitions.some(
         (p) =>
           activeAt(p.fromSlot, p.toSlot, u) &&
           groupOf(p.groups, sender) !== groupOf(p.groups, observer),
+      ) &&
+      !offlines.some(
+        (o) =>
+          activeAt(o.fromSlot, o.toSlot, u) && o.validators.includes(observer),
       );
     for (let u = publishedAt; u <= atSlot; u++) {
-      if (!separatedAt(u)) return true;
+      if (deliverableAt(u)) return true;
     }
     return false;
   };
 }
 
-/** The protocol directives one slot inherits from the interventions. A
- * stopped validator's equivocations are moot: stopping silences it fully. */
+/** The protocol directives one slot inherits from the interventions. Stopped
+ * and offline validators are equally silent this slot (the difference —
+ * whether they still receive — lives on the Delivery axis), so both silence
+ * a validator's equivocations too. */
 export function directivesForSlot(
   interventions: readonly Intervention[],
   slot: SlotIndex,
@@ -161,7 +200,10 @@ export function directivesForSlot(
 ): SlotDirectives {
   const stopped = new Set<ValidatorIndex>();
   for (const i of interventions) {
-    if (i.kind === "stop" && activeAt(i.fromSlot, i.toSlot, slot)) {
+    if (
+      (i.kind === "stop" || i.kind === "offline") &&
+      activeAt(i.fromSlot, i.toSlot, slot)
+    ) {
       for (const v of i.validators) stopped.add(v);
     }
   }
@@ -179,5 +221,16 @@ export function directivesForSlot(
       doubleVote.add(i.validator);
     }
   }
-  return { stopped, doublePropose, doubleVote };
+  let proposeParent: BlockIndex | undefined;
+  for (const i of interventions) {
+    if (i.kind === "propose-parent" && i.slot === slot && !stopped.has(proposer)) {
+      proposeParent = i.parent;
+    }
+  }
+  return {
+    stopped,
+    doublePropose,
+    doubleVote,
+    ...(proposeParent !== undefined ? { proposeParent } : {}),
+  };
 }

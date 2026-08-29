@@ -1,5 +1,6 @@
-// Interventions (介入): partitions, stops, equivocations and per-message
-// delay/drop, all expressed as scenario data and compiled onto the engine's
+// Interventions (介入): partitions, operating states (停止/オフライン),
+// equivocations, per-message delay/drop and fork creation (propose-parent),
+// all expressed as scenario data and compiled onto the engine's
 // delivery/directives axes. Each case checks the intervention produces its
 // specified observable effect — and that the whole run stays deterministic.
 
@@ -100,6 +101,92 @@ describe("stop intervention (停止/復帰)", () => {
     const obs = observe(state.log, 3, state.slot, 4);
     expect(obs.view.blockTree.blocks.size).toBe(state.tree.blocks.size);
     expect(state.heads.get(3)).toBe(state.heads.get(0));
+  });
+});
+
+describe("offline intervention (オフライン)", () => {
+  // V3 offline during slots 2..4; everyone else keeps running.
+  const offline = scenario([
+    { kind: "offline", fromSlot: 2, toSlot: 4, validators: [3] },
+  ]);
+
+  it("an offline validator neither proposes nor votes", () => {
+    const states = statesAt(offline, 4);
+    // V3 proposes slot 3 (round robin): the slot stays empty.
+    const slot3 = [...(states[4]?.tree.blocks.values() ?? [])].filter(
+      (b) => b.slot === 3,
+    );
+    expect(slot3).toHaveLength(0);
+    const votersAt = (slot: number) =>
+      new Set(
+        (states[4]?.votes ?? [])
+          .filter((v) => v.slot === slot)
+          .map((v) => v.validator),
+      );
+    expect(votersAt(2).has(3)).toBe(false);
+    expect(votersAt(3).has(3)).toBe(false);
+    expect(votersAt(4).has(3)).toBe(false);
+  });
+
+  it("the view freezes while offline (nothing arrives, unlike 停止)", () => {
+    const state = statesAt(offline, 4)[4];
+    if (!state) throw new Error("missing state");
+    const delivery = scenarioDelivery(offline);
+    const obs = observe(state.log, 3, state.slot, 4, delivery);
+    // Frozen at the state entering slot 2: anchor + the slot-1 block only,
+    // and only votes published through slot 1.
+    expect([...obs.view.blockTree.blocks.keys()].sort()).toEqual([0, 1]);
+    expect(obs.view.votes.every((v) => v.slot <= 1)).toBe(true);
+    // The god view moved on without it.
+    expect(state.tree.blocks.size).toBeGreaterThan(obs.view.blockTree.blocks.size);
+  });
+
+  it("after returning, pent-up messages arrive through normal propagation", () => {
+    const states = statesAt(offline, 6);
+    const delivery = scenarioDelivery(offline);
+    // Return slot is 5: the whole backlog becomes visible there, not before.
+    const at5 = states[5];
+    if (!at5) throw new Error("missing state");
+    const obs5 = observe(at5.log, 3, at5.slot, 4, delivery);
+    expect(obs5.view.blockTree.blocks.size).toBe(at5.tree.blocks.size);
+    // Caught up: by slot 6 V3 votes again and shares the common head.
+    const at6 = states[6];
+    if (!at6) throw new Error("missing state");
+    expect(
+      at6.votes.some((v) => v.validator === 3 && v.slot === 6),
+    ).toBe(true);
+    expect(at6.heads.get(3)).toBe(at6.heads.get(0));
+  });
+});
+
+describe("propose-parent intervention (フォーク作成)", () => {
+  it("forces the designated parent, creating a fork", () => {
+    const s = scenario([{ kind: "propose-parent", slot: 3, parent: 1 }]);
+    const state = statesAt(s, 3)[3];
+    if (!state) throw new Error("missing state");
+    const slot3 = [...state.tree.blocks.values()].find((b) => b.slot === 3);
+    expect(slot3?.parent).toBe(1); // fork choice would have picked B2
+  });
+
+  it("without a designation the fork choice picks the parent", () => {
+    const state = statesAt(scenario([]), 3)[3];
+    const slot3 = [...(state?.tree.blocks.values() ?? [])].find(
+      (b) => b.slot === 3,
+    );
+    expect(slot3?.parent).toBe(2);
+  });
+
+  it("falls back to fork choice when the parent is not in the proposer's view", () => {
+    // Slot 3's proposer is V3; drop B1 for it, so B1 (and orphaned B2) are
+    // invisible and its honest head is the anchor.
+    const s = scenario([
+      { kind: "drop", message: { kind: "block", block: 1 }, observers: [3] },
+      { kind: "propose-parent", slot: 3, parent: 1 },
+    ]);
+    const state = statesAt(s, 3)[3];
+    if (!state) throw new Error("missing state");
+    const slot3 = [...state.tree.blocks.values()].find((b) => b.slot === 3);
+    expect(slot3?.parent).toBe(0); // anchor — the view's own fork choice
   });
 });
 
@@ -233,6 +320,8 @@ describe("scenario determinism (決定性)", () => {
       { kind: "double-propose", slot: 5, validator: proposerForSlot(5, 4) },
       { kind: "double-vote", slot: 6, validator: 1 },
       { kind: "drop", message: { kind: "block", block: 2 }, observers: [3] },
+      { kind: "offline", fromSlot: 7, toSlot: 8, validators: [0] },
+      { kind: "propose-parent", slot: 9, parent: 1 },
     ];
     const a = statesAt(scenario(interventions), 10);
     const b = statesAt(scenario(interventions), 10);
