@@ -30,13 +30,10 @@
     "high_risk_change_completed": false
   },
   "handoff": {
-    "written_at": "2026-08-30T02:48:00+09:00",
-    "summary": "T-028(総点検)を完了し、must 全 14 Todo が done。総点検は 2 並行の読み取り専用監査(全数トレース/引き算スキャン)+自前の複合条件テスト新設で実施し、発見問題を全解消: verify-ui.mjs 全面改稿(旧 UI 前提で全チェック失敗する状態だった)、セル展開の全投票列挙化(必須 5)、ネットワークカードへの稼働状態チップ(必須 8, operatingStateAt 新設)、setOpState の未来スパン無告知削除の修正、死蔵コード削除(theme.ts 一式・hasBlock/leafIndices・--border・eslint コメント・作業 ID 露出)、README 6 箇所整合、docs/INSPECTION.md(点検記録, 成功条件 12)作成、Spec の essence_refs に成功条件 13 項中 11 項のトレースを追加。最終ゲート typecheck/vitest 18 files 184 tests/build 全 exit 0。ループ境界で must_complete_awaiting_phase_approval が立ち、人間のフェーズ判断(--approve-should / --close-at-must)待ちになる想定。",
-    "next_actions": [
-      "人間のフェーズ判断待ち(must 境界)。approve-should なら T-014(自動再生)/T-015(ショートカット)/T-017(シナリオのメモ・命名)が走行可能になる。",
-      "人間への引き継ぎ事項: 新ビジュアル(モノクロ基調・フラット・高密度)の見た目の最終目視確認が未了 — npm run dev または npm run build && node scripts/verify-ui.mjs(Playwright chromium はインストール済み、sandbox 外の手元実行が必要)。"
-    ],
+    "written_at": "2026-09-03T02:37:48+09:00",
+    "summary": "Human resume: ESSENCE.md の大改訂(攻撃の形式体系・チェーン状態・プロトコルパラメータ化とプリセット・ステークと罰則・緩和策・12 攻撃ライブラリ・攻撃一覧ページの追加、必須対応事項 29 項/成功条件 25 項)と essences/deep-research-report.md の配置は人間自身による編集であり、レビュー済みとして attest する。\nmust 境界ゲート R-LG-20260830T024920+0900-05f3 は旧 Essence(bcb5982e)の must 完了を根拠とするため解除し、フェーズは must のまま(approve-should / close-at-must のいずれも選ばない)、次サイクルは新 Essence から Spec/Todo を再投影して遂行順序 1〜8 の必須対応を継続する。\nR-001(Playwright)は非ブロッキングのためループ側で閉じる(chromium は導入済み)。新ビジュアルの目視確認は人間の手元実行として別途行う。",
+    "next_actions": [],
     "open_questions": [],
-    "pending_cycle": false
+    "pending_cycle": true
   }
 }

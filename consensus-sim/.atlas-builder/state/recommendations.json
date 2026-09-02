@@ -74,7 +74,7 @@
     {
       "id": "R-LG-20260830T024920+0900-05f3",
       "type": "Human-input Recommendation",
-      "status": "proposed",
+      "status": "resolved",
       "raised_by": "atlas-builder-loop",
       "gate": "must_complete_awaiting_phase_approval",
       "target": "todo.json",
@@ -102,7 +102,10 @@
       },
       "requires_human_approval": true,
       "agent_action": "stop_until_human_review",
-      "created_at": "2026-08-30T02:49:20+09:00"
+      "created_at": "2026-08-30T02:49:20+09:00",
+      "resolved_at": "2026-09-03T02:37:48+09:00",
+      "resolved_by": "human",
+      "resolution": "ESSENCE.md の大改訂(攻撃の形式体系・チェーン状態・プロトコルパラメータ化とプリセット・ステークと罰則・緩和策・12 攻撃ライブラリ・攻撃一覧ページの追加、必須対応事項 29 項/成功条件 25 項)と essences/deep-research-report.md の配置は人間自身による編集であり、レビュー済みとして attest する。\nmust 境界ゲート R-LG-20260830T024920+0900-05f3 は旧 Essence(bcb5982e)の must 完了を根拠とするため解除し、フェーズは must のまま(approve-should / close-at-must のいずれも選ばない)、次サイクルは新 Essence から Spec/Todo を再投影して遂行順序 1〜8 の必須対応を継続する。\nR-001(Playwright)は非ブロッキングのためループ側で閉じる(chromium は導入済み)。新ビジュアルの目視確認は人間の手元実行として別途行う。"
     }
   ]
 }
