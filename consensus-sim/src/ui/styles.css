@@ -748,6 +748,28 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* ---- protocol parameter panel ---- */
+
+.params-panel {
+  border-bottom: 1px solid var(--gridline);
+  padding: 6px 12px 8px;
+}
+
+.params-panel details[open] .panel-summary {
+  margin-bottom: 6px;
+}
+
+.param-name {
+  min-width: 128px;
+  color: var(--ink-secondary);
+  font-size: 12px;
+}
+
+.params-panel .check-inline input[type='number'] {
+  width: 64px;
+  font-family: var(--font-mono);
+}
+
 /* ---- scenario panel ---- */
 
 .scenario-panel {

@@ -1,7 +1,8 @@
 /**
  * Application shell: display tabs (チェーン / ネットワーク / 全体表示 /
- * 型一覧), the slot cursor with rewind and advance controls, the
- * intervention panel, and the scenario's validator count.
+ * 型一覧), the slot cursor with rewind and advance controls, the protocol
+ * parameter, intervention and scenario panels, and the scenario's
+ * validator count.
  * All model computation stays behind useSimulation / src/domain.
  */
 
@@ -17,6 +18,7 @@ import { GlobalMode } from './modes/GlobalMode'
 import { NetworkMode } from './modes/NetworkMode'
 import { TypesPage } from './modes/TypesPage'
 import { InterventionPanel } from './InterventionPanel'
+import { ParamsPanel } from './ParamsPanel'
 import { ScenarioPanel } from './ScenarioPanel'
 import { useSimulation } from './useSimulation'
 import { useThemeMode } from './useTheme'
@@ -132,6 +134,7 @@ export function App() {
         </button>
       </div>
 
+      <ParamsPanel session={session} />
       <InterventionPanel key={config.validatorCount} session={session} />
       <ScenarioPanel session={session} />
 

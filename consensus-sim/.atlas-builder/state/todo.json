@@ -1166,7 +1166,7 @@
     {
       "id": "T-034",
       "title": "プロトコルパラメータ・シード・初期ステークの UI: 個別設定とプリセット一括切替(既定 merge)、初期ステークのバリデータ別設定、シナリオへの保存(codec 拡張)、状態表のステーク項目、committee 所属者のみの投票と boost による fork choice 変化・スラッシング・leak の観測+DOM テスト",
-      "status": "pending",
+      "status": "done",
       "priority": "must",
       "spec": [
         "S-031",
@@ -1182,7 +1182,37 @@
       "batch_group": "e3-params",
       "context_cost": 5,
       "risk_level": "normal",
-      "notes": "遂行順序 2(UI 側)。成功条件 14・22・23・25 の受け入れ確認を DOM テストで残す。"
+      "notes": "遂行順序 2(UI 側)。成功条件 14・22・23・25 の受け入れ確認を DOM テストで残す。 実装: src/ui/ParamsPanel.tsx(プロトコルパラメータ パネル、介入パネルと同じ details/summary + fieldset 様式): プリセット segmented(phase0/merge/current、presetOf で現在値から逆引き、不一致は『カスタム』表示、選択で全値一括切替)、committee 割当(全員 | サイズ c + c 入力)、proposer boost、fork choice 規則、エクイボケーション割引 on/off、justified 切替(window/unrealized/off)、スラッシング on/off、inactivity leak on/off + N + r、シード、バリデータ別初期ステーク(正の整数)+『全員等しく(32)』。数値入力は有効値をタイプごとに即コミットし無効値(空・範囲外)は文字列を保持(NumberField)。useSimulation.setConfig(config): バリデータ数が同じなら介入列・進行スロット・カーソルを維持して全履歴を決定的に再計算(同じ実行でノブの効果を読める)、バリデータ数が変わるときは slot 0 から新規 run。setValidatorCount はパラメータ・シードを維持しステーク配列を伸縮。シナリオ一覧の各項目にプリセット名を表示。codec の params/initialStakes 保存は T-031/T-032 済み。",
+      "evidence": [
+        {
+          "type": "diff",
+          "summary": "New src/ui/ParamsPanel.tsx (preset / committee & boost / 緩和策 / 罰則 / シードと初期ステーク fieldsets; Segmented, OnOff and NumberField controls with aria-labels). src/ui/useSimulation.ts: setConfig (same validator count ⇒ history recomputed with interventions kept; otherwise fresh run), setValidatorCount keeps params/seed and resizes initialStakes. src/ui/App.tsx mounts the panel between the slot bar and the intervention panel. src/ui/ScenarioPanel.tsx: entry label carries the preset (or カスタム), note text updated. styles.css: .params-panel / .param-name rules. README: parameter panel paragraph, scenario paragraph updated. New tests/ui/params.test.tsx (9 DOM tests). git diff --stat (src/tests/README): 5 files changed, 86 insertions(+), 18 deletions(-) plus 2 new files."
+        },
+        {
+          "type": "command",
+          "command": "npx vitest run tests/ui/params.test.tsx",
+          "exit_code": 0,
+          "summary": "受け入れ確認(成功条件 14・22・23・25): 9 tests. 既定は merge(boost 0.4・全員・LMD-GHOST・割引 on・window・スラッシング on・leak on N=4)、phase0 選択で boost 0/割引 off、current で unrealized に一括切替、boost 0.3 で『カスタム』・merge 再選択で復帰、範囲外 1.5 は無視され文字列は保持。committee サイズ c=2 で各スロット 2 票(投票数セル s1=2/s3=6)、s3 の投票者名がシード 0・シード 7 それぞれの committeeForSlot と一致。s2 停止 + s3 フォーク作成の同一 run で、merge では全員 head B3、phase0 に切替えると介入 4 件を維持したまま再計算され B2、boost 0.4 に戻すと B3(成功条件 14 の boost 観測)。ボブ s1 二重投票 → s2 のステーク項目が 0(s1 は 32、他は 32、差分強調あり)、スラッシング off で 32。キャロル・デイブ停止で s24 のステークが 24・24(s23 は 32)、leak off で 32。初期ステーク既定 32、ボブ 48 → 状態表 s0/s1 に反映、保存一覧に merge 表示、16 に変更後の再読込で 48 に戻り入力欄も 48、『全員等しく』で 32。バリデータ数 4→6 でプリセット current と アリス 40 を維持しフランクは 32。"
+        },
+        {
+          "type": "command",
+          "command": "npm run typecheck",
+          "exit_code": 0,
+          "summary": "tsc --noEmit exits 0 with the panel, setConfig and the test file."
+        },
+        {
+          "type": "command",
+          "command": "npx vitest run",
+          "exit_code": 0,
+          "summary": "22 files / 264 tests pass (255 → 264: +9 params DOM tests); every existing domain and UI suite unchanged in outcome."
+        },
+        {
+          "type": "command",
+          "command": "npm run build",
+          "exit_code": 0,
+          "summary": "vite build emits the static dist/ bundle (339.6 kB js, 12.9 kB css) with exit 0."
+        }
+      ]
     },
     {
       "id": "T-035",

@@ -45,7 +45,13 @@ export interface SimulationSession {
   setCursor(slot: number): void
   /** Replace the intervention list; every state recomputes deterministically. */
   setInterventions(next: readonly Intervention[]): void
-  /** Replaces the scenario (new validator count ⇒ new run from slot 0). */
+  /** Replace the initial conditions (protocol parameters, seed, initial
+   * stakes). With the validator count unchanged the interventions and the
+   * run length stay and the whole history recomputes; a new validator count
+   * starts a fresh run from slot 0. */
+  setConfig(config: SimulationConfig): void
+  /** Replaces the scenario (new validator count ⇒ new run from slot 0,
+   * keeping the protocol parameters and the seed). */
   setValidatorCount(count: number): void
   /** Replay a saved scenario: states recompute deterministically and the
    * cursor lands on the saved run's final slot. */
@@ -61,21 +67,23 @@ interface SessionCore {
   readonly cursor: number
 }
 
-const freshCore = (validatorCount: number): SessionCore => ({
-  config: {
-    validatorCount,
-    seed: DEFAULT_SEED,
-    params: DEFAULT_PARAMS,
-    initialStakes: equalStakes(validatorCount),
-  },
+const freshCore = (config: SimulationConfig): SessionCore => ({
+  config,
   interventions: [],
   runSlot: 0,
   cursor: 0,
 })
 
+const defaultConfig = (validatorCount: number): SimulationConfig => ({
+  validatorCount,
+  seed: DEFAULT_SEED,
+  params: DEFAULT_PARAMS,
+  initialStakes: equalStakes(validatorCount),
+})
+
 export function useSimulation(): SimulationSession {
   const [core, setCore] = useState<SessionCore>(() =>
-    freshCore(DEFAULT_VALIDATOR_COUNT),
+    freshCore(defaultConfig(DEFAULT_VALIDATOR_COUNT)),
   )
 
   const { config, interventions, runSlot, cursor } = core
@@ -107,8 +115,24 @@ export function useSimulation(): SimulationSession {
     [],
   )
 
+  const setConfig = useCallback((next: SimulationConfig) => {
+    setCore((c) =>
+      next.validatorCount === c.config.validatorCount
+        ? { ...c, config: next }
+        : freshCore(next),
+    )
+  }, [])
+
   const setValidatorCount = useCallback((count: number) => {
-    setCore(freshCore(count))
+    setCore((c) =>
+      freshCore({
+        ...c.config,
+        validatorCount: count,
+        initialStakes: equalStakes(count).map(
+          (s, v) => c.config.initialStakes[v] ?? s,
+        ),
+      }),
+    )
   }, [])
 
   const loadScenario = useCallback((scenario: Scenario, runSlot: number) => {
@@ -135,6 +159,7 @@ export function useSimulation(): SimulationSession {
       advance,
       setCursor,
       setInterventions,
+      setConfig,
       setValidatorCount,
       loadScenario,
     }),
@@ -149,6 +174,7 @@ export function useSimulation(): SimulationSession {
       advance,
       setCursor,
       setInterventions,
+      setConfig,
       setValidatorCount,
       loadScenario,
     ],

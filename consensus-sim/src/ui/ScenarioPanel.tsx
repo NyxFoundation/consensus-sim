@@ -7,6 +7,7 @@
  */
 
 import { useState } from 'react'
+import { presetOf } from '../domain'
 import {
   listScenarios,
   loadStored,
@@ -25,7 +26,13 @@ function entryLabel(e: StoredScenario): string {
   const stamp = Number.isNaN(at.getTime())
     ? e.savedAt
     : at.toLocaleString('ja-JP')
-  return `${stamp} — ${e.data.config.validatorCount} 体 / 介入 ${e.data.interventions.length} 件 / スロット ${e.data.runSlot}`
+  let preset = ''
+  try {
+    preset = ` / ${presetOf(loadStored(e).scenario.config.params) ?? 'カスタム'}`
+  } catch {
+    // An entry the store could not parse is labelled without its preset.
+  }
+  return `${stamp} — ${e.data.config.validatorCount} 体${preset} / 介入 ${e.data.interventions.length} 件 / スロット ${e.data.runSlot}`
 }
 
 export function ScenarioPanel({ session }: ScenarioPanelProps) {
@@ -66,7 +73,7 @@ export function ScenarioPanel({ session }: ScenarioPanelProps) {
             シナリオ
             {entries.length > 0 && `（保存 ${entries.length} 件）`}{' '}
             <span className="intervention-note">
-              保存 = 初期条件（シード含む）+ 介入列。再読込は決定的リプレイ
+              保存 = 初期条件（プロトコルパラメータ・シード・初期ステーク）+ 介入列。再読込は決定的リプレイ
             </span>
           </h2>
         </summary>

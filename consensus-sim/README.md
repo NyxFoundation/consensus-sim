@@ -53,6 +53,17 @@ The header tabs switch between three displays and the type catalog:
   it shows is exactly what the implementation defines; selecting a type
   shows its declaration and its dependency links.
 
+The プロトコルパラメータ panel below the slot bar holds the scenario's
+initial conditions: a preset (`phase0` / `merge` / `current`, default
+`merge`) that sets every value at once, and each protocol parameter on its
+own — committee (everyone or size `c`), proposer boost, fork-choice rule,
+equivocation discount, justified-checkpoint switching, slashing and the
+inactivity leak (on/off, `N`, `r`) — plus the seed and every validator's
+initial stake (equal by default). Changing a value recomputes the displayed
+run from the anchor with the interventions kept, so the effect of one knob
+is read off the same run; the preset label turns to カスタム as soon as a
+value departs from every preset.
+
 The 介入 panel between the slot bar and the mode body injects disturbances
 at the next slot boundary: partition a validator set (分断), switch a
 validator's operating state (稼働状態 — 稼働 / 停止 = silent but still
@@ -70,10 +81,9 @@ truncates the discarded future.
 
 The シナリオ panel saves the current run — initial conditions plus the
 intervention list and how far it advanced — to a browser-local list, and
-reloading replays it deterministically to the identical states. The seed
-and the protocol parameters are part of the saved identity (the seed drives
-sized-committee sampling); until the parameter panel lands, the UI runs
-the `merge` preset with committee = everyone and seed 0.
+reloading replays it deterministically to the identical states. The
+protocol parameters, the seed and the initial stakes are part of the saved
+identity, and the list shows each entry's preset.
 
 Sanity check:
 

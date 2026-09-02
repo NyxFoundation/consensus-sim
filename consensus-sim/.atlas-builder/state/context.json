@@ -6,11 +6,11 @@
     "stop_after_infra_fails": 2
   },
   "progress": {
-    "last_signature": "e9a1821796cca9b80bc6f6132ad37caa2652935b3eb8916c9966437d0f938fef",
+    "last_signature": "b40ccf0186271f92f54df5b604bb61fc8b2e5b0d77d1453b41c3e7426e9ac596",
     "idle_cycles_since_progress": 0,
     "infra_fails_since_ok": 0,
-    "last_progress_at": "2026-09-03T04:07:50+09:00",
-    "last_checked_at": "2026-09-03T04:07:50+09:00",
+    "last_progress_at": "2026-09-03T04:14:38+09:00",
+    "last_checked_at": "2026-09-03T04:14:38+09:00",
     "usage_limited_since_ok": 0
   },
   "reset_policy": {
@@ -21,22 +21,21 @@
     "reset_after_decisions": 5
   },
   "counters": {
-    "context_usage_estimate": 0.3,
+    "context_usage_estimate": 0.45,
     "failed_attempts_since_reset": 0,
-    "changed_files_since_reset": 9,
-    "completed_todos_since_reset": 1,
-    "important_decisions_since_reset": 1,
+    "changed_files_since_reset": 16,
+    "completed_todos_since_reset": 2,
+    "important_decisions_since_reset": 2,
     "major_spec_rewrite_since_reset": false,
     "high_risk_change_completed": false
   },
   "handoff": {
-    "written_at": "2026-09-03T04:08:00+09:00",
-    "summary": "改訂 Essence(sha c6fb67e2)の Spec 41 項 / Todo 44 項(validate ok)。T-001〜T-033 done。遂行順序 1 完了、遂行順序 2 はドメイン側(T-031 パラメータ化・T-032 ステークと罰則・T-033 緩和策)完了で T-034(UI)のみ残り。ドメイン骨格: src/domain/{types,inclusion,chainState,protocolParams,config,schedule,forkChoice,protocol,localView,simulation}.ts — SimulationConfig={validatorCount,seed,params,initialStakes}、chainStatesOf/checkpointStatus(tree, config)、resolveView(view, config, atSlot) が params の全緩和策を適用: forkChoiceRoot(tree, states, params.checkpointSwitch, atSlot)(window は JUSTIFIED_SWITCH_WINDOW_SLOTS=1 の純関数規則)、weightOf = 割引(equivocatingVoters)→ ChainState(vote.head).stakes[voter]、ghostHead(tree, votes, root, {weights, rule, candidates})(unrealized は viableBlocks を candidates に)。ゲート typecheck / vitest 21 files 255 tests / build 全 exit 0。R-003(投票重みの参照先)・R-004(justified 即時集計と window の到着代理の簡約)は Non-blocking で提案中。",
+    "written_at": "2026-09-03T04:14:00+09:00",
+    "summary": "改訂 Essence(sha c6fb67e2)の Spec 41 項 / Todo 44 項(validate ok)。T-001〜T-034 done。遂行順序 1・2 完了(チェーン状態、パラメータ化、ステークと罰則、緩和策、パラメータ UI)。残り: 遂行順序 3(T-035 介入拡張・T-036 フォーク数)、4(T-037 2 モジュール分割)、5(T-038/T-039 攻撃体系)、6(T-040/T-041 ライブラリ)、7(T-042/T-043 攻撃 UI)、8(T-044 総点検)。ドメイン骨格: src/domain/{types,inclusion,chainState,protocolParams,config,schedule,forkChoice,protocol,localView,simulation,intervention,scenario,scenarioCodec}.ts。UI: src/ui/{App,useSimulation(setConfig/setValidatorCount/setInterventions/loadScenario),ParamsPanel,InterventionPanel,ScenarioPanel,StateTable,ChainStateDetail,modes/*}.tsx。SlotDirectives = {stopped, doublePropose, doubleVote, proposeParent}(simulation.ts)、buildProposal(view, resolution, slot, proposer, index, parent, omit: Omission)、buildAttestation(view, resolution, slot, validator)。ゲート typecheck / vitest 22 files 264 tests / build 全 exit 0。R-003・R-004 は Non-blocking で提案中。",
     "next_actions": [
-      "T-034(e3-params, cost 5)を単独バッチで実行: プロトコルパラメータ(committee all|sized c、boost、forkChoice、equivocationDiscount、checkpointSwitch、slashing、inactivityLeak {enabled, delayEpochs, rate})・プリセット選択(既定 merge、presetOf で現在値から逆引き、選択で一括切替)・シード・初期ステーク(バリデータ別の正の整数入力、既定 equalStakes)の設定パネルを App に追加し、useSimulation に setConfig(config)(新しい run を slot 0 から)を追加。codec は params/initialStakes を既に保存・検証済み(T-031/T-032)なので UI 側の保存・再読込のみ確認。DOM テスト(tests/ui/params.test.tsx 等): committee サイズ c で投票者限定、boost 変更で head 変化(protocolParams.test の s2 停止+s3 フォーク作成シナリオを流用)、二重投票→状態表ステーク項目が 0、leak の減少(s24 以降)と leak off、初期ステークの保存・再読込・既定は全員等しい。UI の見た目の大転換はしない(設定パネルは介入パネルと同じ details/summary 様式)。",
-      "T-035 の取り込み省略は inclusion.ts の Omission(voteKey/equivocationKey の集合)を SlotDirectives 経由で buildProposal に渡す。投票先指定は buildAttestation の head/source/target を上書き(View 内ブロックに限定)。遅延・欠落の受信者集合は既存 observers を UI で選べるようにするだけ。",
-      "T-036 のフォーク数は chainState.checkpointStatus / 神視点 tree で『最新 finalized を根とする部分木の葉数』を domain 関数 forkCount(tree, config) として置き、InterventionPanel の MAX_FORK_DESIGNATIONS 近似を置換。",
-      "運用: セッション内シェルから state コマンドを呼ぶときは cd CONTROL_ROOT(絶対パス)のうえ ATLAS_BUILDER_LOCK_TOKEN=$(cat .agent/tmp/loop.lock/token) を前置(Bash の cwd は呼び出し間で持ち越されるので相対パスに注意)。projection の編集は stage-projection → tmp/finish_tNNN.py で bundle を書き換え → apply-projection。"
+      "T-035(e3-interventions, cost 5)を単独バッチで実行: (1) 投票先指定 — Intervention {kind:'vote-target', slot, validator, head?, source?, target?}(いずれもそのバリデータの View 内ブロックに限定、指定のない成分は従来規則)を SlotDirectives.voteOverrides?: Map<ValidatorIndex, {head?,source?,target?}> に落とし、advanceSlot の attester ループで buildAttestation の結果を上書き(View にないブロック指定はフォールバック=無視)。(2) 取り込み省略 — Intervention {kind:'omit-inclusion', slot, votes: string[](voteKey), evidence: string[](equivocationKey)} を SlotDirectives.omit?: Omission に落とし buildProposal に渡す。UI: 投票先指定 fieldset(バリデータ選択 + head/source/target の select、候補はそのバリデータの viewOf(log, v, cursor, delivery) のブロック)、取り込み省略 fieldset(次スロット提案者の View にあって parent 枝に未取り込みの投票・証拠を列挙してチェック)、遅延・欠落の受信者集合は既存 msgTargets を UI で既に選べる(T-009)ので describe/README 文言の確認のみ。codec に新 2 種を追加(検証: slot 整数・validator 範囲・キーは文字列)。テスト: domain(指定どおりの投票・省略、View 外指定のフォールバック、決定性)、codec 往復、DOM(指定→次スロットの投票表/状態表に反映、省略→body に含まれない)。",
+      "T-036(cost 3): domain に forkCount(tree, config)(checkpointStatus の finalized 集合の最高チェックポイントを根とする部分木の葉数; 定義は Essence 必須 10)と designationIncrement(tree, parent)(parent が子を持てば 1、葉なら 0)を置き、InterventionPanel の MAX_FORK_DESIGNATIONS 近似を『現在フォーク数 + 未実行指定の増分 + この指定の増分 > 4 なら受け付けない』に置換。分断等の自然発生フォークは制約しない。DOM テスト: 4 本到達で拒否、finality 進行で再受付。既存テスト interventions.test の『同時 4 本まで』ケースを新定義に更新。",
+      "運用: セッション内シェルから state コマンドを呼ぶときは cd CONTROL_ROOT(絶対パス)のうえ ATLAS_BUILDER_LOCK_TOKEN=$(cat .agent/tmp/loop.lock/token) を前置(Bash の cwd は呼び出し間で持ち越されるので相対パスに注意)。projection の編集は stage-projection → tmp/start_batch.py(active_batch/in_progress)→ 実装 → tmp/finish_tNNN.py で done+evidence → apply-projection。"
     ],
     "open_questions": [
       "R-003: fork choice の投票重みの参照先(投票 head のチェーン状態)が必須 25 の意図どおりか。異なる場合は resolveView.weightOf の 1 関数を差し替える。",
