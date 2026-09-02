@@ -34,11 +34,15 @@ The header tabs switch between three displays and the type catalog:
   overlaid (heads, latest votes, J/F checkpoint badges). Below it, the
   **state table** (状態表) lines its slot columns up with the tree: one row
   per validator, the cell item (head / justified / finalized / latest vote /
-  view element counts) selectable from the UI, cells that disagree with the
-  other validators highlighted, and any cell expandable into that
-  validator's full local view at that slot — block tree, every vote it has
-  seen (equivocating double votes listed individually) and which block each
-  vote supported, head, justified/finalized.
+  stake / view element counts) selectable from the UI, cells that disagree
+  with the other validators highlighted, and any cell expandable into that
+  validator's full local observation at that slot — head, the **chain
+  state** of that head (every validator's stake, justified, finalized, with
+  entries that disagree with the other validators' heads highlighted, so
+  two validators on different branches show their divergence), the head
+  block's **body** (the votes and equivocation evidence it included), the
+  block tree, and every vote it has seen (equivocating double votes listed
+  individually) with the block each vote supported.
 - **ネットワーク表示** — one card per validator (operating state, head /
   justified / finalized / latest vote at a glance); hover a card to see
   that validator's own block tree.

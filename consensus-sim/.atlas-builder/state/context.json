@@ -6,11 +6,11 @@
     "stop_after_infra_fails": 2
   },
   "progress": {
-    "last_signature": "3c2af27e84ea7ba94d317eef0b15f81d02fc31cf39b8361bcb5888a71eea3977",
+    "last_signature": "9b616e168a7b8124b9b9d868a457f8c5fdae89855f7749dec7e51d4f1f07629e",
     "idle_cycles_since_progress": 0,
     "infra_fails_since_ok": 0,
-    "last_progress_at": "2026-09-03T03:25:36+09:00",
-    "last_checked_at": "2026-09-03T03:25:36+09:00",
+    "last_progress_at": "2026-09-03T03:31:38+09:00",
+    "last_checked_at": "2026-09-03T03:31:38+09:00",
     "usage_limited_since_ok": 0
   },
   "reset_policy": {
@@ -21,22 +21,23 @@
     "reset_after_decisions": 5
   },
   "counters": {
-    "context_usage_estimate": 0.45,
+    "context_usage_estimate": 0.15,
     "failed_attempts_since_reset": 0,
-    "changed_files_since_reset": 22,
+    "changed_files_since_reset": 6,
     "completed_todos_since_reset": 1,
-    "important_decisions_since_reset": 4,
-    "major_spec_rewrite_since_reset": true,
+    "important_decisions_since_reset": 1,
+    "major_spec_rewrite_since_reset": false,
     "high_risk_change_completed": false
   },
   "handoff": {
-    "written_at": "2026-09-03T03:25:30+09:00",
-    "summary": "改訂 Essence(sha c6fb67e2)から Spec/Todo を全面再投影済み(Spec 41 項、Todo 43 項、validate ok)。旧 must T-001〜T-028 は done のまま、改訂差分は新 Todo T-029〜T-044 が遂行順序 1〜8 に対応(T-029/030 = チェーン状態、T-031〜034 = プロトコルパラメータ・ステーク/罰則・緩和策・UI、T-035/036 = 介入拡張・フォーク数、T-037 = 2 モジュール分割、T-038/039 = 攻撃の形式体系、T-040/041 = 攻撃ライブラリ 12 件、T-042/043 = 攻撃 UI・攻撃一覧、T-044 = 総点検再実施)。本サイクルで T-029(チェーン状態のドメイン導入)を完了: src/domain/{types,inclusion,chainState,protocol,localView,simulation}.ts — Block.body{votes,evidence}・Equivocation・取り込み規則(buildBody)・ChainState(chainStatesOf/chainStateOf)・checkpointStatus(J/F 集合)・forkChoiceRoot・resolveView。神視点の FinalityState は廃止し SimulationState.chainStates に置換、LocalObservation は {view, head, chainState}。UI は参照先の最小追随のみ。ゲート typecheck/vitest 18 files 193 tests/build 全 exit 0。major_spec_rewrite により context reset 相当。",
+    "written_at": "2026-09-03T03:32:00+09:00",
+    "summary": "改訂 Essence(sha c6fb67e2)の Spec 41 項 / Todo 44 項(validate ok)。旧 must T-001〜T-028 は done。改訂差分の新 Todo T-029〜T-044 は遂行順序 1〜8 に対応し、遂行順序 1 は完了(T-029 チェーン状態のドメイン導入、T-030 その UI 追随: セル展開に head のチェーン状態表・別枝 head の一覧・head body、状態表に「ステーク」項目、成功条件 15 の DOM テスト)。ドメイン骨格: src/domain/{types,inclusion,chainState,protocol,localView,simulation}.ts — Block.body{votes,evidence}、ChainState(chainStatesOf/chainStateOf)、checkpointStatus、forkChoiceRoot、resolveView。ゲート typecheck / vitest 18 files 196 tests / build 全 exit 0。",
     "next_actions": [
-      "T-030(e3-chainstate, cost 4)を単独バッチで実行: ChainMode のセル展開に head の ChainState(各バリデータのステーク・justified・finalized)と head ブロックの body(取り込まれた投票・証拠)を表示し、head の枝が異なるバリデータ間の食い違いを差分強調。状態表の justified/finalized は既に ChainState 参照。成功条件 15 の DOM テストを tests/ui/stateTable.test.tsx に追加。",
-      "T-031〜T-034 は batch_policy(max_context_cost_per_batch 8)により 1〜2 件ずつ。T-031 で SimulationConfig に ProtocolParams(プリセット)を追加し、ghostHead/subtreeWeight を重み関数付きに拡張(boost・committee)。T-032 で equalStakes を config.initialStakes に置換し chainState.ts の deriveBranch に罰則(stakes の枝内更新)を入れる。T-033 で forkChoiceRoot を切替規則(window/unrealized/off)付きにし、latestVotes に割引を加える。",
-      "T-029 で導入した取り込み規則は「期限なし・未取り込み分すべて」。T-035 の取り込み省略は inclusion.ts の Omission(voteKey/equivocationKey の集合)を SlotDirectives 経由で buildProposal に渡す。",
-      "lock 継承: セッション内シェルから state コマンドを呼ぶときは ATLAS_BUILDER_LOCK_TOKEN=$(cat .agent/tmp/loop.lock/token) を付ける(lessons L-20260830T011600)。作業ディレクトリは Bash 呼び出し間で持ち越されるので絶対パスを使う。"
+      "T-031(e3-params, cost 5)を単独バッチで実行: SimulationConfig に ProtocolParams(プリセット phase0/merge/current、既定 merge)とシードを持たせ、committee 割当(全員 | サイズ c をシードから決定的に)・プロポーザー予定表((slot, params, seed) から導出、既定ラウンドロビン = 現 proposerForSlot)・proposer boost(スロット s 中に受信した s の提案にのみ committee 総重み × boost。fork choice = src/domain/forkChoice.ts の ghostHead/subtreeWeight を重み関数付きに拡張)を導入し、committee 所属者のみ投票させる。ドメインテストを tests/domain に追加。",
+      "T-032 で equalStakes(chainState.ts / localView.ts / simulation.ts / ChainMode.tsx / NetworkMode.tsx が参照)を config.initialStakes に置換し、chainState.ts の deriveBranch に罰則(スラッシング: 証拠取り込み以降 0、inactivity leak: finalized N=4 エポック停滞で target 投票未取り込み者を率 r で減額)を枝内更新として入れる。状態表の「ステーク」項目(T-030 で追加済み)はそのまま反映される。",
+      "T-033 で forkChoiceRoot を切替規則(window/unrealized/off)付きにし、latestVotes に割引(View 内で相反 2 投票を観測した瞬間から除外)と GHOST/LMD-GHOST の切替を加える。",
+      "T-035 の取り込み省略は inclusion.ts の Omission(voteKey/equivocationKey の集合)を SlotDirectives 経由で buildProposal に渡す。",
+      "運用: セッション内シェルから state コマンドを呼ぶときの lock 継承は lessons L-20260830T011600、Bash guard と state ファイル読み書きの作法は lessons L-20260828T000934 を参照。"
     ],
     "open_questions": [],
     "pending_cycle": false

@@ -17,6 +17,7 @@ export type StateCellItem =
   | 'head'
   | 'justified'
   | 'finalized'
+  | 'stake'
   | 'latestVote'
   | 'blockCount'
   | 'voteCount'
@@ -28,6 +29,7 @@ export const STATE_CELL_ITEMS: readonly {
   { key: 'head', label: 'head' },
   { key: 'justified', label: 'justified' },
   { key: 'finalized', label: 'finalized' },
+  { key: 'stake', label: 'ステーク' },
   { key: 'latestVote', label: '最新投票' },
   { key: 'blockCount', label: 'ブロック数' },
   { key: 'voteCount', label: '投票数' },
@@ -59,6 +61,9 @@ function cellValue(
       return blockName(obs.chainState.justified)
     case 'finalized':
       return blockName(obs.chainState.finalized)
+    case 'stake':
+      // The validator's own stake in the chain state of its head.
+      return String(obs.chainState.stakes.get(validator) ?? 0)
     case 'latestVote': {
       const vote = latestVotes(obs.view.votes).get(validator)
       return vote ? blockName(vote.head) : '－'
@@ -74,8 +79,9 @@ function cellValue(
  * Which cells of one column to highlight: the ones differing from the
  * column's plurality value. When no single value wins the plurality (e.g. a
  * 2-2 partition), the disagreement is mutual and every cell is highlighted.
+ * Shared with the cell expansion so chain-state entries follow the same rule.
  */
-function diffFlags(values: readonly string[]): readonly boolean[] {
+export function diffFlags(values: readonly string[]): readonly boolean[] {
   const counts = new Map<string, number>()
   for (const v of values) counts.set(v, (counts.get(v) ?? 0) + 1)
   if (counts.size <= 1) return values.map(() => false)

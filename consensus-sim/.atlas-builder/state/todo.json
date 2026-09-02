@@ -975,7 +975,7 @@
     {
       "id": "T-030",
       "title": "チェーン状態の UI 追随: 状態表のセル展開で head のチェーン状態(各バリデータのステーク・justified・finalized)と head ブロックの body(取り込まれた投票・証拠)を表示し、head の枝が異なるバリデータ間の食い違いを差分強調。J/F バッジ・状態表の justified/finalized 項目をチェーン状態ベースに移行+DOM テスト",
-      "status": "pending",
+      "status": "done",
       "priority": "must",
       "spec": [
         "S-036",
@@ -989,7 +989,37 @@
       "batch_group": "e3-chainstate",
       "context_cost": 4,
       "risk_level": "normal",
-      "notes": "遂行順序 1(UI 側)。成功条件 15 の受け入れ確認を DOM テストで残す。"
+      "notes": "遂行順序 1(UI 側)。成功条件 15 の受け入れ確認を DOM テストで残す。 実装: セル展開に (1) head のチェーン状態表(justified / finalized / 各バリデータのステーク; 同スロットの全バリデータの head の ChainState と状態表と同じ多数決差分規則で比較し、食い違う値を強調)、(2) 別の枝を head とするバリデータの一覧(head と枝の食い違いを明示)、(3) head ブロックの body(取り込まれた投票をバリデータ別 head@slot 要約、証拠を二重提案/二重投票の行として列挙)を追加。状態表の表示項目に「ステーク」(head の ChainState における自身のステーク)を追加(必須 7、T-034 はこれを前提に検証のみ)。J/F バッジ・justified/finalized 項目は T-029 で移行済み。",
+      "evidence": [
+        {
+          "type": "diff",
+          "summary": "src/ui/ChainStateDetail.tsx (new): ChainStateTable (ChainState(head) as one row — justified, finalized, stake per validator — each entry compared across every validator's head chain state at the slot with the state table's diffFlags rule and marked .value-diff), evidenceLabel (二重提案/二重投票 lines), BlockBodyView (head body: votes summarized per validator as head@slot, evidence list). src/ui/modes/ChainMode.tsx: cell expansion adds the other-branch validator list next to head, the chain-state table and the head body (getBlock on the validator's own view). src/ui/StateTable.tsx: exports diffFlags; new cell item 'stake' (ステーク). src/ui/styles.css: .chain-state-table / .value-diff / .head-others / .pane-note / .evidence-list. tests/ui/stateTable.test.tsx: +3 DOM tests. README.md: state table item list and expansion contents updated. git diff --stat: 5 files changed, 196 insertions(+), 13 deletions(-) plus 1 new file."
+        },
+        {
+          "type": "command",
+          "command": "npx vitest run tests/ui/stateTable.test.tsx",
+          "exit_code": 0,
+          "summary": "受け入れ確認(成功条件 15): 12 tests pass. 新規 3 件 — (a) キャロル s2 の展開: チェーン状態表の列が justified/finalized/4 バリデータ、値 B0/B0/32×4、強調なし、B2 body に slot-1 投票 4 件(アリス B1@s1)・証拠なし; (b) アリスを単独分断して s6: アリスの展開に「別の枝を head とするバリデータ」が表示され justified=B0 が .value-diff で強調、ボブの展開は justified=B3 で強調なし・アリス B4 を別枝として列挙; (c) アリス s2 二重投票後 s3 の展開: B3 body の証拠に「二重投票 アリス @2」1 件。既存 9 件(整列・項目切替・分断差分と収束・展開/閉じる・二重投票の個別列挙)は不変で通過。"
+        },
+        {
+          "type": "command",
+          "command": "npm run typecheck",
+          "exit_code": 0,
+          "summary": "tsc --noEmit exits 0 with the new component and the stake cell item."
+        },
+        {
+          "type": "command",
+          "command": "npx vitest run",
+          "exit_code": 0,
+          "summary": "18 files / 196 tests pass (193 → 196)."
+        },
+        {
+          "type": "command",
+          "command": "npm run build",
+          "exit_code": 0,
+          "summary": "vite build emits the static dist/ bundle (303.8 kB js, 12.6 kB css) with exit 0."
+        }
+      ]
     },
     {
       "id": "T-031",

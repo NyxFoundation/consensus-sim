@@ -14,12 +14,14 @@ import { useMemo, useState } from 'react'
 import {
   checkpointStatus,
   equalStakes,
+  getBlock,
   instantDelivery,
   observe,
   validatorName,
 } from '../../domain'
 import type { Delivery, SimulationState } from '../../domain'
 import { BlockTreeView } from '../BlockTreeView'
+import { BlockBodyView, ChainStateTable } from '../ChainStateDetail'
 import { blockName } from '../format'
 import { StateTable, STATE_CELL_ITEMS } from '../StateTable'
 import type { ExpandedCell, StateCellItem } from '../StateTable'
@@ -69,12 +71,29 @@ export function ChainMode({
   }
 
   // A rewind or validator-count change can orphan the expanded cell.
-  const detail =
-    expanded !== undefined &&
-    expanded.slot <= state.slot &&
-    expanded.validator < validatorCount
-      ? { ...expanded, obs: observations[expanded.slot]![expanded.validator]! }
-      : undefined
+  const detail = (() => {
+    if (
+      expanded === undefined ||
+      expanded.slot > state.slot ||
+      expanded.validator >= validatorCount
+    ) {
+      return undefined
+    }
+    const peers = observations[expanded.slot]!
+    const obs = peers[expanded.validator]!
+    // Validators whose head lies on another branch at this slot — the ones
+    // whose chain state can legitimately disagree with this one.
+    const otherBranch = peers
+      .map((o, v) => ({ v, head: o.head }))
+      .filter(({ v, head }) => v !== expanded.validator && head !== obs.head)
+    return {
+      ...expanded,
+      obs,
+      peerStates: peers.map((o) => o.chainState),
+      headBlock: getBlock(obs.view.blockTree, obs.head)!,
+      otherBranch,
+    }
+  })()
 
   return (
     <section className="chain-mode">
@@ -130,12 +149,41 @@ export function ChainMode({
           </h3>
           <dl className="status-list">
             <dt>head</dt>
-            <dd>{blockName(detail.obs.head)}</dd>
+            <dd>
+              {blockName(detail.obs.head)}
+              {detail.otherBranch.length > 0 && (
+                <span className="head-others">
+                  {' '}
+                  — 別の枝を head とするバリデータ:{' '}
+                  {detail.otherBranch
+                    .map(({ v, head }) => `${validatorName(v)} ${blockName(head)}`)
+                    .join(' / ')}
+                </span>
+              )}
+            </dd>
             <dt>justified</dt>
             <dd>{blockName(detail.obs.chainState.justified)}</dd>
             <dt>finalized</dt>
             <dd>{blockName(detail.obs.chainState.finalized)}</dd>
           </dl>
+          <h4 className="pane-title">
+            head {blockName(detail.obs.head)} のチェーン状態
+            <span className="pane-note">
+              他バリデータの head のチェーン状態と食い違う値を強調
+            </span>
+          </h4>
+          <ChainStateTable
+            validator={detail.validator}
+            peers={detail.peerStates}
+            validatorCount={validatorCount}
+          />
+          <h4 className="pane-title">
+            head {blockName(detail.obs.head)} の body（取り込み）
+          </h4>
+          <BlockBodyView
+            body={detail.headBlock.body}
+            validatorCount={validatorCount}
+          />
           <div className="tree-scroll">
             <BlockTreeView
               tree={detail.obs.view.blockTree}

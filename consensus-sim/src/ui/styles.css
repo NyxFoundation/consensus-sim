@@ -475,6 +475,62 @@ body {
   font-size: 11px;
 }
 
+/* Which validators sit on another branch at this slot — prose, not data. */
+.head-others {
+  font-family: var(--font-sans);
+  color: var(--ink-muted);
+}
+
+.state-detail .pane-title {
+  margin-top: 10px;
+}
+
+.pane-note {
+  margin-left: 8px;
+  font-weight: 400;
+  color: var(--ink-muted);
+}
+
+/* ChainState(head): one row, a column per field, stakes per validator. */
+.chain-state-table {
+  border-collapse: collapse;
+}
+
+.chain-state-table th,
+.chain-state-table td {
+  text-align: left;
+  padding: 2px 14px 2px 0;
+  border-bottom: 1px solid var(--gridline);
+}
+
+.chain-state-table th {
+  color: var(--ink-muted);
+  font-weight: 500;
+  font-size: 11px;
+}
+
+.chain-state-table td {
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.chain-state-table .validator-dot {
+  margin-right: 4px;
+}
+
+/* An entry disagreeing with the other heads' chain states: colour + weight,
+ * matching the state table's diff cells. */
+.value-diff {
+  background: color-mix(in srgb, var(--status-warning) 22%, transparent);
+  font-weight: 700;
+  padding: 0 3px;
+}
+
+.evidence-list {
+  margin: 0;
+  padding-left: 16px;
+}
+
 /* ---- panels ---- */
 
 .panel-row {

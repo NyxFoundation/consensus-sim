@@ -211,6 +211,75 @@ describe('cell expansion into the local observation', () => {
     expect(heads.size).toBe(2)
   })
 
+  it('shows the head chain state and the head body in the expansion (成功条件 15)', async () => {
+    await advance(2)
+    await click(cell(2, 2))
+    // ChainState(head): one column per field, stakes per validator.
+    const headers = all('.state-detail .chain-state-table thead th').map(
+      (h) => h.textContent,
+    )
+    expect(headers).toEqual([
+      'justified',
+      'finalized',
+      'アリス',
+      'ボブ',
+      'キャロル',
+      'デイブ',
+    ])
+    const cells = all('.state-detail .chain-state-table tbody td').map(
+      (c) => c.textContent,
+    )
+    expect(cells).toEqual(['B0', 'B0', '32', '32', '32', '32'])
+    // Everyone's head shares one branch: nothing is highlighted.
+    expect(all('.state-detail .value-diff')).toHaveLength(0)
+    expect(text('.state-detail')).not.toContain('別の枝を head とする')
+    // B2's body includes the four slot-1 votes; no evidence yet.
+    const body = text('.state-detail .block-body')
+    expect(body).toContain('4 件')
+    expect(body).toContain('アリス B1@s1')
+    expect(body).toContain('証拠なし')
+  })
+
+  it('highlights chain-state entries that disagree between heads on different branches', async () => {
+    // アリス alone is cut off from slot 1: the majority branch justifies
+    // while her own branch cannot, so at the same slot the two heads carry
+    // different chain states.
+    await checkPartitionValidator(0)
+    await click(buttonByText('選択集合を残りから分断'))
+    await advance(6)
+    await click(cell(0, 6))
+    expect(text('.state-detail')).toContain('別の枝を head とするバリデータ')
+    const aliceCells = all('.state-detail .chain-state-table tbody td')
+    // justified differs from the majority's chain state and is marked.
+    expect(aliceCells[0]?.querySelector('.value-diff')).not.toBeNull()
+    expect(aliceCells[0]?.textContent).toBe('B0')
+
+    await click(cell(1, 6))
+    // ボブ sits with the plurality: his justified is B3 and unmarked.
+    const bobCells = all('.state-detail .chain-state-table tbody td')
+    expect(bobCells[0]?.textContent).toBe('B3')
+    expect(all('.state-detail .value-diff')).toHaveLength(0)
+    expect(text('.state-detail')).toContain('アリス B4')
+  })
+
+  it('lists included equivocation evidence in the head body', async () => {
+    await advance(1)
+    const select = container.querySelector<HTMLSelectElement>(
+      'select[aria-label="二重投票するバリデータ"]',
+    )
+    await act(async () => {
+      select!.value = '0'
+      select!.dispatchEvent(new Event('change', { bubbles: true }))
+    })
+    await click(buttonByText('次スロットで二重投票'))
+    // The double vote lands at slot 2; slot 3's proposer includes the pair.
+    await advance(2)
+    await click(cell(0, 3))
+    const body = text('.state-detail .block-body')
+    expect(body).toContain('二重投票 アリス @2')
+    expect(all('.state-detail .evidence-list li')).toHaveLength(1)
+  })
+
   it('toggles the same cell closed on a second click', async () => {
     await advance(3)
     await click(cell(1, 1))
