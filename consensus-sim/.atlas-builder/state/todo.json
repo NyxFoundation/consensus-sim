@@ -8,7 +8,9 @@
     "avoid_mixing_high_risk_items": true,
     "avoid_mixing_executors": true
   },
-  "active_batch": [],
+  "active_batch": [
+    "T-040"
+  ],
   "items": [
     {
       "id": "T-001",
@@ -1454,8 +1456,8 @@
     },
     {
       "id": "T-040",
-      "title": "攻撃ライブラリ(前半): A01 Ex-Ante リオーグ・A02 boost 逆用リオーグ・A03 バランシング・A04 LMD バランシング・A05 バウンシング・A06 エポック境界 finality 遅延 の定義(前提プリセット+上書き・攻撃者集合の条件・必要能力・目標・戦略・既定実行構成)と、既定構成で達成・A01/A03/A04/A05 は merge 既定で未達・A05 は current でも未達 のテスト",
-      "status": "pending",
+      "title": "攻撃ライブラリ(リオーグ攻撃 2 件): A01 Ex-Ante リオーグ(保留+時機; 前提 phase0)・A02 proposer boost 逆用リオーグ(前提 merge)の定義(戦略・攻撃の 3 つ組・ライブラリメタデータ・既定実行構成・レジストリ)と、既定構成で達成・A01 は merge 既定で未達 のテスト",
+      "status": "done",
       "priority": "must",
       "spec": [
         "S-043",
@@ -1467,7 +1469,37 @@
       "batch_group": "e3-library",
       "context_cost": 5,
       "risk_level": "normal",
-      "notes": "遂行順序 6。各攻撃は本質(保留と時機 / 正直票の割れの維持 / 競合 justified 間の跳ね / 提案遅延による target 分裂)が再現できれば簡約版でよい。表現不能と判明した攻撃は自律で読み替えず Human-input Recommendation で人間に戻す。"
+      "notes": "遂行順序 6。攻撃ライブラリの基盤とリオーグ攻撃 2 件を実装。置き場(handoff の設計どおり): 戦略と攻撃の 3 つ組(Attack{attackers, goal, strategy})は本質的仕様なので src/domain/model/attackLibrary.ts(exAnteReorgA01 / boostReversalA02 / ATTACK_A01 / ATTACK_A02。const のみ export = 型カタログに現れない)、ライブラリメタデータ(LibraryAttack{id, name, source, premise, attackers, capabilities, goal, strategySummary, strategy, defaultRun}・premiseParams・ATTACK_LIBRARY・ATTACK_REGISTRY)はシミュレータ都合なので src/domain/sim/attackLibrary.ts。index.ts に両ファイルを追加(purity テストが全ファイル再輸出を固定)。戦略は固定介入列(observation.slot===0 で 1 度だけ emit)で、既定実行構成のラウンドロビン予定表・線形正直チェーンに合わせた具体値。検証済み構成(神視点の実行で確認): A01 = 攻撃者 V1 が s1 の自ブロックと投票を s3 まで保留し、その間の正直投票を遅延(d=2)して正直チェーンを proposer boost だけで支えさせ、s3 公開で正直 head を B2→B1 にリオーグ。phase0(boost 0)では tie を index で攻撃者が勝ち達成、merge では boost(51.2)>32 で正直ブロックが守られ未達(成功条件 19 の A01)。A02 = 攻撃者 V1 が s5 で祖父 B3 上に提案(propose-parent)し、自分の B4 投票を外し(vote-target head=B3)他の正直 B4 投票を遅延させて B4 を 1 票=32 に落とし、boost が攻撃者ブロックに付いて正直 head を B4→B5 にリオーグ(boost がこのリオーグを可能にする; 前提 merge)。残りの前半 4 件(A03 バランシング・A04 LMD バランシング・A05 バウンシング・A06 エポック境界 finality 遅延 = 活性停止系)は T-045 に分離した。理由: A03/A04 の割引依存バランシングは本モデルの意味論(割引は『View が相反 2 票を保持した瞬間から』発火するのに対し、バランシングは選択配送で各正直者が片側しか見ない状態を要する; さらにスロット内順序独立の設計上 LMD の到着順依存が表現できない)と衝突し、忠実な再現に踏み込んだ設計判断が要る(R-006)。A05/A06 は R-004/R-005 に記録した機構(A05=投票保留と後出し取り込みで justified を跳ねさせ window/unrealized で緩和; A06=境界ブロック遅延)で次サイクル以降に着手する。",
+      "evidence": [
+        {
+          "type": "diff",
+          "summary": "New src/domain/model/attackLibrary.ts (exAnteReorgA01, boostReversalA02 fixed-list strategies + ATTACK_A01, ATTACK_A02 triples; const-only so the type catalog is unchanged), src/domain/sim/attackLibrary.ts (AttackPremise, premiseParams, AttackDefaultRun, LibraryAttack, ATTACK_LIBRARY = [A01, A02], ATTACK_REGISTRY), src/domain/index.ts re-exports both new files, tests/domain/attackLibrary.test.ts (5 tests)."
+        },
+        {
+          "type": "command",
+          "command": "npx vitest run tests/domain/attackLibrary.test.ts tests/domain/purity.test.ts tests/ui/typeGraph.test.ts",
+          "exit_code": 0,
+          "summary": "受け入れ確認(成功条件 19・20): 18 tests. attackLibrary — 各攻撃が既定実行構成の premiseParams(premise)+defaultRun で throughSlot まで実行すると goalAchievedAt が定義される(A01 phase0 リオーグ s3, A02 merge リオーグ s5); 各既定実行構成が攻撃者集合条件を満たす; A01 は上書きを外した merge プリセットで goalAchievedAt undefined(boost が防ぐ); serializeScenario→parseScenario(ATTACK_REGISTRY) の往復で id 解決・再実行が同一の generated と同一 goalAchievedAt を再現; ATTACK_REGISTRY のキー集合が ATTACK_LIBRARY の id 集合と一致。purity — model/attackLibrary.ts は ./ のみ import、index が全ファイル再輸出。typeGraph — 攻撃ライブラリの const は型カタログに現れず、sim メタデータ型も現れない。"
+        },
+        {
+          "type": "command",
+          "command": "npm run typecheck",
+          "exit_code": 0,
+          "summary": "tsc --noEmit exits 0 (strict, exactOptionalPropertyTypes) across the two library files, the index and the test."
+        },
+        {
+          "type": "command",
+          "command": "npx vitest run",
+          "exit_code": 0,
+          "summary": "28 files / 329 tests pass (324 -> 329: +5 attackLibrary). Every existing domain and UI suite unchanged in outcome."
+        },
+        {
+          "type": "command",
+          "command": "npm run build",
+          "exit_code": 0,
+          "summary": "vite build emits the static dist/ bundle (351.3 kB js, 12.9 kB css) with exit 0."
+        }
+      ]
     },
     {
       "id": "T-041",
@@ -1486,6 +1518,24 @@
       "context_cost": 5,
       "risk_level": "normal",
       "notes": "遂行順序 6。A07 は phase0 + forkChoice = GHOST を前提に秘匿エクイボケーションブロック列の一斉公開で再現。A14 は分断で正直者を leak させ比率 ≥ 1/3 → 安全性違反の 2 段。"
+    },
+    {
+      "id": "T-045",
+      "title": "攻撃ライブラリ(活性停止・バランシング系 4 件): A03 バランシング(前提 phase0)・A04 LMD バランシング(前提 merge + 割引 off)・A05 バウンシング(前提 merge + 切替 off)・A06 エポック境界 finality 遅延(前提 merge) の定義と、既定構成で達成・A03/A04/A05 は上書きを外した merge(A05 は current も)で未達 のテスト",
+      "status": "pending",
+      "priority": "must",
+      "spec": [
+        "S-043",
+        "S-041",
+        "S-039"
+      ],
+      "executor": {
+        "mode": "atlas-builder"
+      },
+      "batch_group": "e3-library",
+      "context_cost": 5,
+      "risk_level": "normal",
+      "notes": "遂行順序 6(T-040 から分離した活性停止系)。各攻撃は本質(正直票の割れの維持 / 競合 justified 間の跳ね / 提案遅延による target 分裂)が再現できれば簡約版でよい。表現不能と判明したら自律で読み替えず Human-input Recommendation で人間に戻す(ESSENCE 思想)。着手方針: A05 バウンシング = R-004 記録どおり投票の保留と後出し取り込み(omit-inclusion + 遅延)で起点 justified を枝間で跳ねさせ、切替 off で成立・window/unrealized(merge/current)で緩和 → 未達(切替依存)。A06 = R-005 記録どおり境界ブロックの遅延/分断で target を分裂させ finalized を L スロット停滞(空境界 finalize 遅れの簡約と混ざらないよう境界ブロックは存在させ配送だけ操作)。A03/A04 = 割引依存バランシング(R-006): 本モデルの割引は『View が相反 2 票を保持した瞬間に発火』し、バランシングは選択配送で各正直者が片側だけを見る状態を要するため両立しにくく、スロット内順序独立の設計(決定性)上 LMD の到着順依存も表現できない。まず A05/A06 を実装し、A03/A04 は割引を効かせる忠実な機構(または簡約の妥当性)を設計 → 詰まれば R-006 を Blocking に昇格して人間判断を仰ぐ。全 12 攻撃のうち A01/A02(T-040 済)、A07/A09/A10/A11/A12/A14(T-041)を除く 4 件。"
     },
     {
       "id": "T-042",

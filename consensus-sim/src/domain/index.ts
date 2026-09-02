@@ -35,6 +35,7 @@ export * from "./model/protocol";
 export * from "./model/action";
 export * from "./model/attackGoal";
 export * from "./model/attack";
+export * from "./model/attackLibrary";
 
 export * from "./sim/validatorSet";
 export * from "./sim/messages";
@@ -44,3 +45,4 @@ export * from "./sim/intervention";
 export * from "./sim/attackRun";
 export * from "./sim/scenario";
 export * from "./sim/scenarioCodec";
+export * from "./sim/attackLibrary";
