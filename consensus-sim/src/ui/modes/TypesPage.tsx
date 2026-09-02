@@ -1,5 +1,7 @@
 /**
- * Type catalog page (型一覧): the domain layer's exported types as a
+ * Type catalog page (型一覧): the exported types of the domain layer's model
+ * module (本質的仕様, src/domain/model — the sim module's constraint types
+ * are deliberately absent) as a
  * top-down dependency graph — layer 0 (types depending on no other type) on
  * top, every edge pointing from a type down to the types built on it.
  * Selecting a node shows its verbatim source declaration, so what the page
@@ -50,8 +52,9 @@ export function TypesPage() {
   return (
     <section className="types-page" aria-label="型一覧">
       <p className="types-caption">
-        ドメイン層の型の依存グラフ（最上段 = 他のどの型にも依存しない型）。
-        型を選択すると実装の定義がそのまま表示されます。
+        ドメイン層の本質的仕様モジュール（src/domain/model）の型の依存グラフ（最上段 =
+        他のどの型にも依存しない型）。シミュレーション上の制約モジュール（src/domain/sim）の
+        型は含みません。型を選択すると実装の定義がそのまま表示されます。
       </p>
       <div className="types-scroll">
         <div

@@ -1310,7 +1310,7 @@
     {
       "id": "T-037",
       "title": "ドメイン層の 2 モジュール分割: 本質的仕様(View / Vote / Block / BlockTree / Equivocation / ChainState / ProtocolParams / プリセット / fork choice・finality の入出力 / 攻撃の 3 つ組・行動語彙・述語・戦略)とシミュレーション上の制約(シナリオ / 介入キュー / 手動介入 / 既定実行構成 / コーデック / 人名 / バリデータ数・フォーク上限)に分け、型一覧を本質的仕様モジュールのみに絞る+テスト",
-      "status": "pending",
+      "status": "done",
       "priority": "must",
       "spec": [
         "S-035",
@@ -1323,7 +1323,37 @@
       "batch_group": "e3-modules",
       "context_cost": 4,
       "risk_level": "normal",
-      "notes": "遂行順序 4。振り分け基準は「柱 2 の Lean 形式化がそのまま対象とする型か」。攻撃の型は T-038 で本質的仕様側に置く前提でディレクトリ構造を先に整える。"
+      "notes": "遂行順序 4。振り分け基準は「柱 2 の Lean 形式化がそのまま対象とする型か」。攻撃の型は T-038 で model 側に置く。 振り分け結果 — model/(本質的仕様): types(ValidatorIndex/SlotIndex/BlockIndex/Stake/Vote/Equivocation/BlockBody/Block/錨), blockTree, view, messageRef(MessageRef/voteRef/sameRef — 取り込み省略と攻撃者の遅延・欠落行動が参照するメッセージ同一性なので model 側に新設し sim/messages.ts から分離), finality(エポック・チェックポイント), forkChoice, inclusion(取り込み規則・証拠・Omission), chainState(ChainState・checkpointStatus・forkChoiceRoot・viableBlocks・フォーク数), protocolParams(ProtocolParams・プリセット), config(SimulationConfig = プロトコルが読む初期条件: バリデータ数・シード・params・初期ステーク。validatorIndices は上限なしの純関数としてここへ移した), schedule(プロポーザー・committee 導出), protocol(resolveView・buildProposal・buildAttestation = fork choice・finality の入出力)。 sim/(シミュレーション上の制約): validatorSet(4〜10 の上限と assert・カタカナ人名), messages(MessageLog・publishedAt), localView(Delivery・viewOf・observe), simulation(SimulationState・SlotDirectives・advanceSlot — 介入の写像を受ける駆動部), intervention(10 種・MAX_FORKS・compileDelivery・directivesForSlot), scenario, scenarioCodec。 境界: sim → model の一方向のみ(model は ./ 内のみ import)。src/domain/index.ts が両モジュールを再輸出するため UI・テストの import 経路(../domain / ../../src/domain)は無変更。型一覧は domainSources の glob を ../domain/model/*.ts に絞り、sim の型(Delivery/MessageLog/Intervention/SlotDirectives/SimulationState/Scenario/OperatingState)はカタログに現れない。判断が割れうる点: SimulationConfig(名前はそのまま)と schedule は『プロトコルが (slot, ProtocolParams, シード) から導出する公開情報』なので model、simulation.ts は SlotDirectives(介入の写像)を受ける駆動部なので sim とした。",
+      "evidence": [
+        {
+          "type": "diff",
+          "summary": "src/domain/{types,blockTree,view,finality,forkChoice,inclusion,chainState,protocolParams,config,schedule,protocol}.ts → src/domain/model/; src/domain/{validatorSet,messages,localView,simulation,intervention,scenario,scenarioCodec}.ts → src/domain/sim/ (plain mv; git detects the renames). New src/domain/model/messageRef.ts (MessageRef / voteRef / sameRef split out of messages.ts). model/config.ts gains the unbounded validatorIndices (removed from sim/validatorSet.ts, whose assertValidatorCount stays the bound). Every sim file imports model via ../model/<file>. src/domain/index.ts re-exports both modules with the split criterion documented. src/ui/domainSources.ts globs ../domain/model/*.ts only; TypesPage caption names the module and the exclusion. tests/domain/purity.test.ts rewritten: inside-domain only, model never imports sim, index re-exports exactly every file. tests/ui/typeGraph.test.ts / typesPage.test.tsx assert the model vocabulary is present and the sim types are absent; validatorSet.test.ts asserts the bound via assertValidatorCount. README Development section documents the two modules. git diff --stat -M: 29 files changed, 147 insertions(+), 2796 deletions(-) (the deletions are the pre-rename paths; renames are content-identical apart from import paths)."
+        },
+        {
+          "type": "command",
+          "command": "npx vitest run tests/domain/purity.test.ts tests/ui/typeGraph.test.ts tests/ui/typesPage.test.tsx tests/domain/validatorSet.test.ts",
+          "exit_code": 0,
+          "summary": "受け入れ確認(必須 15・28、成功条件 10): purity — model/ と sim/ の両方にソースがあり、全ファイルが src/domain 内のみを import し、model/ は ./ のみ(sim へ到達しない)、index.ts の再輸出集合がファイル集合と一致。typeGraph — カタログに ValidatorIndex/SlotIndex/BlockIndex/Block/BlockBody/Vote/View/BlockTree/Equivocation/ChainState/ProtocolParams/PresetName/MessageRef/SimulationConfig があり、Delivery/MessageLog/Intervention/SlotDirectives/SimulationState/Scenario/OperatingState は無く、全ノードの module が model 由来、各宣言はソースの逐語的スライス、依存は上位層のみ。typesPage(DOM) — 型一覧タブに ChainState/ProtocolParams が並び Scenario/Intervention/SimulationState/Delivery は無く、キャプションに『本質的仕様モジュール』、Vote の宣言表示と依存リンク遷移。validatorSet — 4〜10 の上限は assertValidatorCount で保持。"
+        },
+        {
+          "type": "command",
+          "command": "npm run typecheck",
+          "exit_code": 0,
+          "summary": "tsc --noEmit exits 0 across the moved modules and rewritten imports."
+        },
+        {
+          "type": "command",
+          "command": "npx vitest run",
+          "exit_code": 0,
+          "summary": "25 files / 288 tests pass (286 → 288: purity +2 net); every domain and UI suite unchanged in outcome — the split changed no behaviour."
+        },
+        {
+          "type": "command",
+          "command": "npm run build",
+          "exit_code": 0,
+          "summary": "vite build emits the static dist/ bundle (311.9 kB js, 12.9 kB css — smaller than 356.0 kB because only model/ sources are bundled verbatim for the catalog) with exit 0."
+        }
+      ]
     },
     {
       "id": "T-038",

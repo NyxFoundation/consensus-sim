@@ -1,7 +1,9 @@
-// Validator set (バリデータ) — participants of the simulation.
-// The count is configurable between 4 and 10, defaulting to 4 (ESSENCE.md).
+// Validator set (バリデータ) — the simulator's constraints on the participants:
+// the count is configurable between 4 and 10, defaulting to 4, and each
+// validator carries a katakana display name (ESSENCE.md). The identity of a
+// validator (its index) belongs to the model.
 
-import type { ValidatorIndex } from "./types";
+import type { ValidatorIndex } from "../model/types";
 
 export const MIN_VALIDATOR_COUNT = 4;
 export const MAX_VALIDATOR_COUNT = 10;
@@ -23,12 +25,6 @@ export function assertValidatorCount(count: number): void {
         `${MAX_VALIDATOR_COUNT}], got ${count}`,
     );
   }
-}
-
-/** Indices 0..count-1, the identity of every validator in the run. */
-export function validatorIndices(count: number): ValidatorIndex[] {
-  assertValidatorCount(count);
-  return Array.from({ length: count }, (_, i) => i);
 }
 
 /**

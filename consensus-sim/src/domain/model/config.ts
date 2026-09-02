@@ -5,8 +5,7 @@
 // every validator knows.
 
 import type { ProtocolParams } from "./protocolParams";
-import type { Stake } from "./types";
-import { validatorIndices } from "./validatorSet";
+import type { Stake, ValidatorIndex } from "./types";
 
 export interface SimulationConfig {
   readonly validatorCount: number;
@@ -18,6 +17,13 @@ export interface SimulationConfig {
    * Equal for everyone by default; chain state derives every later stake
    * from these and what the branch has included. */
   readonly initialStakes: readonly Stake[];
+}
+
+/** Indices 0..count-1, the identity of every validator in the run. The
+ * model is agnostic to the count; the simulator's bound (4〜10) is a
+ * constraint enforced in the sim module. */
+export function validatorIndices(count: number): ValidatorIndex[] {
+  return Array.from({ length: count }, (_, i) => i);
 }
 
 /** The initial stake everyone holds unless the scenario says otherwise. */

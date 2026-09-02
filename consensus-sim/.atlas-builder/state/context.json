@@ -6,11 +6,11 @@
     "stop_after_infra_fails": 2
   },
   "progress": {
-    "last_signature": "5183d587abc510395b78ba5fa8d336d84c59b6f1629a45675c7e7ba82f09229f",
+    "last_signature": "1537b6adc253dffdf568c98429e43ec214598507a02219d19bdca7249bbd50c2",
     "idle_cycles_since_progress": 0,
     "infra_fails_since_ok": 0,
-    "last_progress_at": "2026-09-03T04:32:31+09:00",
-    "last_checked_at": "2026-09-03T04:32:31+09:00",
+    "last_progress_at": "2026-09-03T04:38:55+09:00",
+    "last_checked_at": "2026-09-03T04:38:55+09:00",
     "usage_limited_since_ok": 0
   },
   "reset_policy": {
@@ -21,20 +21,20 @@
     "reset_after_decisions": 5
   },
   "counters": {
-    "context_usage_estimate": 0.15,
+    "context_usage_estimate": 0.3,
     "failed_attempts_since_reset": 0,
-    "changed_files_since_reset": 8,
-    "completed_todos_since_reset": 1,
-    "important_decisions_since_reset": 1,
+    "changed_files_since_reset": 37,
+    "completed_todos_since_reset": 2,
+    "important_decisions_since_reset": 2,
     "major_spec_rewrite_since_reset": false,
     "high_risk_change_completed": false
   },
   "handoff": {
-    "written_at": "2026-09-03T04:32:00+09:00",
-    "summary": "改訂 Essence(sha c6fb67e2)の Spec 41 項 / Todo 44 項(validate ok)。T-001〜T-036 done。遂行順序 1〜3 完了。以降: 4(T-037 2 モジュール分割)、5(T-038/T-039 攻撃体系)、6(T-040/T-041 ライブラリ)、7(T-042/T-043 攻撃 UI)、8(T-044 総点検)。ドメイン骨格: src/domain/{types,blockTree,view,validatorSet,messages,finality,inclusion,chainState,protocolParams,config,schedule,forkChoice,protocol,localView,simulation,intervention,scenario,scenarioCodec}.ts。Intervention は 10 種。フォーク数(T-036): blockTree.leavesUnder / chainState.latestFinalized・forkCount・forkCountAfter(tree, chainStates, parents) / intervention.MAX_FORKS=4・pendingForkParents(interventions, slot) — UI は forkCountAfter(current.tree, current.chainStates, [...pending, parent]) > MAX_FORKS で拒否。T-038 の戦略由来フォーク作成の破棄判定も同じ関数を使う。UI: src/ui/{App,useSimulation,ParamsPanel,InterventionPanel,ScenarioPanel,StateTable,ChainStateDetail,modes/*}.tsx。ゲート typecheck / vitest 25 files 286 tests / build 全 exit 0。R-003・R-004・R-005 は Non-blocking で提案中(R-005: 空の境界スロットにフォールバックしたチェックポイントは epochOf(slot) の隣接判定で finalize されない簡約 — 骨格意味論のため人間判断待ち、A06 設計と T-044 で考慮)。",
+    "written_at": "2026-09-03T04:38:00+09:00",
+    "summary": "改訂 Essence(sha c6fb67e2)の Spec 41 項 / Todo 44 項(validate ok)。T-001〜T-037 done。遂行順序 1〜4 完了。以降: 5(T-038/T-039 攻撃体系)、6(T-040/T-041 ライブラリ)、7(T-042/T-043 攻撃 UI)、8(T-044 総点検)。ドメイン層は 2 モジュール(T-037): src/domain/model/{types,blockTree,view,messageRef,finality,forkChoice,inclusion,chainState,protocolParams,config,schedule,protocol}.ts(本質的仕様、型一覧の対象)と src/domain/sim/{validatorSet,messages,localView,simulation,intervention,scenario,scenarioCodec}.ts(制約)。sim → model の一方向依存、index.ts が両方を再輸出(UI・テストは '../domain' / '../../src/domain' から import)。purity.test が『model は ./ のみ import』『index がちょうど全ファイルを再輸出』を固定するので、新ファイルは index.ts に必ず追加する。Intervention は 10 種。フォーク数: chainState.forkCount / forkCountAfter(tree, chainStates, parents)、intervention.MAX_FORKS=4 / pendingForkParents。UI: src/ui/{App,useSimulation,ParamsPanel,InterventionPanel,ScenarioPanel,StateTable,ChainStateDetail,domainSources(model/*.ts の glob),typeGraph,modes/*}.tsx。ゲート typecheck / vitest 25 files 288 tests / build 全 exit 0。R-003・R-004・R-005 は Non-blocking で提案中(R-005: 空の境界スロットにフォールバックしたチェックポイントは epochOf(slot) の隣接判定で finalize されない簡約 — 骨格意味論のため人間判断待ち、A06 設計と T-044 で考慮)。changed_files 37 で reset 閾値(25)超過 — 次サイクル前のリセット想定。",
     "next_actions": [
-      "T-037(遂行順序 4, e3-modules, cost 4)を単独バッチで実行: src/domain を model/(本質的仕様: types, blockTree, view, finality, forkChoice, inclusion, chainState, protocolParams, schedule, protocol, localView — Lean 対象)と sim/(制約: validatorSet の人名・上限、intervention(MAX_FORKS を含む), scenario, scenarioCodec)に分割。判定基準は『Lean 形式化がそのまま対象とする型か』。SimulationConfig/config.ts と simulation.ts の置き場は要判断(ProtocolParams・初期ステークは本質側、バリデータ数 4〜10 制約・シードは sim 側 → config を分ける可能性; simulation.ts の SlotDirectives は介入の写像なので sim 側が自然だが advanceSlot の骨格は model 側)。forkCount 系は神視点の量として model 側、上限 MAX_FORKS は sim 側。型一覧(src/ui/domainSources.ts の import.meta.glob)を model/ のみに絞り、tests/ui/typesPage・typeGraph テストを更新。tests/domain/purity.test の境界(sim → model の一方向依存)も更新。src/domain/index.ts は両モジュールを再輸出して UI の import 経路を維持。README の Development 節を更新。",
-      "T-038/T-039(遂行順序 5, e3-attacks, cost 5+4 なので別バッチ): 攻撃の型は model 側に置く。戦略生成のフォーク作成は forkCountAfter で上限判定し超過分を『破棄』印で介入一覧に残す。",
+      "T-038(遂行順序 5, e3-attacks, cost 5)を単独バッチで実行: model/attack.ts に Attack = {attackers: 空でない ValidatorIndex 集合の条件, goal: 述語の非空列(型は T-039 で定義、先に最小のプレースホルダ型を置かない — T-038 と T-039 は同 batch_group だが cost 5+4 > 8 なので別バッチ; T-038 では goal を `readonly AttackGoal[]` として model/attackGoal.ts の型定義(述語 4 種の判別共用体 SafetyViolation{}/LivenessStall{L}/Reorg{k}/AttackerStakeRatio{theta})だけ置き、評価は T-039)、strategy: (observation, slot) => AttackerAction[]}。攻撃者の観測状態 AttackerObservation = 攻撃者集合の全 View の合併(blockTree の和・votes の和)+プロポーザー予定表(proposerForSlot を config から)。行動語彙 AttackerAction = 必須 18 の列挙(自バリデータの equivocate-propose/equivocate-vote/propose-parent/vote-target/silence(stop)/withhold(自メッセージの delay with observers)/omit-inclusion、正直者への delay/drop/partition)— 既存 Intervention 10 種への写像で表現できるので、AttackerAction は『Intervention + 生成メタ(by: attack, slot)』としてよいか検討: Essence は行動語彙を能力範囲の列挙と定めるので、model 側に語彙型を置き sim 側で Intervention へ写像する。sim/attackRun.ts: 各スロット境界で戦略を実行 → 生成 Intervention(印 origin: 'attack')→ 同スロット・同バリデータの手動介入と矛盾すれば破棄(印 discarded + 理由)、フォーク作成は forkCountAfter で上限判定し超過は破棄。Scenario に attack?: AttackInstance(攻撃 id・攻撃者集合・パラメータ・プリセット+上書き)を追加、scenarioStates が生成行動を決定的に再生成。codec 拡張。テスト: 固定介入列を返す戦略が同一の生成結果・決定性、矛盾破棄、上限破棄、攻撃者観測の合併。",
+      "T-039(cost 4): 述語 4 種の神視点評価(安全性違反: 互いに祖先でない finalized チェックポイント 2 つ / 活性停止: 直近 L スロット finalized 不変 / リオーグ: 正直 head が直前 head の子孫でないブロックへ移る回数 ≥ k / 攻撃者ステーク比率 ≥ θ)、述語列を先頭から順に判定する段階トレース(段階ごとの達成スロット・根拠文字列)。",
       "運用: セッション内シェルから state コマンドを呼ぶときは cd CONTROL_ROOT(絶対パス)のうえ ATLAS_BUILDER_LOCK_TOKEN=$(cat .agent/tmp/loop.lock/token) を前置(Bash の cwd は呼び出し間で持ち越されるので相対パスに注意)。canonical state の読み取りは Read ツールで行う(Bash の python open() や tail -c は state パスに触れると hook に拒否される)。projection の編集は stage-projection → tmp/start_batch.py(active_batch/in_progress)→ 実装 → tmp/finish_tNNN.py で done+evidence → apply-projection。"
     ],
     "open_questions": [

@@ -3,13 +3,8 @@
 // the god view's (神視点) source of truth and is append-only, so rewind can
 // re-derive any past view.
 
-import type {
-  Block,
-  BlockIndex,
-  SlotIndex,
-  ValidatorIndex,
-  Vote,
-} from "./types";
+import { voteRef, type MessageRef } from "../model/messageRef";
+import type { Block, SlotIndex, ValidatorIndex, Vote } from "../model/types";
 
 export interface PublishedBlock {
   readonly block: Block;
@@ -33,42 +28,14 @@ export const senderOfBlock = (m: PublishedBlock): ValidatorIndex =>
 export const senderOfVote = (m: PublishedVote): ValidatorIndex =>
   m.vote.validator;
 
-/**
- * Identity of a single published message, so a delivery rule can target one
- * message specifically (遅延・欠落). A block is unique by index; a vote is
- * identified by (validator, slot, head) — under equivocation the two votes of
- * one validator in one slot differ in head, so each stays addressable.
- */
-export type MessageRef =
-  | { readonly kind: "block"; readonly block: BlockIndex }
-  | {
-      readonly kind: "vote";
-      readonly validator: ValidatorIndex;
-      readonly slot: SlotIndex;
-      readonly head: BlockIndex;
-    };
-
+/** The identity (MessageRef) of a published message, so a delivery rule can
+ * target one specifically (遅延・欠落). */
 export const refOfBlock = (m: PublishedBlock): MessageRef => ({
   kind: "block",
   block: m.block.index,
 });
 
-export const voteRef = (vote: Vote): MessageRef => ({
-  kind: "vote",
-  validator: vote.validator,
-  slot: vote.slot,
-  head: vote.head,
-});
-
 export const refOfVote = (m: PublishedVote): MessageRef => voteRef(m.vote);
-
-export function sameRef(a: MessageRef, b: MessageRef): boolean {
-  if (a.kind === "block" && b.kind === "block") return a.block === b.block;
-  if (a.kind === "vote" && b.kind === "vote") {
-    return a.validator === b.validator && a.slot === b.slot && a.head === b.head;
-  }
-  return false;
-}
 
 export function emptyLog(): MessageLog {
   return { blocks: [], votes: [] };

@@ -5,19 +5,19 @@
 // loaded scenario is exactly as trustworthy as a built one. Pure data in,
 // pure data out: no DOM, no storage — I/O belongs to the UI layer.
 
-import { equalStakes, type SimulationConfig } from "./config";
-import type { EvidenceRef } from "./inclusion";
+import { equalStakes, type SimulationConfig } from "../model/config";
+import type { EvidenceRef } from "../model/inclusion";
 import type { Intervention } from "./intervention";
-import type { MessageRef } from "./messages";
+import type { MessageRef } from "../model/messageRef";
 import {
   DEFAULT_PARAMS,
   type CheckpointSwitch,
   type CommitteeAssignment,
   type ForkChoiceRule,
   type ProtocolParams,
-} from "./protocolParams";
+} from "../model/protocolParams";
 import type { Scenario } from "./scenario";
-import { START_SLOT } from "./types";
+import { START_SLOT } from "../model/types";
 import {
   MAX_VALIDATOR_COUNT,
   MIN_VALIDATOR_COUNT,

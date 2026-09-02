@@ -4,11 +4,11 @@
 // path (巻き戻し) and the determinism guarantee (決定性): the same scenario
 // always reproduces the same states.
 
-import type { SimulationConfig } from "./config";
+import type { SimulationConfig } from "../model/config";
 import { compileDelivery, directivesForSlot, type Intervention } from "./intervention";
 import type { Delivery } from "./localView";
 import { advanceSlot, initialState, type SimulationState } from "./simulation";
-import { START_SLOT, type SlotIndex } from "./types";
+import { START_SLOT, type SlotIndex } from "../model/types";
 
 export interface Scenario {
   readonly config: SimulationConfig;

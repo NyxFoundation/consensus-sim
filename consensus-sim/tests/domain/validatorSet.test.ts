@@ -31,7 +31,7 @@ describe("validator count bounds", () => {
 
   it("enumerates validator indices deterministically", () => {
     expect(validatorIndices(4)).toEqual([0, 1, 2, 3]);
-    expect(() => validatorIndices(2)).toThrow();
+    expect(() => assertValidatorCount(2)).toThrow();
   });
 });
 

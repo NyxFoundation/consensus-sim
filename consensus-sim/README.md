@@ -174,17 +174,26 @@ npm run build      # static bundle in dist/ (no backend; plain static SPA)
 ## Development
 
 ```
-src/domain/   pure TypeScript domain layer — no React, no DOM, no I/O
-src/ui/       React shell and SVG views, consuming only src/domain exports
-tests/domain/ model tests (incl. an import-purity test that fences the boundary)
-tests/ui/     layout and DOM-level shell tests (jsdom)
+src/domain/        pure TypeScript domain layer — no React, no DOM, no I/O
+src/domain/model/  essential specification (本質的仕様): the types a formalization
+                   takes as its object — View / Vote / Block / BlockTree /
+                   Equivocation / ChainState / ProtocolParams and presets, fork
+                   choice, finality, inclusion, the schedule, the initial conditions
+src/domain/sim/    simulation constraints (シミュレーション上の制約): message log
+                   and delivery, the slot driver, interventions, scenarios and
+                   their codec, validator names and the 4–10 bound, the fork limit
+src/ui/            React shell and SVG views, consuming only src/domain exports
+tests/domain/      model tests (incl. an import-purity test that fences the boundaries)
+tests/ui/          layout and DOM-level shell tests (jsdom)
 ```
 
 The domain layer is the product's core: UI code imports from `src/domain`
-and never the other way around (`tests/domain/purity.test.ts` enforces
-this mechanically). More concrete abstraction levels (delta/discrete-event
-timing, full Gasper semantics, stochastic networks) are future additions
-the boundary is designed not to obstruct.
+and never the other way around, and inside the layer `sim/` may import
+`model/` but never the reverse (`tests/domain/purity.test.ts` enforces both
+mechanically). The 型一覧 tab catalogs `model/` only. More concrete
+abstraction levels (delta/discrete-event timing, full Gasper semantics,
+stochastic networks) are future additions the boundary is designed not to
+obstruct.
 
 `docs/INSPECTION.md` records the pre-release inspection: the
 requirement-to-implementation trace, the subtractive design review, and the

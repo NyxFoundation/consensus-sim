@@ -4,21 +4,21 @@
 // god view; partitions, delays and drops (introduced later as interventions)
 // are stricter Delivery rules, not engine changes.
 
-import { addBlock, createBlockTree, type BlockTree } from "./blockTree";
-import type { ChainState } from "./chainState";
-import type { SimulationConfig } from "./config";
+import { addBlock, createBlockTree, type BlockTree } from "../model/blockTree";
+import type { ChainState } from "../model/chainState";
+import type { SimulationConfig } from "../model/config";
+import type { MessageRef } from "../model/messageRef";
 import {
   refOfBlock,
   refOfVote,
   senderOfBlock,
   senderOfVote,
   type MessageLog,
-  type MessageRef,
   type PublishedBlock,
 } from "./messages";
-import { resolveView } from "./protocol";
-import type { BlockIndex, SlotIndex, ValidatorIndex } from "./types";
-import type { View } from "./view";
+import { resolveView } from "../model/protocol";
+import type { BlockIndex, SlotIndex, ValidatorIndex } from "../model/types";
+import type { View } from "../model/view";
 
 /**
  * Whether a message published by `sender` at `publishedAt` has reached

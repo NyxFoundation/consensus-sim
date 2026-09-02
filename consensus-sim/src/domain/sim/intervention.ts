@@ -9,14 +9,14 @@
 // (who sees what by when) and per-slot protocol directives (who acts, and
 // whether they equivocate). The engine itself is untouched.
 
-import type { SimulationConfig } from "./config";
-import type { EvidenceRef, Omission } from "./inclusion";
+import type { SimulationConfig } from "../model/config";
+import type { EvidenceRef, Omission } from "../model/inclusion";
 import type { Delivery } from "./localView";
-import { sameRef, type MessageRef } from "./messages";
-import type { VoteOverride } from "./protocol";
-import { proposerForSlot } from "./schedule";
+import { sameRef, type MessageRef } from "../model/messageRef";
+import type { VoteOverride } from "../model/protocol";
+import { proposerForSlot } from "../model/schedule";
 import type { SlotDirectives } from "./simulation";
-import type { BlockIndex, SlotIndex, ValidatorIndex } from "./types";
+import type { BlockIndex, SlotIndex, ValidatorIndex } from "../model/types";
 
 /** Messages do not cross group boundaries while the partition is active.
  * Validators listed in no group form one implicit remaining group. */

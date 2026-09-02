@@ -61,10 +61,17 @@ describe('type catalog page', () => {
   it('renders the domain types as a graph with edges', async () => {
     await click(buttonByText('型一覧'))
     const names = all('.type-node .type-node-name').map((n) => n.textContent)
-    for (const expected of ['ValidatorIndex', 'Block', 'Vote', 'View', 'Scenario']) {
+    for (const expected of ['ValidatorIndex', 'Block', 'Vote', 'View', 'ChainState', 'ProtocolParams']) {
       expect(names).toContain(expected)
     }
+    // The sim module's constraint types are not part of the catalog.
+    for (const absent of ['Scenario', 'Intervention', 'SimulationState', 'Delivery']) {
+      expect(names).not.toContain(absent)
+    }
     expect(all('.type-edge').length).toBeGreaterThan(0)
+    expect(container.querySelector('.types-caption')?.textContent).toContain(
+      '本質的仕様モジュール',
+    )
   })
 
   it('places no-dependency index types on the top row', async () => {

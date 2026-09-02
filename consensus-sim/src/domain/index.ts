@@ -1,21 +1,39 @@
 // Public surface of the domain layer (最抽象モデル).
 // UI and infrastructure import from here; nothing here imports them back.
+//
+// The layer is two modules, split by one question — is the type what a
+// formalization of the protocol would take as its object?
+//
+// - model/ (本質的仕様): the types a Lean formalization targets as they are —
+//   View / Vote / Block (with its body) / BlockTree / Equivocation /
+//   ChainState / ProtocolParams and the presets / the inputs and outputs of
+//   fork choice and finality / message identity / the proposer and committee
+//   schedule / the initial conditions the protocol reads.
+// - sim/ (シミュレーション上の制約): what this simulator adds for its own
+//   purposes — the message log and delivery rules, the slot driver and its
+//   directives, interventions and their queue, scenarios and their codec,
+//   validator names and the 4〜10 bound, the fork limit.
+//
+// sim/ may import model/; model/ never imports sim/ (enforced by
+// tests/domain/purity.test.ts). The type catalog (型一覧) shows model/ only.
 
-export * from "./types";
-export * from "./blockTree";
-export * from "./view";
-export * from "./validatorSet";
-export * from "./forkChoice";
-export * from "./messages";
-export * from "./finality";
-export * from "./inclusion";
-export * from "./chainState";
-export * from "./protocolParams";
-export * from "./config";
-export * from "./schedule";
-export * from "./protocol";
-export * from "./localView";
-export * from "./simulation";
-export * from "./intervention";
-export * from "./scenario";
-export * from "./scenarioCodec";
+export * from "./model/types";
+export * from "./model/blockTree";
+export * from "./model/view";
+export * from "./model/messageRef";
+export * from "./model/forkChoice";
+export * from "./model/finality";
+export * from "./model/inclusion";
+export * from "./model/chainState";
+export * from "./model/protocolParams";
+export * from "./model/config";
+export * from "./model/schedule";
+export * from "./model/protocol";
+
+export * from "./sim/validatorSet";
+export * from "./sim/messages";
+export * from "./sim/localView";
+export * from "./sim/simulation";
+export * from "./sim/intervention";
+export * from "./sim/scenario";
+export * from "./sim/scenarioCodec";

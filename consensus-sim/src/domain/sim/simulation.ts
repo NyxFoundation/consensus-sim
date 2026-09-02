@@ -12,10 +12,10 @@
 // interventions plug in as stricter Delivery rules. Who acts — proposer and
 // committee — comes from (slot, ProtocolParams, seed) via schedule.ts.
 
-import { addBlock, createBlockTree, type BlockTree } from "./blockTree";
-import { chainStatesOf, type ChainStateIndex } from "./chainState";
-import type { SimulationConfig } from "./config";
-import type { Omission } from "./inclusion";
+import { addBlock, createBlockTree, type BlockTree } from "../model/blockTree";
+import { chainStatesOf, type ChainStateIndex } from "../model/chainState";
+import { validatorIndices, type SimulationConfig } from "../model/config";
+import type { Omission } from "../model/inclusion";
 import { instantDelivery, viewOf, type Delivery } from "./localView";
 import { emptyLog, publishBlock, publishVotes, type MessageLog } from "./messages";
 import {
@@ -24,8 +24,8 @@ import {
   buildProposal,
   resolveView,
   type VoteOverride,
-} from "./protocol";
-import { committeeForSlot, proposerForSlot } from "./schedule";
+} from "../model/protocol";
+import { committeeForSlot, proposerForSlot } from "../model/schedule";
 import {
   ANCHOR_BLOCK_INDEX,
   START_SLOT,
@@ -34,8 +34,8 @@ import {
   type SlotIndex,
   type ValidatorIndex,
   type Vote,
-} from "./types";
-import { assertValidatorCount, validatorIndices } from "./validatorSet";
+} from "../model/types";
+import { assertValidatorCount } from "./validatorSet";
 
 /** The complete model state after advancing to `slot`. */
 export interface SimulationState {

@@ -3,9 +3,8 @@
 // are public information: every validator, attackers included, computes the
 // same schedule from the same inputs.
 
-import type { SimulationConfig } from "./config";
+import { validatorIndices, type SimulationConfig } from "./config";
 import type { SlotIndex, ValidatorIndex } from "./types";
-import { validatorIndices } from "./validatorSet";
 
 /** Round-robin proposer schedule: slot s is proposed by validator s mod n.
  * The seed does not enter (discretion: a readable default schedule). */

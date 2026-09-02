@@ -8,7 +8,7 @@
 // intervention may leave items out.
 
 import { pathToAnchor, type BlockTree } from "./blockTree";
-import { sameRef, voteRef, type MessageRef } from "./messages";
+import { sameRef, voteRef, type MessageRef } from "./messageRef";
 import type {
   BlockBody,
   BlockIndex,

@@ -60,23 +60,41 @@ describe('domain type catalog (実装との一致)', () => {
   const layout = layoutTypeGraph(nodes)
   const layerOf = new Map(layout.placed.map((p) => [p.node.name, p.layer]))
 
-  it('contains the domain vocabulary', () => {
+  it('contains the essential-specification vocabulary and none of the sim constraints', () => {
     for (const name of [
       'ValidatorIndex',
       'SlotIndex',
       'BlockIndex',
       'Block',
+      'BlockBody',
       'Vote',
       'View',
       'BlockTree',
+      'Equivocation',
+      'ChainState',
+      'ProtocolParams',
+      'PresetName',
       'MessageRef',
-      'Delivery',
-      'Intervention',
       'SimulationConfig',
-      'SimulationState',
-      'Scenario',
     ]) {
       expect(byName.has(name), `missing type: ${name}`).toBe(true)
+    }
+    for (const name of [
+      'Delivery',
+      'MessageLog',
+      'Intervention',
+      'SlotDirectives',
+      'SimulationState',
+      'Scenario',
+      'OperatingState',
+    ]) {
+      expect(byName.has(name), `sim type leaked into the catalog: ${name}`).toBe(false)
+    }
+    for (const node of nodes) {
+      expect(
+        Object.keys(DOMAIN_SOURCES),
+        `${node.name} comes from a module outside src/domain/model`,
+      ).toContain(node.module)
     }
   })
 
@@ -97,8 +115,11 @@ describe('domain type catalog (実装との一致)', () => {
     expect(byName.get('View')?.dependsOn).toEqual(
       expect.arrayContaining(['BlockTree', 'Vote']),
     )
-    expect(byName.get('Intervention')?.dependsOn).toEqual(
-      expect.arrayContaining(['PartitionIntervention', 'StopIntervention']),
+    expect(byName.get('ChainState')?.dependsOn).toEqual(
+      expect.arrayContaining(['BlockIndex', 'Stake', 'ValidatorIndex']),
+    )
+    expect(byName.get('Block')?.dependsOn).toEqual(
+      expect.arrayContaining(['BlockBody']),
     )
   })
 
