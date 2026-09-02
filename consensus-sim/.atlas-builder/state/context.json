@@ -6,11 +6,11 @@
     "stop_after_infra_fails": 2
   },
   "progress": {
-    "last_signature": "1537b6adc253dffdf568c98429e43ec214598507a02219d19bdca7249bbd50c2",
+    "last_signature": "30b72585ef4362bd2193543e27948846ca62fc4948c43f570b337238029b5898",
     "idle_cycles_since_progress": 0,
     "infra_fails_since_ok": 0,
-    "last_progress_at": "2026-09-03T04:38:55+09:00",
-    "last_checked_at": "2026-09-03T04:38:55+09:00",
+    "last_progress_at": "2026-09-03T04:57:48+09:00",
+    "last_checked_at": "2026-09-03T04:57:48+09:00",
     "usage_limited_since_ok": 0
   },
   "reset_policy": {
@@ -21,21 +21,21 @@
     "reset_after_decisions": 5
   },
   "counters": {
-    "context_usage_estimate": 0.3,
+    "context_usage_estimate": 0.35,
     "failed_attempts_since_reset": 0,
-    "changed_files_since_reset": 37,
-    "completed_todos_since_reset": 2,
+    "changed_files_since_reset": 20,
+    "completed_todos_since_reset": 1,
     "important_decisions_since_reset": 2,
     "major_spec_rewrite_since_reset": false,
     "high_risk_change_completed": false
   },
   "handoff": {
-    "written_at": "2026-09-03T04:38:00+09:00",
-    "summary": "改訂 Essence(sha c6fb67e2)の Spec 41 項 / Todo 44 項(validate ok)。T-001〜T-037 done。遂行順序 1〜4 完了。以降: 5(T-038/T-039 攻撃体系)、6(T-040/T-041 ライブラリ)、7(T-042/T-043 攻撃 UI)、8(T-044 総点検)。ドメイン層は 2 モジュール(T-037): src/domain/model/{types,blockTree,view,messageRef,finality,forkChoice,inclusion,chainState,protocolParams,config,schedule,protocol}.ts(本質的仕様、型一覧の対象)と src/domain/sim/{validatorSet,messages,localView,simulation,intervention,scenario,scenarioCodec}.ts(制約)。sim → model の一方向依存、index.ts が両方を再輸出(UI・テストは '../domain' / '../../src/domain' から import)。purity.test が『model は ./ のみ import』『index がちょうど全ファイルを再輸出』を固定するので、新ファイルは index.ts に必ず追加する。Intervention は 10 種。フォーク数: chainState.forkCount / forkCountAfter(tree, chainStates, parents)、intervention.MAX_FORKS=4 / pendingForkParents。UI: src/ui/{App,useSimulation,ParamsPanel,InterventionPanel,ScenarioPanel,StateTable,ChainStateDetail,domainSources(model/*.ts の glob),typeGraph,modes/*}.tsx。ゲート typecheck / vitest 25 files 288 tests / build 全 exit 0。R-003・R-004・R-005 は Non-blocking で提案中(R-005: 空の境界スロットにフォールバックしたチェックポイントは epochOf(slot) の隣接判定で finalize されない簡約 — 骨格意味論のため人間判断待ち、A06 設計と T-044 で考慮)。changed_files 37 で reset 閾値(25)超過 — 次サイクル前のリセット想定。",
+    "written_at": "2026-09-03T04:57:00+09:00",
+    "summary": "改訂 Essence(sha c6fb67e2)の Spec 41 項 / Todo 44 項(validate ok)。T-001〜T-038 done。遂行順序 1〜4 完了、5 は T-038 完了・T-039 残。以降: 6(T-040/T-041 ライブラリ)、7(T-042/T-043 攻撃 UI)、8(T-044 総点検)。ドメイン層: src/domain/model/{types,blockTree,view,messageRef,finality,forkChoice,inclusion,chainState,protocolParams,config,schedule,protocol,action,attackGoal,attack}.ts と src/domain/sim/{validatorSet,messages,localView,simulation,intervention,attackRun,scenario,scenarioCodec}.ts。sim → model の一方向依存、index.ts が全ファイルを再輸出(purity テストが固定: 新ファイルは index.ts に必ず追加)。攻撃体系(T-038): Attack{attackers: AttackerCondition, goal: AttackGoal[], strategy: (AttackerObservation, AttackParams) => Action[]}、Action = 手動介入と同形 9 種(Intervention = Action | OfflineIntervention)、MessageRef に proposal/attestation(公開前の名指し)。sim: AttackInstance{id, attack, attackers, params}、runScenario(scenario, through) → ScenarioRun{states, generated: GeneratedAction{action, generatedAt, discarded?}[], interventions(手動+受理分)}、Scenario.attack?、codec は attack{id, attackers, params} を保存し parseScenario(data, AttackRegistry) で復元。UI: src/ui/{App,useSimulation,ParamsPanel,InterventionPanel,ScenarioPanel,StateTable,ChainStateDetail,domainSources,typeGraph,modes/*}.tsx(攻撃 UI は未着手、useSimulation は attack なしの Scenario を使用)。ゲート typecheck / vitest 26 files 314 tests / build 全 exit 0。R-003・R-004・R-005 は Non-blocking で提案中(R-005: 空の境界スロットにフォールバックしたチェックポイントは finalize されない簡約 — T-039 の活性停止テストと A06 設計で考慮)。運用手順(ロックトークン・state 書き込み経路)は lessons L-20260830T011600+0900-b044 / L-20260828T000934+0900-5bcc。",
     "next_actions": [
-      "T-038(遂行順序 5, e3-attacks, cost 5)を単独バッチで実行: model/attack.ts に Attack = {attackers: 空でない ValidatorIndex 集合の条件, goal: 述語の非空列(型は T-039 で定義、先に最小のプレースホルダ型を置かない — T-038 と T-039 は同 batch_group だが cost 5+4 > 8 なので別バッチ; T-038 では goal を `readonly AttackGoal[]` として model/attackGoal.ts の型定義(述語 4 種の判別共用体 SafetyViolation{}/LivenessStall{L}/Reorg{k}/AttackerStakeRatio{theta})だけ置き、評価は T-039)、strategy: (observation, slot) => AttackerAction[]}。攻撃者の観測状態 AttackerObservation = 攻撃者集合の全 View の合併(blockTree の和・votes の和)+プロポーザー予定表(proposerForSlot を config から)。行動語彙 AttackerAction = 必須 18 の列挙(自バリデータの equivocate-propose/equivocate-vote/propose-parent/vote-target/silence(stop)/withhold(自メッセージの delay with observers)/omit-inclusion、正直者への delay/drop/partition)— 既存 Intervention 10 種への写像で表現できるので、AttackerAction は『Intervention + 生成メタ(by: attack, slot)』としてよいか検討: Essence は行動語彙を能力範囲の列挙と定めるので、model 側に語彙型を置き sim 側で Intervention へ写像する。sim/attackRun.ts: 各スロット境界で戦略を実行 → 生成 Intervention(印 origin: 'attack')→ 同スロット・同バリデータの手動介入と矛盾すれば破棄(印 discarded + 理由)、フォーク作成は forkCountAfter で上限判定し超過は破棄。Scenario に attack?: AttackInstance(攻撃 id・攻撃者集合・パラメータ・プリセット+上書き)を追加、scenarioStates が生成行動を決定的に再生成。codec 拡張。テスト: 固定介入列を返す戦略が同一の生成結果・決定性、矛盾破棄、上限破棄、攻撃者観測の合併。",
-      "T-039(cost 4): 述語 4 種の神視点評価(安全性違反: 互いに祖先でない finalized チェックポイント 2 つ / 活性停止: 直近 L スロット finalized 不変 / リオーグ: 正直 head が直前 head の子孫でないブロックへ移る回数 ≥ k / 攻撃者ステーク比率 ≥ θ)、述語列を先頭から順に判定する段階トレース(段階ごとの達成スロット・根拠文字列)。",
-      "運用: セッション内シェルから state コマンドを呼ぶときは cd CONTROL_ROOT(絶対パス)のうえ ATLAS_BUILDER_LOCK_TOKEN=$(cat .agent/tmp/loop.lock/token) を前置(Bash の cwd は呼び出し間で持ち越されるので相対パスに注意)。canonical state の読み取りは Read ツールで行う(Bash の python open() や tail -c は state パスに触れると hook に拒否される)。projection の編集は stage-projection → tmp/start_batch.py(active_batch/in_progress)→ 実装 → tmp/finish_tNNN.py で done+evidence → apply-projection。"
+      "T-039(遂行順序 5, e3-attacks, cost 4)を単独バッチで実行: 攻撃目標述語の神視点評価と段階トレース。置き場: 評価の純関数は model/attackGoal.ts に追加(神視点の入力型 = {tree, chainStates, heads(正直者), 直前 heads, 攻撃者集合, スロット} を model 型で定義)、スロット列にわたるトレース(履歴を要する活性停止・リオーグ累計)は sim/attackRun.ts か新設 sim/goalTrace.ts で ScenarioRun から導出(index.ts へ追加)。述語: 安全性違反 = checkpointStatus(tree).finalized の中に互いに isAncestor でない 2 つがある(各枝のチェーン状態で finalized = checkpointStatus の定義どおり); 活性停止 L = latestFinalized(tree, chainStates) が直近 L スロット不変(slot ≥ L で判定、それ以前は未達); リオーグ k = 正直バリデータ v の heads[s] が heads[s-1] の子孫(isAncestor(tree_s, heads[s-1], heads[s]))でない事象を数え、いずれかの v で累計 ≥ k; 攻撃者ステーク比率 θ = いずれかの正直 v の chainStates[heads[v]] で Σ攻撃者 stake / Σ全 stake ≥ θ。段階: goal[i] は goal[i-1] 達成後のスロットから判定開始(先頭から順)、各段階に {achievedAt?: slot, evidence: string(根拠: 例『finality 停止 6 スロット目』『B7 と B9 が finalized』『デイブ の head B5 → B8(非子孫) 累計 1』『比率 0.36 @ アリス の head』)} を持つ毎スロットの推移 GoalTrace[slot][stage]。テスト: 手組みシナリオ — 二重投票+分断で安全性違反(A10 相当の簡約)、停止 2 体で活性停止(L=8)、投票先指定/フォークでリオーグ、初期ステーク偏りと分断+leak で比率(A14 相当の 2 段の推移)。R-005(境界スロットが空だと finalize が 1 エポック遅れる)を活性停止テストの前提に入れない。",
+      "T-040/T-041(遂行順序 6): 攻撃ライブラリ。戦略本体は model(例: model/attacks/*.ts か model/attackLibrary.ts、Lean 対象)、既定実行構成+メタデータ(id A01…, name, source, premise: preset+overrides, requiredCapabilities, summary, defaultRun{validatorCount, initialStakes, attackers, params})は sim/attackLibrary.ts に置き、ATTACK_REGISTRY: AttackRegistry を公開して codec に渡す。各攻撃は既定構成で goal 達成、A01/A03/A04/A05/A07 は merge 既定で未達、A05 は current でも未達をテストで固定(未達は『達成スロットが through まで現れない』で判定)。",
+      "T-042/T-043(遂行順序 7): useSimulation に attack を追加し runScenario の generated を介入一覧(攻撃者の印・破棄印+理由)、状態表・チェーン表示の攻撃者識別、goal trace のスロット軸表示、攻撃一覧ページ(タブ追加)。parseScenario に ATTACK_REGISTRY を渡す(scenarioStore)。"
     ],
     "open_questions": [
       "R-003: fork choice の投票重みの参照先(投票 head のチェーン状態)が必須 25 の意図どおりか。異なる場合は resolveView.weightOf の 1 関数を差し替える。",

@@ -9,10 +9,14 @@ import {
   PRESETS,
   equalStakes,
   parseScenario,
+  runScenario,
   scenarioStates,
   serializeScenario,
   SCENARIO_FORMAT,
   SCENARIO_VERSION,
+  type Action,
+  type Attack,
+  type AttackRegistry,
   type Intervention,
   type Scenario,
 } from "../../src/domain";
@@ -187,5 +191,89 @@ describe("parse rejection", () => {
     });
     expect(parsed.scenario.interventions).toHaveLength(0);
     expect(parsed.runSlot).toBe(0);
+  });
+});
+
+describe("attack in a scenario (高々 1 つの攻撃)", () => {
+  const silence: Action = { kind: "stop", fromSlot: 2, toSlot: 3, validators: [1] };
+  const attack: Attack = {
+    attackers: { kind: "count", atLeast: 1 },
+    goal: [{ kind: "liveness-stall", slots: 8 }],
+    strategy: (observation) => (observation.slot === 1 ? [silence] : []),
+  };
+  const registry: AttackRegistry = new Map([["test-attack", attack]]);
+  const withAttack: Scenario = {
+    ...SCENARIO,
+    interventions: [{ kind: "double-vote", slot: 6, validator: 3 }],
+    attack: { id: "test-attack", attack, attackers: [1, 2], params: { maxDelay: 2, hold: 1 } },
+  };
+  const serialized = () => JSON.parse(JSON.stringify(serializeScenario(withAttack, 9)));
+
+  it("saves the attack by id, attacker set and parameters — never the generated actions", () => {
+    const data = serialized();
+    expect(data.attack).toEqual({
+      id: "test-attack",
+      attackers: [1, 2],
+      params: { maxDelay: 2, hold: 1 },
+    });
+    expect(Object.keys(data)).not.toContain("generated");
+  });
+
+  it("resolves the attack through the registry and replays the same generated actions and states", () => {
+    const parsed = parseScenario(serialized(), registry);
+    expect(parsed.scenario.attack).toEqual(withAttack.attack);
+    const original = runScenario(withAttack, 9);
+    const replayed = runScenario(parsed.scenario, 9);
+    expect(replayed.generated).toEqual(original.generated);
+    expect(replayed.generated).toEqual([{ action: silence, generatedAt: 1 }]);
+    replayed.states.forEach((state, slot) => {
+      const o = original.states[slot]!;
+      expect([...state.heads.entries()]).toEqual([...o.heads.entries()]);
+      expect(state.votes).toEqual(o.votes);
+      expect(state.tree.blocks.size).toBe(o.tree.blocks.size);
+    });
+  });
+
+  it("round-trips ahead-of-publication message references (proposal / attestation)", () => {
+    const ahead: Intervention[] = [
+      { kind: "delay", message: { kind: "proposal", proposer: 1, slot: 5 }, untilSlot: 6 },
+      { kind: "drop", message: { kind: "attestation", validator: 2, slot: 5 }, observers: [0] },
+      { kind: "omit-inclusion", slot: 8, votes: [{ kind: "attestation", validator: 0, slot: 7 }] },
+    ];
+    const parsed = parseScenario(
+      JSON.parse(JSON.stringify(serializeScenario({ ...SCENARIO, interventions: ahead }, 3))),
+    );
+    expect(parsed.scenario.interventions).toEqual(ahead);
+  });
+
+  it.each([
+    ["an unknown attack id", { id: "no-such-attack", attackers: [1], params: { maxDelay: 1 } }],
+    ["an empty attacker set", { id: "test-attack", attackers: [], params: { maxDelay: 1 } }],
+    ["a duplicate attacker", { id: "test-attack", attackers: [1, 1], params: { maxDelay: 1 } }],
+    ["an attacker out of range", { id: "test-attack", attackers: [4], params: { maxDelay: 1 } }],
+    ["params without maxDelay", { id: "test-attack", attackers: [1], params: { hold: 1 } }],
+    ["a negative maxDelay", { id: "test-attack", attackers: [1], params: { maxDelay: -1 } }],
+    ["a non-numeric parameter", { id: "test-attack", attackers: [1], params: { maxDelay: 1, hold: "x" } }],
+    ["a non-string id", { id: 7, attackers: [1], params: { maxDelay: 1 } }],
+  ])("rejects an attack with %s", (_name, attackData) => {
+    expect(() => parseScenario({ ...serialized(), attack: attackData }, registry)).toThrow();
+  });
+
+  it("rejects a saved attack when no registry resolves it", () => {
+    expect(() => parseScenario(serialized())).toThrow(/unknown/);
+  });
+
+  it.each([
+    ["a proposal reference with an out-of-range proposer", { kind: "proposal", proposer: 4, slot: 5 }],
+    ["an attestation reference without a slot", { kind: "attestation", validator: 1 }],
+  ])("rejects %s", (_name, message) => {
+    expect(() =>
+      parseScenario(withIntervention({ kind: "delay", message, untilSlot: 6 })),
+    ).toThrow();
+  });
+
+  const withIntervention = (i: unknown) => ({
+    ...JSON.parse(JSON.stringify(serializeScenario(SCENARIO, 5))),
+    interventions: [i],
   });
 });

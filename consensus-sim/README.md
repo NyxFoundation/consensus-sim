@@ -95,7 +95,7 @@ identity, and the list shows each entry's preset.
 Sanity check:
 
 ```bash
-npm test           # vitest — model, chain state, fork choice, protocol params, stakes and penalties, determinism, rewind, UI shell
+npm test           # vitest — model, chain state, fork choice, protocol params, stakes and penalties, attack execution, determinism, rewind, UI shell
 npm run typecheck  # tsc --noEmit
 npm run build      # static bundle in dist/ (no backend; plain static SPA)
 ```
@@ -167,6 +167,26 @@ npm run build      # static bundle in dist/ (no backend; plain static SPA)
   delivery rule decides who has seen what by when. Instant broadcast is the
   default; partitions, delays and drops plug in as stricter delivery rules
   without touching the engine.
+- **Attacks** are a formal triple: an **attacker set** (a non-empty subset
+  of the validators, fixed by a library attack up to a condition such as a
+  stake share), an **attack goal** (a non-empty sequence of god-view
+  predicates — safety violation, liveness stall over L slots, k reorgs,
+  attacker stake ratio ≥ θ — judged stage by stage) and a **strategy**: a
+  pure rule that, at every slot boundary, maps what the attackers observe
+  (the merge of their views — attackers share everything instantly — and
+  the proposer schedule) to their actions for the slots ahead. The action
+  vocabulary is the intervention set within a capability range: an
+  attacker's own equivocation, parent designation, vote designation,
+  silence, withholding and selective delivery of its own messages
+  (referenced ahead of publication), omitted inclusion in its own
+  proposal, and delay / drop / partition of honest messages, delays bounded
+  by the attack's `maxDelay`. A scenario holds at most one attack beside
+  its manual interventions; the strategy's actions are generated as
+  interventions marked as the attackers', and an action that is not
+  causal, outside the range, contradicted by a manual intervention of the
+  same slot and validator (the manual one wins) or past the fork limit is
+  discarded — kept in the list with its reason. Generated actions are never
+  saved: replaying the scenario regenerates them identically.
 - **Determinism and rewind:** the state at slot *n* is recomputed from the
   anchor, never replayed from mutable history — the same scenario always
   reproduces the same run, and rewinding is just recomputation.
@@ -178,10 +198,12 @@ src/domain/        pure TypeScript domain layer — no React, no DOM, no I/O
 src/domain/model/  essential specification (本質的仕様): the types a formalization
                    takes as its object — View / Vote / Block / BlockTree /
                    Equivocation / ChainState / ProtocolParams and presets, fork
-                   choice, finality, inclusion, the schedule, the initial conditions
+                   choice, finality, inclusion, the schedule, the initial conditions,
+                   the attack triple, the action vocabulary and the goal predicates
 src/domain/sim/    simulation constraints (シミュレーション上の制約): message log
-                   and delivery, the slot driver, interventions, scenarios and
-                   their codec, validator names and the 4–10 bound, the fork limit
+                   and delivery, the slot driver, interventions, attack execution
+                   (generated actions and their discards), scenarios and their
+                   codec, validator names and the 4–10 bound, the fork limit
 src/ui/            React shell and SVG views, consuming only src/domain exports
 tests/domain/      model tests (incl. an import-purity test that fences the boundaries)
 tests/ui/          layout and DOM-level shell tests (jsdom)

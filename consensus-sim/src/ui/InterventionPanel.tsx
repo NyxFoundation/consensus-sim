@@ -29,7 +29,7 @@ import type {
   Intervention,
   MessageRef,
   OperatingState,
-  PartitionIntervention,
+  PartitionAction,
   SimulationState,
   ValidatorIndex,
 } from '../domain'
@@ -49,9 +49,16 @@ const setLabel = (vs: readonly ValidatorIndex[]) =>
   vs.map(validatorLabel).join(', ')
 
 function messageLabel(ref: MessageRef): string {
-  return ref.kind === 'block'
-    ? `ブロック B${ref.block}`
-    : `${validatorName(ref.validator)} の投票（s${ref.slot}, head B${ref.head}）`
+  switch (ref.kind) {
+    case 'block':
+      return `ブロック B${ref.block}`
+    case 'vote':
+      return `${validatorName(ref.validator)} の投票（s${ref.slot}, head B${ref.head}）`
+    case 'proposal':
+      return `${validatorName(ref.proposer)} の提案（s${ref.slot}）`
+    case 'attestation':
+      return `${validatorName(ref.validator)} の投票（s${ref.slot}）`
+  }
 }
 
 function spanLabel(fromSlot: number, toSlot: number | undefined): string {
@@ -96,7 +103,7 @@ function describe(i: Intervention, config: SimulationConfig): string {
 }
 
 const voteRefKey = (r: MessageRef) =>
-  r.kind === 'vote' ? `${r.validator}:${r.slot}:${r.head}` : `block:${r.block}`
+  r.kind === 'vote' ? `${r.validator}:${r.slot}:${r.head}` : `${r.kind}:${JSON.stringify(r)}`
 const evidenceRefKey = (r: EvidenceRef) => `${r.kind}:${r.validator}:${r.slot}`
 
 interface MessageOption {
@@ -175,7 +182,7 @@ export function InterventionPanel({ session }: InterventionPanelProps) {
   ): ValidatorIndex[] =>
     list.includes(v) ? list.filter((x) => x !== v) : [...list, v].sort((a, b) => a - b)
 
-  const openPartition = (i: Intervention): i is PartitionIntervention =>
+  const openPartition = (i: Intervention): i is PartitionAction =>
     i.kind === 'partition' && (i.toSlot === undefined || i.toSlot >= nextSlot)
 
   // Operating state (稼働状態) of the next slot — what the control displays.

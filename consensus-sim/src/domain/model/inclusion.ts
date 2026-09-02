@@ -8,7 +8,7 @@
 // intervention may leave items out.
 
 import { pathToAnchor, type BlockTree } from "./blockTree";
-import { sameRef, voteRef, type MessageRef } from "./messageRef";
+import { coversMessage, voteRef, type MessageRef } from "./messageRef";
 import type {
   BlockBody,
   BlockIndex,
@@ -150,7 +150,8 @@ export function sameEvidenceRef(a: EvidenceRef, b: EvidenceRef): boolean {
 }
 
 /** Items a proposer deliberately leaves out (取り込みの省略): votes by
- * message identity, evidence by equivocator / slot / kind. */
+ * message reference (exact, or every attestation of a validator in a slot),
+ * evidence by equivocator / slot / kind. */
 export interface Omission {
   readonly votes?: readonly MessageRef[];
   readonly evidence?: readonly EvidenceRef[];
@@ -173,7 +174,11 @@ export function buildBody(
   for (const vote of votes) {
     const key = voteKey(vote);
     if (already.votes.has(key) || seen.has(key)) continue;
-    if (omit.votes?.some((r) => sameRef(r, voteRef(vote)))) continue;
+    if (
+      omit.votes?.some((r) => coversMessage(r, voteRef(vote), vote.validator, vote.slot))
+    ) {
+      continue;
+    }
     seen.add(key);
     bodyVotes.push(vote);
   }

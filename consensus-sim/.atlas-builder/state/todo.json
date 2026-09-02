@@ -1358,7 +1358,7 @@
     {
       "id": "T-038",
       "title": "攻撃の形式体系(ドメイン): Attack = (攻撃者集合, 攻撃目標の述語列, 戦略) の型、攻撃者の観測状態(攻撃者集合の全 View の合併+プロポーザー予定表)、行動語彙(能力範囲の全種)、戦略の各スロット境界での実行と介入生成(攻撃者印付き)、手動介入との矛盾は手動優先で破棄印、戦略由来のフォーク作成へのフォーク上限適用+テスト",
-      "status": "pending",
+      "status": "done",
       "priority": "must",
       "spec": [
         "S-037",
@@ -1373,7 +1373,37 @@
       "batch_group": "e3-attacks",
       "context_cost": 5,
       "risk_level": "normal",
-      "notes": "遂行順序 5。固定の介入列は戦略の特殊ケース。生成した行動はシナリオ(高々 1 攻撃)の実行時に決定的に再生成される。"
+      "notes": "遂行順序 5。攻撃の形式体系をドメイン層に構築した。model/(本質的仕様): action.ts = 行動語彙(分断・停止=沈黙・二重提案・二重投票・遅延・欠落・提案 parent 指定・投票先指定・取り込み省略の 9 形。手動介入と同一の形で、sim の Intervention = Action | OfflineIntervention)、attackGoal.ts = 述語 4 種の型(安全性違反 / 活性停止{slots=L} / リオーグ{count=k, 既定 1} / 攻撃者ステーク比率{threshold=θ}。評価は T-039)、attack.ts = Attack{attackers: AttackerCondition(count | stake-ratio), goal: AttackGoal[](非空), strategy: Strategy}、AttackParams{maxDelay=d, …}、AttackerObservation{slot, attackers, view(全 View の合併), schedule(proposerOf/committeeOf), config}、mergeViews / observeAsAttackers、Capability 9 種と capabilityOf(能力範囲の判定: 自バリデータ以外の行動・正直者が提案するスロットの parent/省略・公開済みメッセージの名指し・d 超の遅延は範囲外)。MessageRef を『公開前のメッセージの名指し』(proposal{proposer, slot} / attestation{validator, slot})で拡張し coversMessage で配送規則・取り込み省略が両形を扱う: 戦略は境界 s で s+1 以降のメッセージ(自分の次の提案の保留と選択配送、正直者の次の提案・投票の遅延・欠落)を index を知らずに指定できる。公開済みメッセージへの遅延は過去の View を書き換える(非因果)ため生成行動では破棄する。 sim/: attackRun.ts = AttackInstance{id, attack, attackers, params}、GeneratedAction{action, generatedAt(攻撃者の印), discarded?: not-causal | outside-capability | conflicts-with-manual | fork-limit}、generateActions(境界ごとに戦略を実行し順に判定、受理分を effective に追加)。矛盾の定義: 行動軸(stop/offline/二重提案/二重投票/投票先指定/parent 指定/省略 — 同一バリデータ・スロット重なり)、配送軸(delay/drop — 同一メッセージ(attestation は同バリデータ・同スロットの vote を覆う)、partition — 同一バリデータ・スロット重なり)。軸が異なれば矛盾しない。フォーク上限: forkCountAfter(神視点, pendingForkParents(effective)+parent) > MAX_FORKS で破棄。scenario.ts = Scenario.attack?(高々 1 つ)、runScenario → ScenarioRun{states, generated, interventions(手動+受理分)}、scenarioStates はその states。戦略は各境界(0..through-1)で 1 回実行され、prefix 一貫。scenarioCodec = attack{id, attackers, params} を保存(生成行動は保存しない)、parseScenario(data, attacks: AttackRegistry) で id 解決(未知 id・空/重複攻撃者・maxDelay 欠落を拒否)。 UI: Intervention 型名 PartitionIntervention → PartitionAction、messageLabel に proposal/attestation の表示を追加(攻撃 UI 本体は T-042)。",
+      "evidence": [
+        {
+          "type": "diff",
+          "summary": "New src/domain/model/{action,attackGoal,attack}.ts, src/domain/sim/attackRun.ts, tests/domain/attack.test.ts (12 tests). model/messageRef.ts: proposal / attestation references, sameRef per form, coversMessage(selector, message, sender, publishedAt), refSlot / refSender. model/inclusion.ts: omissions match by coversMessage. sim/intervention.ts: the 9 action shapes moved to model/action.ts, Intervention = Action | OfflineIntervention, spanCovers exported, delivery matches by coversMessage. sim/scenario.ts: Scenario.attack?, runScenario / ScenarioRun, scenarioStates over the run. sim/scenarioCodec.ts: SerializedAttack, AttackRegistry, attack parsing, ahead-of-publication refs, omission votes accept attestation refs. src/domain/index.ts re-exports the three model files and attackRun. src/ui/InterventionPanel.tsx: PartitionAction, message labels for the new reference forms. tests/domain/scenarioCodec.test.ts (+12), tests/ui/typeGraph.test.ts (+7 catalog names). README: attack triple in the model section, module list, test line. git diff --stat: 15 files changed, 440 insertions(+), 192 deletions(-) plus 5 new files."
+        },
+        {
+          "type": "command",
+          "command": "npx vitest run tests/domain/attack.test.ts tests/domain/scenarioCodec.test.ts",
+          "exit_code": 0,
+          "summary": "受け入れ確認(必須 17・18・21、必須 10、成功条件 13 の『攻撃の戦略実行』・成功条件 20 の『同一の生成行動が再現される』): 固定介入列を返す戦略が同一の生成結果(generatedAt の印付き)を生成し手動シナリオと同一の状態列になる; 同一シナリオの 2 回の実行で生成行動・状態が一致し、短い実行は長い実行の prefix; 攻撃者 {0,3} を分断の両側に置いても観測は全 View の合併(神視点と同数のブロック・投票)でプロポーザー予定表を持つ; 攻撃者集合の条件(count / stake-ratio); capabilityOf が 9 能力を分類し、正直者としての行動・正直者が提案するスロットの parent 指定/省略・d 超の遅延・公開済みメッセージの名指しを範囲外と判定; 自分の次の提案を proposal 参照で保留すると正直者はそのスロットで錨に投票し次スロットで受信する; 破棄: 計算済みスロットへの行動 = not-causal、範囲外 = outside-capability(受理分の二重投票は実際に 2 票)、同一スロット・同一バリデータの手動介入が優先(投票先指定 vs 二重投票、停止中スロットの parent 指定、同一 attestation の遅延、同一バリデータの分断)し他スロット・他軸は受理、フォーク上限超の parent 指定は fork-limit で破棄され葉の延長は受理。codec: attack{id, attackers, params} の保存と registry による復元で同一の生成行動・状態列を再現、生成行動は保存されない、proposal/attestation 参照の往復、未知 id・空/重複/範囲外の攻撃者・maxDelay 欠落/負・非数値パラメータ・registry なしの攻撃を拒否 — 2 files / 71 tests exit 0."
+        },
+        {
+          "type": "command",
+          "command": "npm run typecheck",
+          "exit_code": 0,
+          "summary": "tsc --noEmit exits 0 (strict, exactOptionalPropertyTypes) across the new model/sim files, the codec and the UI."
+        },
+        {
+          "type": "command",
+          "command": "npx vitest run",
+          "exit_code": 0,
+          "summary": "26 files / 314 tests pass (288 → 314: attack +12, codec +12, steering unchanged, typeGraph +catalog names). purity: model/ still imports ./ only, index re-exports exactly every file; the type catalog lists Attack / AttackerCondition / AttackGoal / Strategy / AttackerObservation / Action / Capability and none of the sim types."
+        },
+        {
+          "type": "command",
+          "command": "npm run build",
+          "exit_code": 0,
+          "summary": "vite build emits the static dist/ bundle (334.7 kB js, 12.9 kB css) with exit 0."
+        }
+      ]
     },
     {
       "id": "T-039",
