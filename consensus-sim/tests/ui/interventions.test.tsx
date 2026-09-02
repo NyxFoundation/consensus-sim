@@ -229,7 +229,7 @@ describe('operating states from the UI', () => {
 })
 
 describe('fork creation from the UI', () => {
-  async function designateParent(value: string) {
+  async function selectParent(value: string) {
     const select = container.querySelector(
       'select[aria-label="提案の parent ブロック"]',
     )
@@ -238,8 +238,16 @@ describe('fork creation from the UI', () => {
       select.value = value
       select.dispatchEvent(new Event('change', { bubbles: true }))
     })
+  }
+  async function designateParent(value: string) {
+    await selectParent(value)
     await click(buttonByText('フォークを作成'))
   }
+  const createButton = () => buttonByText('フォークを作成') as HTMLButtonElement
+  const forkGroup = () =>
+    all('.intervention-group').find((g) =>
+      g.querySelector('legend')?.textContent?.includes('フォーク作成'),
+    )?.textContent ?? ''
 
   it('the designated parent forks the tree; unspecified slots follow fork choice', async () => {
     await advance(2)
@@ -250,31 +258,49 @@ describe('fork creation from the UI', () => {
     expect(all('.tree-block')).toHaveLength(4)
   })
 
-  it('refuses a fifth simultaneous designation and frees up on deletion', async () => {
-    for (let i = 0; i < 4; i++) {
-      await designateParent('0')
+  it('refuses a designation that would push the fork count past 4 and accepts again once finality advances', async () => {
+    // B1 honest; B2, B3 designated on the anchor; B4 honest on the head B1
+    // at the epoch boundary; B5 designated on the anchor: 4 forks.
+    await advance(1)
+    await designateParent('0')
+    expect(text('.intervention-list')).toContain('フォーク作成 parent B0 @ s2')
+    await advance(1)
+    await designateParent('0')
+    await advance(2)
+    expect(forkGroup()).toContain('フォーク数 3／上限 4')
+    await designateParent('0')
+    expect(forkGroup()).toContain('フォーク数 3（未実行の指定を含めて 4）')
+    await advance(1)
+    expect(forkGroup()).toContain('フォーク数 4／上限 4')
+
+    // Another proposal on the anchor would make 5: refused, with the reason.
+    await selectParent('0')
+    expect(createButton().disabled).toBe(true)
+    expect(forkGroup()).toContain('フォーク数が 5 となり上限を超えるため受け付けません')
+    // Extending the leaf B4 adds no fork, so it is still accepted.
+    await selectParent('4')
+    expect(createButton().disabled).toBe(false)
+    await selectParent('')
+
+    // Honest slots build on B4; it is finalized at slot 9, so the
+    // anchor-level forks fall out of the count and B4 can be forked again.
+    await advance(4)
+    expect(forkGroup()).toContain('フォーク数 1／上限 4')
+    await designateParent('4')
+    expect(text('.intervention-list')).toContain('フォーク作成 parent B4 @ s10')
+  })
+
+  it('reports forks arising from equivocation without constraining them', async () => {
+    for (let i = 0; i < 5; i++) {
+      await click(buttonByText('次スロットで二重提案'))
       await advance(1)
     }
-    expect(all('.intervention-list li').length).toBe(4)
-    const button = buttonByText('フォークを作成')
-    expect((button as HTMLButtonElement).disabled).toBe(true)
-    expect(text('.intervention-panel')).toContain('フォーク作成の指定は同時 4 本まで')
-
-    // Deleting one designation makes room again.
-    await click(
-      all('.intervention-panel .intervention-list li button').find((b) =>
-        b.textContent?.includes('削除'),
-      ),
-    )
-    const select = container.querySelector(
-      'select[aria-label="提案の parent ブロック"]',
-    )
-    if (!(select instanceof HTMLSelectElement)) throw new Error('select not found')
-    await act(async () => {
-      select.value = '0'
-      select.dispatchEvent(new Event('change', { bubbles: true }))
-    })
-    expect((buttonByText('フォークを作成') as HTMLButtonElement).disabled).toBe(false)
+    expect(forkGroup()).toContain('フォーク数 6／上限 4')
+    // The equivocation control is untouched by the limit; only a fork
+    // designation is refused.
+    expect((buttonByText('次スロットで二重提案') as HTMLButtonElement).disabled).toBe(false)
+    await selectParent('0')
+    expect(createButton().disabled).toBe(true)
   })
 })
 

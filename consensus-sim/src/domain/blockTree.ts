@@ -89,6 +89,22 @@ export function isAncestor(
   return false;
 }
 
+/**
+ * Leaves (blocks without children) of the subtree rooted at `root`, in
+ * ascending index order — `root` itself when it has no children.
+ */
+export function leavesUnder(tree: BlockTree, root: BlockIndex): BlockIndex[] {
+  const parents = new Set<BlockIndex>();
+  for (const block of tree.blocks.values()) parents.add(block.parent);
+  const leaves: BlockIndex[] = [];
+  for (const block of tree.blocks.values()) {
+    if (!parents.has(block.index) && isAncestor(tree, root, block.index)) {
+      leaves.push(block.index);
+    }
+  }
+  return leaves.sort((a, b) => a - b);
+}
+
 /** The path from `index` up to the anchor block, starting at `index`. */
 export function pathToAnchor(tree: BlockTree, index: BlockIndex): Block[] {
   const path: Block[] = [];

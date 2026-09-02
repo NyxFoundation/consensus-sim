@@ -6,11 +6,11 @@
     "stop_after_infra_fails": 2
   },
   "progress": {
-    "last_signature": "721aa827139e6747a2b763f0d2d92068d0e0098c2b75687a72a9f2b1e17a870f",
+    "last_signature": "5183d587abc510395b78ba5fa8d336d84c59b6f1629a45675c7e7ba82f09229f",
     "idle_cycles_since_progress": 0,
     "infra_fails_since_ok": 0,
-    "last_progress_at": "2026-09-03T04:23:11+09:00",
-    "last_checked_at": "2026-09-03T04:23:11+09:00",
+    "last_progress_at": "2026-09-03T04:32:31+09:00",
+    "last_checked_at": "2026-09-03T04:32:31+09:00",
     "usage_limited_since_ok": 0
   },
   "reset_policy": {
@@ -21,25 +21,26 @@
     "reset_after_decisions": 5
   },
   "counters": {
-    "context_usage_estimate": 0.6,
+    "context_usage_estimate": 0.15,
     "failed_attempts_since_reset": 0,
-    "changed_files_since_reset": 30,
-    "completed_todos_since_reset": 3,
-    "important_decisions_since_reset": 3,
+    "changed_files_since_reset": 8,
+    "completed_todos_since_reset": 1,
+    "important_decisions_since_reset": 1,
     "major_spec_rewrite_since_reset": false,
     "high_risk_change_completed": false
   },
   "handoff": {
-    "written_at": "2026-09-03T04:22:00+09:00",
-    "summary": "改訂 Essence(sha c6fb67e2)の Spec 41 項 / Todo 44 項(validate ok)。T-001〜T-035 done。遂行順序 1・2 完了、遂行順序 3 は T-035(投票先指定・取り込み省略・受信者集合)完了で T-036(フォーク数定義)が残り。以降: 4(T-037 2 モジュール分割)、5(T-038/T-039 攻撃体系)、6(T-040/T-041 ライブラリ)、7(T-042/T-043 攻撃 UI)、8(T-044 総点検)。ドメイン骨格: src/domain/{types,inclusion,chainState,protocolParams,config,schedule,forkChoice,protocol,localView,simulation,intervention,scenario,scenarioCodec}.ts。Intervention は 10 種(partition/stop/offline/double-propose/double-vote/delay/drop/propose-parent/vote-target/omit-inclusion)。SlotDirectives = {stopped, doublePropose, doubleVote, proposeParent, omit: Omission{votes: MessageRef[], evidence: EvidenceRef[]}, voteOverrides: Map<ValidatorIndex, VoteOverride{head?,source?,target?}>}。buildAttestation(view, resolution, slot, validator, override)(head 指定時は source/target をその枝の規則で導出、明示指定が優先、View にないブロックは無視)。UI: src/ui/{App,useSimulation,ParamsPanel,InterventionPanel(投票先指定・取り込み省略 fieldset 追加),ScenarioPanel,StateTable,ChainStateDetail,modes/*}.tsx。ゲート typecheck / vitest 24 files 279 tests / build 全 exit 0。R-003・R-004 は Non-blocking で提案中。changed_files 30 で reset 閾値(25)を超過 — 次サイクル前にリセット想定、handoff はディスクのみから再開できる粒度で記述済み。",
+    "written_at": "2026-09-03T04:32:00+09:00",
+    "summary": "改訂 Essence(sha c6fb67e2)の Spec 41 項 / Todo 44 項(validate ok)。T-001〜T-036 done。遂行順序 1〜3 完了。以降: 4(T-037 2 モジュール分割)、5(T-038/T-039 攻撃体系)、6(T-040/T-041 ライブラリ)、7(T-042/T-043 攻撃 UI)、8(T-044 総点検)。ドメイン骨格: src/domain/{types,blockTree,view,validatorSet,messages,finality,inclusion,chainState,protocolParams,config,schedule,forkChoice,protocol,localView,simulation,intervention,scenario,scenarioCodec}.ts。Intervention は 10 種。フォーク数(T-036): blockTree.leavesUnder / chainState.latestFinalized・forkCount・forkCountAfter(tree, chainStates, parents) / intervention.MAX_FORKS=4・pendingForkParents(interventions, slot) — UI は forkCountAfter(current.tree, current.chainStates, [...pending, parent]) > MAX_FORKS で拒否。T-038 の戦略由来フォーク作成の破棄判定も同じ関数を使う。UI: src/ui/{App,useSimulation,ParamsPanel,InterventionPanel,ScenarioPanel,StateTable,ChainStateDetail,modes/*}.tsx。ゲート typecheck / vitest 25 files 286 tests / build 全 exit 0。R-003・R-004・R-005 は Non-blocking で提案中(R-005: 空の境界スロットにフォールバックしたチェックポイントは epochOf(slot) の隣接判定で finalize されない簡約 — 骨格意味論のため人間判断待ち、A06 設計と T-044 で考慮)。",
     "next_actions": [
-      "T-036(e3-interventions, cost 3)を単独バッチで実行: domain(blockTree または chainState)に forkCount(tree, config) = checkpointStatus(tree, config).finalized の最高チェックポイント(higherCheckpoint で選ぶ)を根とする部分木の葉数(finalized だけなら 1)と、designationIncrement(tree, parent) = childrenOf(tree, parent).length > 0 ? 1 : 0 を置く。InterventionPanel の MAX_FORK_DESIGNATIONS(キュー内 4 件)近似を Essence 必須 10 の定義『現在の神視点フォーク数 + 未実行(slot > cursor)の propose-parent 指定の増分 + この指定の増分 > 4 なら受け付けない』に置換し、理由表示を更新。分断・エクイボケーションで自然に 5 以上になっても制約しない。テスト: domain(forkCount: 線形 1、二重提案で 2、finalized 進行で減る)、DOM(4 本到達で拒否、finality が進んで減ると再受付、自然発生フォークは無制約)。interventions.test.tsx の『refuses a fifth simultaneous designation』を新定義に合わせて更新(現在は propose-parent parent B0 を 4 回で cap — 新定義では B0 上の 4 本目の指定で神視点フォーク数が 4 になった時点で判定)。README のフォーク上限記述を定義どおりに直す。",
-      "T-037(遂行順序 4, cost 4): src/domain を model/(本質的仕様: types, blockTree, view, finality, forkChoice, inclusion, chainState, protocolParams, config?, schedule, protocol, localView — Lean 対象)と sim/(制約: validatorSet の人名・上限、intervention, scenario, scenarioCodec, simulation?)に分割。判定基準は『Lean 形式化がそのまま対象とする型か』。SimulationConfig/simulation.ts の置き場は要判断(ProtocolParams・初期ステークは本質側、バリデータ数 4〜10 制約・シードは sim 側 → config を分ける可能性)。型一覧(domainSources.ts の import.meta.glob)を model/ のみに絞り、typesPage/typeGraph テストを更新。purity.test の境界も更新。",
-      "運用: セッション内シェルから state コマンドを呼ぶときは cd CONTROL_ROOT(絶対パス)のうえ ATLAS_BUILDER_LOCK_TOKEN=$(cat .agent/tmp/loop.lock/token) を前置(Bash の cwd は呼び出し間で持ち越されるので相対パスに注意)。projection の編集は stage-projection → tmp/start_batch.py(active_batch/in_progress)→ 実装 → tmp/finish_tNNN.py で done+evidence → apply-projection。"
+      "T-037(遂行順序 4, e3-modules, cost 4)を単独バッチで実行: src/domain を model/(本質的仕様: types, blockTree, view, finality, forkChoice, inclusion, chainState, protocolParams, schedule, protocol, localView — Lean 対象)と sim/(制約: validatorSet の人名・上限、intervention(MAX_FORKS を含む), scenario, scenarioCodec)に分割。判定基準は『Lean 形式化がそのまま対象とする型か』。SimulationConfig/config.ts と simulation.ts の置き場は要判断(ProtocolParams・初期ステークは本質側、バリデータ数 4〜10 制約・シードは sim 側 → config を分ける可能性; simulation.ts の SlotDirectives は介入の写像なので sim 側が自然だが advanceSlot の骨格は model 側)。forkCount 系は神視点の量として model 側、上限 MAX_FORKS は sim 側。型一覧(src/ui/domainSources.ts の import.meta.glob)を model/ のみに絞り、tests/ui/typesPage・typeGraph テストを更新。tests/domain/purity.test の境界(sim → model の一方向依存)も更新。src/domain/index.ts は両モジュールを再輸出して UI の import 経路を維持。README の Development 節を更新。",
+      "T-038/T-039(遂行順序 5, e3-attacks, cost 5+4 なので別バッチ): 攻撃の型は model 側に置く。戦略生成のフォーク作成は forkCountAfter で上限判定し超過分を『破棄』印で介入一覧に残す。",
+      "運用: セッション内シェルから state コマンドを呼ぶときは cd CONTROL_ROOT(絶対パス)のうえ ATLAS_BUILDER_LOCK_TOKEN=$(cat .agent/tmp/loop.lock/token) を前置(Bash の cwd は呼び出し間で持ち越されるので相対パスに注意)。canonical state の読み取りは Read ツールで行う(Bash の python open() や tail -c は state パスに触れると hook に拒否される)。projection の編集は stage-projection → tmp/start_batch.py(active_batch/in_progress)→ 実装 → tmp/finish_tNNN.py で done+evidence → apply-projection。"
     ],
     "open_questions": [
       "R-003: fork choice の投票重みの参照先(投票 head のチェーン状態)が必須 25 の意図どおりか。異なる場合は resolveView.weightOf の 1 関数を差し替える。",
-      "R-004: (1) ChainState.justified のブロック毎即時集計(realized = unrealized)のままでよいか、Ethereum 準拠のエポック遷移時確定(J/F が約 3 スロット遅れる骨格変更)にするか。(2) window 切替の『ブロック slot = 到着時刻』代理でよいか(遅延配送ブロックによる途中出現は緩和されない)。"
+      "R-004: (1) ChainState.justified のブロック毎即時集計(realized = unrealized)のままでよいか、Ethereum 準拠のエポック遷移時確定(J/F が約 3 スロット遅れる骨格変更)にするか。(2) window 切替の『ブロック slot = 到着時刻』代理でよいか(遅延配送ブロックによる途中出現は緩和されない)。",
+      "R-005: 空のエポック境界スロットにフォールバックしたチェックポイントの隣接判定を『チェックポイントのエポック』(投票 slot から復元)に改めるか、現行の epochOf(block.slot) 簡約のままにするか。"
     ],
     "pending_cycle": false
   }

@@ -135,6 +135,19 @@
       ],
       "raised_by": "atlas-builder",
       "created_at": "2026-09-03T04:06:00+09:00"
+    },
+    {
+      "id": "R-005",
+      "type": "Non-blocking Recommendation",
+      "status": "proposed",
+      "title": "空のエポック境界スロットにフォールバックしたチェックポイントは finalize されない(隣接判定がブロック slot のエポックを使う簡約)",
+      "detail": "T-036 のテスト設計中に発見した現骨格の簡約。用語節どおりチェックポイントは『エポック先頭スロット以前の直近のブロック』にフォールバックするが、finality の隣接判定(chainState.deriveBranch: targetEpoch === sourceEpoch + 1)は epochOf(block.slot) を使う。例: s4 の提案が錨上(フォーク作成)で B1 枝の境界スロットが空だと、エポック 1 のチェックポイントは B1(slot 1、エポック 0)になり、投票 B0→B1 で B1 は justified されるが、次の B1→B8(エポック 2)は『0→2』で隣接とみなされず B1 は finalize されない(B8→B12 で B8 が finalize される 1 エポック遅れの回復)。Ethereum ではチェックポイントは (epoch, root) 対で、同一 root が連続エポックのチェックポイントを務め、隣接はチェックポイントのエポックで判定するため B1 は finalize される。Vote 型は source/target を BlockIndex で持つ(参照型)ため、チェックポイントのエポックは投票の slot から復元できる(target のエポック = epochOf(vote.slot)、source のエポック = その source を justified にしたリンクの target エポック)。提案: リンクを (source, target, targetEpoch) で持ち、justified チェックポイントにエポックを添えて隣接を『チェックポイントのエポック』で判定する — View/Vote/Block 型は不変更だが finality の意味論(思想節 (a) の骨格)に触れるため自律では変えない。影響: 境界スロットが空になる状況(境界スロットの提案者停止・オフライン、境界での提案遅延、フォーク作成)で finality が 1 エポック遅れる。A06(エポック境界 finality 遅延)は『提案遅延で target 分裂』が本質なので、この簡約が判定に混ざらないよう T-040 で設計する。総点検 T-044 の点検項目にも載せる。",
+      "requires_human_approval": false,
+      "source": [
+        "T-036"
+      ],
+      "raised_by": "atlas-builder",
+      "created_at": "2026-09-03T04:31:00+09:00"
     }
   ]
 }

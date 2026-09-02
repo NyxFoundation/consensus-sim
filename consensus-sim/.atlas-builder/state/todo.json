@@ -1264,7 +1264,7 @@
     {
       "id": "T-036",
       "title": "フォーク数定義の修正: 神視点の木で最新 finalized ブロックを根とする部分木の葉数をドメインで計算し、フォーク作成の指定は「現在のフォーク数+未実行指定の増分+この指定の増分(parent が子を持てば 1)」が 4 を超えると UI が受け付けず、finality が進んで減ると再び受け付ける。自然発生のフォークは制約しない+テスト",
-      "status": "pending",
+      "status": "done",
       "priority": "must",
       "spec": [
         "S-024"
@@ -1275,7 +1275,37 @@
       "batch_group": "e3-interventions",
       "context_cost": 3,
       "risk_level": "normal",
-      "notes": "遂行順序 3。現行の「キュー内 4 件まで」近似を Essence の定義に置き換える。戦略由来のフォーク作成への同上限適用と破棄印は T-038 で行う。"
+      "notes": "遂行順序 3。現行の「キュー内 4 件まで」近似を Essence 必須 10 の定義に置き換えた。戦略由来のフォーク作成への同上限適用と破棄印は T-038 で行う(forkCountAfter / pendingForkParents / MAX_FORKS をそのまま再利用する)。 実装: ドメイン — blockTree.leavesUnder(tree, root)(root 以下の葉、root が葉なら root 自身)、chainState.latestFinalized(tree, chainStates)(全ブロックの ChainState.finalized の最高、higherCheckpoint で選ぶ)、forkCount(tree, chainStates) = latestFinalized 以下の葉数、forkCountAfter(tree, chainStates, parents) = 指定列を順に適用した後のフォーク数(parent が既に子を持つ、または先行指定で子を得た場合 +1、葉なら 0(葉の置換)、finalized 部分木の外・木にないブロックは定義の外で 0)、intervention.MAX_FORKS = 4、pendingForkParents(interventions, slot) = slot より後の propose-parent の parent 列。UI — InterventionPanel: forkCountAfter(current.tree, current.chainStates, [...pending(slot > cursor), 選択 parent]) > MAX_FORKS で作成ボタン無効+理由『この指定でフォーク数が n となり上限を超えるため受け付けません(finality が進んでフォーク数が減ると再び指定できます)』、常時『フォーク数 n(未実行の指定を含めて m)／上限 4』を表示。分断・エクイボケーション等の他介入は制約しない(数は表示のみ)。 発見(骨格意味論のため自律で変えず R-005 に記録): finality の隣接判定が epochOf(block.slot) を使うため、エポック境界スロットが空で直前ブロックへフォールバックしたチェックポイント(例: B1@s1 がエポック 1 のチェックポイント)は、次エポックの B8 との隣接(1→2)を満たせず finalize されない(1 エポック遅れて回復)。",
+      "evidence": [
+        {
+          "type": "diff",
+          "summary": "src/domain/blockTree.ts: leavesUnder. src/domain/chainState.ts: latestFinalized, forkCount, forkCountAfter. src/domain/intervention.ts: MAX_FORKS, pendingForkParents. src/ui/InterventionPanel.tsx: MAX_FORK_DESIGNATIONS queue cap removed; refusal by projected fork count with the fork-count status line and the reason text. README: fork-creation clause restated as the definition. docs/INSPECTION.md: the earlier 'queue approximation' note carries an addendum that it was replaced. Tests: tests/domain/forkCount.test.ts (new, 6), tests/ui/interventions.test.tsx fork cases rewritten (3). git diff --stat (src/tests/README/docs): 7 files changed, 170 insertions(+), 38 deletions(-) plus 1 new test file."
+        },
+        {
+          "type": "command",
+          "command": "npx vitest run tests/domain/forkCount.test.ts tests/ui/interventions.test.tsx",
+          "exit_code": 0,
+          "summary": "受け入れ確認(必須 10、成功条件 21): 23 tests. ドメイン — 正直な線形チェーンは全スロットで 1(錨のみでも 1); s1 二重提案で 2 が s8 まで続き、B1 枝の B5 が finalized される s9 で latestFinalized=5・フォーク数 1; 錨への指定(s2・s3・s5)で 1→2→3→(s4 で未実行分を含めて 4)→s5 で 4、そこで錨への追加指定は 5(超過)・葉 B4 の延長は 4、正直に進めて s9 で B4 finalized → フォーク数 1、錨(finalized 部分木の外)指定は 1 のまま・B4 再フォークで 2; 葉を 2 回指定すると 2 回目だけ +1、木にない parent は 0; pendingForkParents は slot より後の指定を slot 順に列挙; 二重提案 3 回+指定で 4 超を報告するが制約しない。DOM — B1 正直・B2/B3 錨指定・B4 正直・B5 錨指定で『フォーク数 3／上限 4』→指定後『フォーク数 3（未実行の指定を含めて 4）』→送り後『フォーク数 4／上限 4』; 錨を選ぶとボタン無効+『フォーク数が 5 となり上限を超えるため受け付けません』、葉 B4 を選ぶと有効; 4 スロット正直に進めると『フォーク数 1／上限 4』で B4 への指定が受け付けられ一覧に『フォーク作成 parent B4 @ s10』; 二重提案 5 回で『フォーク数 6／上限 4』を表示しつつ二重提案ボタンは有効のまま、錨への指定のみ無効。"
+        },
+        {
+          "type": "command",
+          "command": "npm run typecheck",
+          "exit_code": 0,
+          "summary": "tsc --noEmit exits 0 with the fork-count API and the panel change."
+        },
+        {
+          "type": "command",
+          "command": "npx vitest run",
+          "exit_code": 0,
+          "summary": "25 files / 286 tests pass (279 → 286: +6 domain fork count, +1 DOM fork case); every other domain and UI suite unchanged in outcome."
+        },
+        {
+          "type": "command",
+          "command": "npm run build",
+          "exit_code": 0,
+          "summary": "vite build emits the static dist/ bundle (356.0 kB js, 12.9 kB css) with exit 0."
+        }
+      ]
     },
     {
       "id": "T-037",

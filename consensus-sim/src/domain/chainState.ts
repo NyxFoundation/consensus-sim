@@ -29,6 +29,7 @@ import {
   childrenOf,
   getBlock,
   isAncestor,
+  leavesUnder,
   pathToAnchor,
   type BlockTree,
 } from "./blockTree";
@@ -265,6 +266,54 @@ export function checkpointStatus(
     }
   }
   return { justified, finalized };
+}
+
+/** The latest finalized block of the god view (最新の finalized ブロック):
+ * the highest finalized checkpoint among the chain states of every block. */
+export function latestFinalized(
+  tree: BlockTree,
+  states: ChainStateIndex,
+): BlockIndex {
+  let latest: BlockIndex = ANCHOR_BLOCK_INDEX;
+  for (const state of states.values()) {
+    latest = higherCheckpoint(tree, latest, state.finalized);
+  }
+  return latest;
+}
+
+/**
+ * Fork count (フォーク数, 必須 10) of the god-view tree: the number of
+ * leaves of the subtree rooted at the latest finalized block — 1 when that
+ * block is itself a leaf. Finality advancing past a fork removes it from
+ * the count; the tree itself only ever grows.
+ */
+export function forkCount(tree: BlockTree, states: ChainStateIndex): number {
+  return forkCountAfter(tree, states, []);
+}
+
+/**
+ * The fork count once proposals are built on `parents` (the parents of
+ * pending fork designations, 未実行のフォーク作成指定, plus the one under
+ * consideration). A proposal adds a fork only when its parent already has a
+ * child — in the tree or from an earlier entry of `parents`; building on a
+ * leaf merely extends it. Parents outside the finalized subtree, or not in
+ * the tree yet, are outside the definition and add nothing.
+ */
+export function forkCountAfter(
+  tree: BlockTree,
+  states: ChainStateIndex,
+  parents: readonly BlockIndex[],
+): number {
+  const root = latestFinalized(tree, states);
+  const leaves = new Set(leavesUnder(tree, root));
+  const extended = new Set<BlockIndex>();
+  let count = leaves.size;
+  for (const parent of parents) {
+    if (!getBlock(tree, parent) || !isAncestor(tree, root, parent)) continue;
+    if (leaves.has(parent) && !extended.has(parent)) extended.add(parent);
+    else count += 1;
+  }
+  return count;
 }
 
 /** The highest justified checkpoint among the given chain states. */

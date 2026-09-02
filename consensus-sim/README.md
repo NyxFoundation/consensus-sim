@@ -72,9 +72,11 @@ through normal propagation after returning), schedule a double proposal or
 double vote (equivocation), delay or drop one specific message for a chosen
 receiver set (default: everyone but the sender), create a fork by
 designating the next proposal's parent from the proposer's own view
-(フォーク作成 — the queue holds at most 4 such designations at a time, so
-designated forks never exceed 4 at once; forks arising naturally from other
-interventions are not capped), steer one validator's next vote (投票先指定
+(フォーク作成 — the **fork count** is the number of leaves under the latest
+finalized block of the god view, and a designation is refused when that
+count, plus what the pending designations and this one add, would exceed 4;
+finality advancing past the forks frees the limit again, and forks arising
+from other interventions are never constrained), steer one validator's next vote (投票先指定
 — head / source / target chosen among the blocks of its own view, the rest
 following fork choice and the FFG rule), and make the next proposer leave
 chosen votes or evidence out of its block (取り込みの省略 — they stay

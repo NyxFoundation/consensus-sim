@@ -94,6 +94,27 @@ export interface ProposeParentIntervention {
   readonly parent: BlockIndex;
 }
 
+/** The fork count a fork designation may not push past (フォーク上限,
+ * 必須 10): current god-view forks + those the pending designations add +
+ * this one's own must stay ≤ MAX_FORKS. Forks arising from other
+ * interventions are not constrained. */
+export const MAX_FORKS = 4;
+
+/** Parents of the fork designations still to execute after `slot`
+ * (未実行のフォーク作成指定), in slot order. */
+export function pendingForkParents(
+  interventions: readonly Intervention[],
+  slot: SlotIndex,
+): BlockIndex[] {
+  return interventions
+    .filter(
+      (i): i is ProposeParentIntervention =>
+        i.kind === "propose-parent" && i.slot > slot,
+    )
+    .sort((a, b) => a.slot - b.slot)
+    .map((i) => i.parent);
+}
+
 /** 投票先指定: at `slot`, the validator's vote uses the designated head /
  * source / target (each optional, each a block of its view at voting time;
  * a block it does not hold is ignored). Unspecified components follow fork

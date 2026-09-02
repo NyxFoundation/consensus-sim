@@ -10,10 +10,13 @@
 
 import { useState } from 'react'
 import {
+  MAX_FORKS,
   buildBody,
   closeSpanAt,
   evidenceRef,
+  forkCountAfter,
   operatingStateAt,
+  pendingForkParents,
   proposerForSlot,
   resolveView,
   validatorName,
@@ -40,9 +43,6 @@ const OP_STATE_LABELS: Readonly<Record<OperatingState, string>> = {
   stopped: '停止',
   offline: 'オフライン',
 }
-
-/** UI-side cap on simultaneous fork-creation designations. */
-const MAX_FORK_DESIGNATIONS = 4
 
 const validatorLabel = (v: ValidatorIndex) => validatorName(v)
 const setLabel = (vs: readonly ValidatorIndex[]) =>
@@ -218,13 +218,22 @@ export function InterventionPanel({ session }: InterventionPanelProps) {
 
   // Fork creation (フォーク作成): the next proposer's parent choice, offered
   // from the blocks of its own view (提案は slot < nextSlot のビューから).
-  const forkDesignations = interventions.filter(
-    (i) => i.kind === 'propose-parent',
-  ).length
+  // Accepted only while the fork count (神視点の最新 finalized 以下の葉数)
+  // after the pending designations and this one stays ≤ MAX_FORKS.
   const forkScheduled = interventions.some(
     (i) => i.kind === 'propose-parent' && i.slot === nextSlot,
   )
-  const forkAtCap = forkDesignations >= MAX_FORK_DESIGNATIONS
+  const pendingForks = pendingForkParents(interventions, cursor)
+  const forkCountNow = forkCountAfter(current.tree, current.chainStates, [])
+  const forkCountPending = forkCountAfter(current.tree, current.chainStates, pendingForks)
+  const forkCountDesignated =
+    forkParent === ''
+      ? forkCountPending
+      : forkCountAfter(current.tree, current.chainStates, [
+          ...pendingForks,
+          Number(forkParent),
+        ])
+  const forkRefused = forkCountDesignated > MAX_FORKS
   const proposerBlocks = [
     ...viewOf(current.log, nextProposer, cursor, delivery).blockTree.blocks.values(),
   ].sort((a, b) => a.index - b.index)
@@ -414,7 +423,7 @@ export function InterventionPanel({ session }: InterventionPanelProps) {
           </div>
           <button
             type="button"
-            disabled={forkParent === '' || forkScheduled || forkAtCap}
+            disabled={forkParent === '' || forkScheduled || forkRefused}
             onClick={() => {
               add({
                 kind: 'propose-parent',
@@ -429,9 +438,15 @@ export function InterventionPanel({ session }: InterventionPanelProps) {
               : 'フォークを作成'}
           </button>
           <span className="intervention-note">
-            {forkAtCap
-              ? 'フォーク作成の指定は同時 4 本まで（既存の指定を削除すると追加できます）'
-              : '未指定時は fork choice が parent を選びます'}
+            フォーク数 {forkCountNow}
+            {forkCountPending !== forkCountNow &&
+              `（未実行の指定を含めて ${forkCountPending}）`}
+            ／上限 {MAX_FORKS}
+          </span>
+          <span className="intervention-note">
+            {forkRefused
+              ? `この指定でフォーク数が ${forkCountDesignated} となり上限を超えるため受け付けません（finality が進んでフォーク数が減ると再び指定できます）`
+              : '未指定時は fork choice が parent を選びます。フォーク数は最新 finalized ブロックを根とする部分木の葉数'}
           </span>
         </fieldset>
 
