@@ -3,6 +3,7 @@ import {
   addBlock,
   createBlockTree,
   ANCHOR_BLOCK_INDEX,
+  EMPTY_BODY,
 } from '../../src/domain'
 import type { BlockTree } from '../../src/domain'
 import { layoutTree } from '../../src/ui/treeLayout'
@@ -10,7 +11,13 @@ import { layoutTree } from '../../src/ui/treeLayout'
 function chain(...blocks: Array<[index: number, parent: number, slot: number]>): BlockTree {
   let tree = createBlockTree()
   for (const [index, parent, slot] of blocks) {
-    tree = addBlock(tree, { index, parent, slot, proposer: index % 4 })
+    tree = addBlock(tree, {
+      index,
+      parent,
+      slot,
+      proposer: index % 4,
+      body: EMPTY_BODY,
+    })
   }
   return tree
 }

@@ -26,12 +26,12 @@ describe("local views under instant delivery", () => {
     }
   });
 
-  it("local finality and head match the god view", () => {
+  it("local head and its chain state match the god view", () => {
     const state = stateAtSlot(config, 8);
     for (let v = 0; v < config.validatorCount; v++) {
       const local = observe(state.log, v, state.slot, config.validatorCount);
-      expect(local.finality).toEqual(state.finality);
       expect(local.head).toBe(state.heads.get(v));
+      expect(local.chainState).toEqual(state.chainStates.get(local.head));
     }
   });
 

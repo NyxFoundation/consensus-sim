@@ -13,6 +13,8 @@
 
 import { useState } from 'react'
 import {
+  checkpointStatus,
+  equalStakes,
   instantDelivery,
   latestVotes,
   observe,
@@ -113,9 +115,9 @@ export function NetworkMode({
                 <dt>head</dt>
                 <dd>{blockName(o.head)}</dd>
                 <dt>justified</dt>
-                <dd>{blockName(o.finality.justifiedHead)}</dd>
+                <dd>{blockName(o.chainState.justified)}</dd>
                 <dt>finalized</dt>
-                <dd>{blockName(o.finality.finalized)}</dd>
+                <dd>{blockName(o.chainState.finalized)}</dd>
                 <dt>最新投票</dt>
                 <dd>
                   {myVote
@@ -149,7 +151,10 @@ export function NetworkMode({
               tree={detail.view.blockTree}
               votes={detail.view.votes}
               heads={new Map([[inspected, detail.head]])}
-              finality={detail.finality}
+              checkpoints={checkpointStatus(
+                detail.view.blockTree,
+                equalStakes(validatorCount),
+              )}
               throughSlot={state.slot}
             />
           </div>

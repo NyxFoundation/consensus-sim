@@ -55,7 +55,7 @@ describe("scenario round-trip", () => {
       expect([...(replayed[i]?.heads ?? [])]).toEqual([
         ...(original[i]?.heads ?? []),
       ]);
-      expect(replayed[i]?.finality).toEqual(original[i]?.finality);
+      expect(replayed[i]?.chainStates).toEqual(original[i]?.chainStates);
       expect(replayed[i]?.tree.blocks.size).toBe(original[i]?.tree.blocks.size);
     }
   });

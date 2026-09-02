@@ -333,7 +333,7 @@ describe("scenario determinism (決定性)", () => {
       expect(a[i]?.tree.blocks.size).toBe(b[i]?.tree.blocks.size);
       expect([...(a[i]?.heads ?? [])]).toEqual([...(b[i]?.heads ?? [])]);
       expect(a[i]?.votes).toEqual(b[i]?.votes);
-      expect(a[i]?.finality).toEqual(b[i]?.finality);
+      expect(a[i]?.chainStates).toEqual(b[i]?.chainStates);
     }
   });
 

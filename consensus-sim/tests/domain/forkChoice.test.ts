@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   ANCHOR_BLOCK_INDEX,
+  EMPTY_BODY,
   addBlock,
   createBlockTree,
   ghostHead,
@@ -15,7 +16,7 @@ const block = (
   parent: number,
   slot: number,
   proposer = 0,
-): Block => ({ index, parent, slot, proposer });
+): Block => ({ index, parent, slot, proposer, body: EMPTY_BODY });
 
 const vote = (
   validator: number,

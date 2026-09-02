@@ -50,13 +50,47 @@ describe("slot progression", () => {
   });
 
   it("advances justification and finality along epoch boundaries", () => {
-    // 4-slot epochs: epoch-1 checkpoint (slot 4) justifies at slot 4 and
-    // finalizes when the epoch-2 checkpoint (slot 8) is justified.
-    expect(stateAtSlot(config, 3).finality.justifiedHead).toBe(0);
-    expect(stateAtSlot(config, 4).finality.justifiedHead).toBe(4);
-    expect(stateAtSlot(config, 4).finality.finalized).toBe(0);
-    expect(stateAtSlot(config, 8).finality.finalized).toBe(4);
-    expect(stateAtSlot(config, 12).finality.finalized).toBe(8);
+    // 4-slot epochs: the epoch-1 checkpoint (slot 4) collects its votes at
+    // slot 4; they become chain state once the slot-5 block includes them,
+    // and 4 finalizes when the epoch-2 checkpoint (slot 8) is justified the
+    // same way, at slot 9.
+    const headState = (slot: number) => {
+      const state = stateAtSlot(config, slot);
+      return state.chainStates.get(state.heads.get(0)!)!;
+    };
+    expect(headState(4).justified).toBe(0);
+    expect(headState(5).justified).toBe(4);
+    expect(headState(5).finalized).toBe(0);
+    expect(headState(8).finalized).toBe(0);
+    expect(headState(9).justified).toBe(8);
+    expect(headState(9).finalized).toBe(4);
+    expect(headState(13).finalized).toBe(8);
+  });
+
+  it("includes every unincluded vote in the next block (取り込み)", () => {
+    const state = stateAtSlot(config, 6);
+    // Slot s's block carries exactly the votes of slot s-1 (all four), and no
+    // vote is included twice along the chain.
+    const seen = new Set<string>();
+    for (const block of state.tree.blocks.values()) {
+      if (block.slot === 0) continue;
+      if (block.slot > 1) {
+        expect(block.body.votes.map((v) => v.slot)).toEqual([
+          block.slot - 1,
+          block.slot - 1,
+          block.slot - 1,
+          block.slot - 1,
+        ]);
+      } else {
+        expect(block.body.votes).toEqual([]);
+      }
+      for (const v of block.body.votes) {
+        const key = `${v.validator}@${v.slot}`;
+        expect(seen.has(key)).toBe(false);
+        seen.add(key);
+      }
+      expect(block.body.evidence).toEqual([]);
+    }
   });
 });
 

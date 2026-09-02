@@ -7,7 +7,6 @@
  */
 
 import {
-  isAncestor,
   latestVotes,
   pathToAnchor,
   validatorInitial,
@@ -17,7 +16,7 @@ import {
 import type {
   BlockIndex,
   BlockTree,
-  FinalityState,
+  CheckpointStatus,
   ValidatorIndex,
   Vote,
 } from '../domain'
@@ -38,7 +37,8 @@ export interface BlockTreeViewProps {
   readonly votes: readonly Vote[]
   /** Fork-choice head per validator (one entry in a local view). */
   readonly heads: ReadonlyMap<ValidatorIndex, BlockIndex>
-  readonly finality: FinalityState
+  /** Checkpoints justified / finalized on some branch — the J/F badges. */
+  readonly checkpoints: CheckpointStatus
   /** Slot columns are drawn through this slot even past the last block. */
   readonly throughSlot: number
 }
@@ -59,7 +59,7 @@ export function BlockTreeView({
   tree,
   votes,
   heads,
-  finality,
+  checkpoints,
   throughSlot,
 }: BlockTreeViewProps) {
   const layout = layoutTree(tree)
@@ -145,13 +145,10 @@ export function BlockTreeView({
         const row = layout.rows.get(block.index)
         if (row === undefined) return null
         const { x, y } = center(block.slot, row)
-        // Every checkpoint at or below the finalized frontier is finalized —
-        // F never regresses to J on older checkpoints.
-        const justified = finality.justified.has(block.index)
-        const finalized =
-          justified &&
-          (block.index === finality.finalized ||
-            isAncestor(tree, block.index, finality.finalized))
+        // Every checkpoint at or below a finalized frontier is finalized —
+        // F never regresses to J on older checkpoints (checkpointStatus).
+        const justified = checkpoints.justified.has(block.index)
+        const finalized = checkpoints.finalized.has(block.index)
         const headChips = headsOf.get(block.index) ?? []
         const voteChips = supportersOf.get(block.index) ?? []
         const classes = [

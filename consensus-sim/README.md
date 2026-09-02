@@ -73,7 +73,7 @@ skeleton has no random choice, so there is no seed control in the UI yet.
 Sanity check:
 
 ```bash
-npm test           # vitest — model, fork choice, finality, determinism, rewind, UI shell
+npm test           # vitest — model, chain state, fork choice, determinism, rewind, UI shell
 npm run typecheck  # tsc --noEmit
 npm run build      # static bundle in dist/ (no backend; plain static SPA)
 ```
@@ -85,12 +85,22 @@ npm run build      # static bundle in dist/ (no backend; plain static SPA)
   キャロル, …) throughout the UI. Time advances in slots; epoch boundaries
   fall every 4 slots.
 - **Blocks** form a tree rooted at the **anchor block** (slot 0), which every
-  validator already agrees is finalized — there is no genesis ceremony.
+  validator already agrees is finalized — there is no genesis ceremony. A
+  block carries a **body**: the votes and equivocation evidence its proposer
+  included. An honest proposer includes everything in its view that no
+  ancestor of the parent has included yet.
 - **Votes** are `{validator, slot, head, source, target}`: an LMD-GHOST-style
   head endorsement plus an FFG-style pair of epoch-boundary checkpoints.
-- **Fork choice** is GHOST over each validator's own view, starting from its
-  justified checkpoint; **finality** follows supermajority source→target
-  links (justification fixpoint, adjacent-epoch finalization).
+- **Chain state** is derived per block from the bodies along its branch and
+  the initial stakes: `{stakes, justified, finalized}`. A vote counts toward
+  a branch's justification only once a block on that branch includes it, so
+  the same vote set can justify one branch and be inert on another.
+- **Fork choice** is GHOST over each validator's own view (the message
+  layer), starting from the highest justified checkpoint it knows; a
+  validator's justified / finalized / stakes are the chain state of its head
+  (the inclusion layer). **Finality** follows supermajority source→target
+  links over included votes (justification fixpoint, adjacent-epoch
+  finalization).
 - **Local views** are pure filters over a global append-only message log: a
   delivery rule decides who has seen what by when. Instant broadcast is the
   default; partitions, delays and drops plug in as stricter delivery rules

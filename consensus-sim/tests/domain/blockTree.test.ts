@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   ANCHOR_BLOCK_INDEX,
+  EMPTY_BODY,
   NO_PARENT,
   NO_PROPOSER,
   START_SLOT,
@@ -19,15 +20,16 @@ const block = (
   parent: number,
   slot: number,
   proposer = 0,
-): Block => ({ index, parent, slot, proposer });
+): Block => ({ index, parent, slot, proposer, body: EMPTY_BODY });
 
 describe("anchor block", () => {
-  it("is block 0 at slot 0 with no parent and no proposer", () => {
+  it("is block 0 at slot 0 with no parent, no proposer and an empty body", () => {
     expect(anchorBlock()).toEqual({
       index: ANCHOR_BLOCK_INDEX,
       parent: NO_PARENT,
       slot: START_SLOT,
       proposer: NO_PROPOSER,
+      body: { votes: [], evidence: [] },
     });
   });
 

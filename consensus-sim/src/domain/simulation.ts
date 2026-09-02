@@ -3,27 +3,23 @@
 // of the scenario, so rewind (巻き戻し) is recomputation from the anchor.
 //
 // Protocol sequencing within a slot s (all order-independent by design):
-//   1. the proposer builds on its view of slots < s,
+//   1. the proposer builds on its view of slots < s (parent by fork choice,
+//      body by inclusion of everything unincluded on that branch),
 //   2. every validator attests on blocks through s but votes through s-1,
 //   3. observers read end-of-slot views (blocks and votes through s).
 // Delivery decides who sees what; the default is instant broadcast, and
-// interventions later plug in as stricter Delivery rules.
+// interventions plug in as stricter Delivery rules.
 
 import { addBlock, createBlockTree, type BlockTree } from "./blockTree";
-import { computeFinality, type FinalityState } from "./finality";
-import {
-  instantDelivery,
-  localFinalityOf,
-  localHeadOf,
-  viewOf,
-  type Delivery,
-} from "./localView";
+import { chainStatesOf, equalStakes, type ChainStateIndex } from "./chainState";
+import { instantDelivery, viewOf, type Delivery } from "./localView";
 import { emptyLog, publishBlock, publishVotes, type MessageLog } from "./messages";
 import {
   buildAttestation,
   buildEquivocalAttestation,
   buildProposal,
   proposerForSlot,
+  resolveView,
 } from "./protocol";
 import {
   ANCHOR_BLOCK_INDEX,
@@ -56,8 +52,8 @@ export interface SimulationState {
   readonly tree: BlockTree;
   /** Every vote cast so far, in casting order (deterministic). */
   readonly votes: readonly Vote[];
-  /** Finality over the god view. */
-  readonly finality: FinalityState;
+  /** ChainState(block) for every block of the god view. */
+  readonly chainStates: ChainStateIndex;
   /** Each validator's local fork-choice head (from its own view). */
   readonly heads: ReadonlyMap<ValidatorIndex, BlockIndex>;
   readonly nextBlockIndex: BlockIndex;
@@ -67,7 +63,6 @@ export interface SimulationState {
 export function initialState(config: SimulationConfig): SimulationState {
   assertValidatorCount(config.validatorCount);
   const tree = createBlockTree();
-  const finality = computeFinality(tree, [], config.validatorCount);
   const heads = new Map<ValidatorIndex, BlockIndex>(
     validatorIndices(config.validatorCount).map((v) => [v, ANCHOR_BLOCK_INDEX]),
   );
@@ -76,7 +71,7 @@ export function initialState(config: SimulationConfig): SimulationState {
     log: emptyLog(),
     tree,
     votes: [],
-    finality,
+    chainStates: chainStatesOf(tree, equalStakes(config.validatorCount)),
     heads,
     nextBlockIndex: ANCHOR_BLOCK_INDEX + 1,
   };
@@ -116,6 +111,7 @@ export function advanceSlot(
 ): SimulationState {
   const slot = state.slot + 1;
   const validators = validatorIndices(config.validatorCount);
+  const stakes = equalStakes(config.validatorCount);
   const stopped = directives.stopped ?? new Set<ValidatorIndex>();
 
   // 1. Proposal, from the proposer's view of everything before this slot.
@@ -125,31 +121,18 @@ export function advanceSlot(
   const proposals: Block[] = [];
   if (!stopped.has(proposer)) {
     const proposerView = viewOf(state.log, proposer, slot - 1, delivery);
-    const proposerFinality = localFinalityOf(
+    const resolution = resolveView(proposerView, stakes);
+    const proposal = buildProposal(
       proposerView,
-      config.validatorCount,
-    );
-    const honest = buildProposal(
-      proposerView.blockTree,
-      proposerView.votes,
-      proposerFinality,
+      resolution,
       slot,
       proposer,
       state.nextBlockIndex,
+      directives.proposeParent ?? resolution.head,
     );
-    const forced = directives.proposeParent;
-    const proposal =
-      forced !== undefined && proposerView.blockTree.blocks.has(forced)
-        ? { ...honest, parent: forced }
-        : honest;
     proposals.push(proposal);
     if (directives.doublePropose) {
-      proposals.push({
-        index: proposal.index + 1,
-        parent: proposal.parent,
-        slot,
-        proposer,
-      });
+      proposals.push({ ...proposal, index: proposal.index + 1 });
     }
   }
   let log = state.log;
@@ -162,14 +145,8 @@ export function advanceSlot(
   for (const validator of validators) {
     if (stopped.has(validator)) continue;
     const view = viewOf(log, validator, slot, delivery, slot - 1);
-    const finality = localFinalityOf(view, config.validatorCount);
-    const vote = buildAttestation(
-      view.blockTree,
-      view.votes,
-      finality,
-      slot,
-      validator,
-    );
+    const resolution = resolveView(view, stakes);
+    const vote = buildAttestation(view, resolution, slot, validator);
     attestations.push(vote);
     if (directives.doubleVote?.has(validator)) {
       const second = buildEquivocalAttestation(view.blockTree, vote);
@@ -182,19 +159,18 @@ export function advanceSlot(
   let tree = state.tree;
   for (const block of proposals) tree = addBlock(tree, block);
   const votes = [...state.votes, ...attestations];
-  const finality = computeFinality(tree, votes, config.validatorCount);
   const heads = new Map<ValidatorIndex, BlockIndex>(
-    validators.map((v) => {
-      const view = viewOf(log, v, slot, delivery);
-      return [v, localHeadOf(view, localFinalityOf(view, config.validatorCount))];
-    }),
+    validators.map((v) => [
+      v,
+      resolveView(viewOf(log, v, slot, delivery), stakes).head,
+    ]),
   );
   return {
     slot,
     log,
     tree,
     votes,
-    finality,
+    chainStates: chainStatesOf(tree, stakes),
     heads,
     nextBlockIndex: state.nextBlockIndex + proposals.length,
   };

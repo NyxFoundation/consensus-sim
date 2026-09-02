@@ -921,6 +921,327 @@
           "summary": "vite build exits 0; static dist/ bundle unchanged in size (≈286.8 kB js)."
         }
       ]
+    },
+    {
+      "id": "T-029",
+      "title": "チェーン状態の導入(ドメイン): Block body(votes・evidence)・Equivocation・取り込み規則(正直プロポーザーは View 内の未取り込み投票・証拠をすべて取り込む)・ChainState(block) = 枝の取り込み内容と初期ステーク(等分)から stakes/justified/finalized を決定的に導出。fork choice は View の投票、finality はチェーン状態で計算するよう骨格を移行し、決定性・巻き戻しを再検証+テスト",
+      "status": "done",
+      "priority": "must",
+      "spec": [
+        "S-036",
+        "S-003",
+        "S-018",
+        "S-004",
+        "S-010"
+      ],
+      "executor": {
+        "mode": "atlas-builder"
+      },
+      "batch_group": "e3-chainstate",
+      "context_cost": 5,
+      "risk_level": "normal",
+      "notes": "遂行順序 1(ドメイン側)。裁量で定めた意味論(骨格・参照型の意味論は不変更): (1) Block.body = {votes, evidence}; Equivocation は double-proposal(同スロット 2 ブロック、index 昇順)/double-vote(同スロットの内容の異なる 2 投票、(head,source,target) 昇順)の対で、View で成立し body に取り込む。(2) 取り込み規則: 正直プロポーザーは View 内で parent の枝に未取り込みの投票・証拠をすべて取り込む(取り込み期限なし、Omission で省略可 — T-035 の介入用)。(3) ChainState(block) = 錨からの枝の body に含まれる投票を(枝上のチェックポイント対のみ)ステーク重みで集計し、2/3 閾値の justification 固定点と隣接エポック finalization で導出(初期ステーク等分 32、罰則は T-032)。(4) fork choice の起点 = View 内の全ブロックの ChainState の justified の最高(切替規則は T-033)、投票の source = head の ChainState.justified。(5) 神視点の finality(FinalityState)は廃止し、SimulationState.chainStates(全ブロックの ChainState)と checkpointStatus(J/F バッジ用集合)に置換。タイムライン: 投票は翌スロットのブロックで取り込まれるため justified/finalized の反映が 1 スロット遅れる(4 は s5 で justified、s9 で finalized)。UI は最小追随(バッジ・状態表・カード・詳細の参照先を ChainState/checkpointStatus に切替)、セル展開でのチェーン状態・body 表示は T-030。",
+      "evidence": [
+        {
+          "type": "diff",
+          "summary": "src/domain/types.ts: Stake, Equivocation (double-proposal | double-vote, canonical pair order), BlockBody {votes, evidence}, Block.body, EMPTY_BODY. src/domain/inclusion.ts (new): voteKey/equivocationKey identities, equivocationsIn (evidence arises in a view holding both messages), includedOn (branch inclusion keys), buildBody (honest inclusion of everything unincluded on the parent's branch, minus Omission). src/domain/chainState.ts (new): ChainState {stakes, justified, finalized}, equalStakes/totalStake/isSupermajority (2/3 by stake), chainStatesOf/chainStateOf (per-branch derivation from included votes: links restricted to checkpoints on the branch, justification fixpoint, adjacent-epoch finalization), checkpointStatus (J/F sets across branches, finalized never regresses), forkChoiceRoot (highest justified known). src/domain/finality.ts reduced to epoch math + checkpointFor (computeFinality/FinalityState removed). src/domain/protocol.ts: resolveView (chain states → root → GHOST head → ChainState(head)), buildProposal (parent by fork choice or designated, body by inclusion), buildAttestation (source = head's ChainState.justified). src/domain/localView.ts: LocalObservation = {view, head, chainState}. src/domain/simulation.ts: SimulationState.chainStates replaces finality; proposer/attesters resolve through resolveView. UI minimal follow-through: BlockTreeView takes CheckpointStatus, ChainMode/NetworkMode/StateTable read chainState.justified/finalized and checkpointStatus. README model section documents bodies and chain state."
+        },
+        {
+          "type": "command",
+          "command": "npx vitest run tests/domain/chainState.test.ts tests/domain/simulation.test.ts tests/domain/combined.test.ts tests/ui/appShell.test.tsx tests/ui/stateTable.test.tsx",
+          "exit_code": 0,
+          "summary": "受け入れ確認(必須 3・29、決定性・巻き戻し): tests/domain/chainState.test.ts(19 cases)— ブロックが投票を取り込んで初めて justified(B4 は B5 の状態で justified)、複数ブロックに分散した link の完成、同一バリデータの重複取り込みは 1 回のみ計上、隣接エポックの finalization(B9 で finalized=B4)、エポック跨ぎは justified のみ、別枝のチェックポイントへの投票は取り込んでも無効、導出の再計算同一性、checkpointStatus の J/F 集合(同一ブロックで 2 link が同時成立する端例でも中間チェックポイントが J)、forkChoiceRoot、証拠の検出(二重提案・二重投票、順序非依存の正準順)、取り込み規則(未取り込み分のみ・証拠は一度だけ・省略の反映)。simulation.test.ts: head の ChainState で justified 0→4(s5)、finalized 4(s9)・8(s13)、各ブロックが直前スロットの全投票を重複なく取り込む。combined.test.ts(全介入種同時の決定性・巻き戻し prefix 性・codec 往復)と UI の J/F バッジ(s9 で F 2 個)・状態表 finalized 列は変更なしで通過。"
+        },
+        {
+          "type": "command",
+          "command": "npm run typecheck",
+          "exit_code": 0,
+          "summary": "tsc --noEmit exits 0 after the chain-state migration (FinalityState removed from the public surface)."
+        },
+        {
+          "type": "command",
+          "command": "npx vitest run",
+          "exit_code": 0,
+          "summary": "18 files / 193 tests pass (184 → 193: finality.test.ts replaced by chainState.test.ts, +1 inclusion test in simulation.test.ts); determinism, rewind, intervention, scenario codec replay and every UI suite pass against chainStates."
+        },
+        {
+          "type": "command",
+          "command": "npm run build",
+          "exit_code": 0,
+          "summary": "vite build emits the static dist/ bundle (300.9 kB js) with exit 0."
+        }
+      ]
+    },
+    {
+      "id": "T-030",
+      "title": "チェーン状態の UI 追随: 状態表のセル展開で head のチェーン状態(各バリデータのステーク・justified・finalized)と head ブロックの body(取り込まれた投票・証拠)を表示し、head の枝が異なるバリデータ間の食い違いを差分強調。J/F バッジ・状態表の justified/finalized 項目をチェーン状態ベースに移行+DOM テスト",
+      "status": "pending",
+      "priority": "must",
+      "spec": [
+        "S-036",
+        "S-005",
+        "S-028",
+        "S-023"
+      ],
+      "executor": {
+        "mode": "atlas-builder"
+      },
+      "batch_group": "e3-chainstate",
+      "context_cost": 4,
+      "risk_level": "normal",
+      "notes": "遂行順序 1(UI 側)。成功条件 15 の受け入れ確認を DOM テストで残す。"
+    },
+    {
+      "id": "T-031",
+      "title": "プロトコルパラメータ化(ドメイン): ProtocolParams 型、プリセット phase0 / merge / current(既定 merge)、committee 割当(全員 | サイズ c をシードから決定的に割当、committee 所属者のみ投票)、プロポーザー予定表(ラウンドロビン、(slot, params, seed) から導出)、proposer boost(同スロット受信時のみ committee 総重み × boost の追加重み)+テスト",
+      "status": "pending",
+      "priority": "must",
+      "spec": [
+        "S-031",
+        "S-003"
+      ],
+      "executor": {
+        "mode": "atlas-builder"
+      },
+      "batch_group": "e3-params",
+      "context_cost": 5,
+      "risk_level": "normal",
+      "notes": "遂行順序 2。SimulationConfig にシードと ProtocolParams を持たせ、fork choice の入力に「スロット s 中に受信した s の提案」の判定を加える(遅延到着には boost なし)。"
+    },
+    {
+      "id": "T-032",
+      "title": "ステークと罰則(ドメイン): バリデータごとの初期ステーク(既定は全員等しい)、ChainState のステーク導出、fork choice 重みと FFG 2/3 閾値をステークで計算、スラッシング(証拠取り込み以降の枝でエクイボケータを 0)、inactivity leak(finalized が N=4 エポック停滞で発動、target 投票未取り込みのバリデータを率 r で減額、finalized 進行で停止)+テスト",
+      "status": "pending",
+      "priority": "must",
+      "spec": [
+        "S-032",
+        "S-033",
+        "S-036"
+      ],
+      "executor": {
+        "mode": "atlas-builder"
+      },
+      "batch_group": "e3-params",
+      "context_cost": 5,
+      "risk_level": "normal",
+      "notes": "遂行順序 2。r は裁量(Ethereum の二次関数的罰則は持ち込まない)。証拠を取り込んでいない枝・スラッシング off では不変、leak off では減らないことをテストで固定。"
+    },
+    {
+      "id": "T-033",
+      "title": "緩和策(ドメイン): fork choice 規則(GHOST 全投票 | LMD-GHOST 最新投票のみ)、エクイボケーション割引(View 内で相反 2 投票を観測した瞬間から fork choice 重みから除外)、justified チェックポイント切替(window: エポック先頭区間に限る | unrealized: unrealized justification により古い justified しか実現し得ない枝を除外 | off)+テスト",
+      "status": "pending",
+      "priority": "must",
+      "spec": [
+        "S-034",
+        "S-031"
+      ],
+      "executor": {
+        "mode": "atlas-builder"
+      },
+      "batch_group": "e3-params",
+      "context_cost": 4,
+      "risk_level": "normal",
+      "notes": "遂行順序 2。Ethereum の実仕様に準拠しつつ細部は裁量。プリセットごとの値の対応(phase0: 割引 off・window / merge: on・window / current: on・unrealized)をテストで固定。"
+    },
+    {
+      "id": "T-034",
+      "title": "プロトコルパラメータ・シード・初期ステークの UI: 個別設定とプリセット一括切替(既定 merge)、初期ステークのバリデータ別設定、シナリオへの保存(codec 拡張)、状態表のステーク項目、committee 所属者のみの投票と boost による fork choice 変化・スラッシング・leak の観測+DOM テスト",
+      "status": "pending",
+      "priority": "must",
+      "spec": [
+        "S-031",
+        "S-032",
+        "S-033",
+        "S-011",
+        "S-023",
+        "S-012"
+      ],
+      "executor": {
+        "mode": "atlas-builder"
+      },
+      "batch_group": "e3-params",
+      "context_cost": 5,
+      "risk_level": "normal",
+      "notes": "遂行順序 2(UI 側)。成功条件 14・22・23・25 の受け入れ確認を DOM テストで残す。"
+    },
+    {
+      "id": "T-035",
+      "title": "介入の拡張: 投票先指定(スロット s の投票の head/source/target を View 内のブロックから指定、未指定時は従来規則)、遅延・欠落の受信者集合指定(既定は全員)、取り込みの省略(次の提案で指定した投票・証拠を省く)— ドメイン+codec+UI+テスト",
+      "status": "pending",
+      "priority": "must",
+      "spec": [
+        "S-009",
+        "S-011"
+      ],
+      "executor": {
+        "mode": "atlas-builder"
+      },
+      "batch_group": "e3-interventions",
+      "context_cost": 5,
+      "risk_level": "normal",
+      "notes": "遂行順序 3。既存の delay/drop は observers 指定を持つが UI は受信者集合を選べない — UI を追加。投票先指定・取り込み省略は SlotDirectives の互換拡張として実装。"
+    },
+    {
+      "id": "T-036",
+      "title": "フォーク数定義の修正: 神視点の木で最新 finalized ブロックを根とする部分木の葉数をドメインで計算し、フォーク作成の指定は「現在のフォーク数+未実行指定の増分+この指定の増分(parent が子を持てば 1)」が 4 を超えると UI が受け付けず、finality が進んで減ると再び受け付ける。自然発生のフォークは制約しない+テスト",
+      "status": "pending",
+      "priority": "must",
+      "spec": [
+        "S-024"
+      ],
+      "executor": {
+        "mode": "atlas-builder"
+      },
+      "batch_group": "e3-interventions",
+      "context_cost": 3,
+      "risk_level": "normal",
+      "notes": "遂行順序 3。現行の「キュー内 4 件まで」近似を Essence の定義に置き換える。戦略由来のフォーク作成への同上限適用と破棄印は T-038 で行う。"
+    },
+    {
+      "id": "T-037",
+      "title": "ドメイン層の 2 モジュール分割: 本質的仕様(View / Vote / Block / BlockTree / Equivocation / ChainState / ProtocolParams / プリセット / fork choice・finality の入出力 / 攻撃の 3 つ組・行動語彙・述語・戦略)とシミュレーション上の制約(シナリオ / 介入キュー / 手動介入 / 既定実行構成 / コーデック / 人名 / バリデータ数・フォーク上限)に分け、型一覧を本質的仕様モジュールのみに絞る+テスト",
+      "status": "pending",
+      "priority": "must",
+      "spec": [
+        "S-035",
+        "S-025",
+        "S-016"
+      ],
+      "executor": {
+        "mode": "atlas-builder"
+      },
+      "batch_group": "e3-modules",
+      "context_cost": 4,
+      "risk_level": "normal",
+      "notes": "遂行順序 4。振り分け基準は「柱 2 の Lean 形式化がそのまま対象とする型か」。攻撃の型は T-038 で本質的仕様側に置く前提でディレクトリ構造を先に整える。"
+    },
+    {
+      "id": "T-038",
+      "title": "攻撃の形式体系(ドメイン): Attack = (攻撃者集合, 攻撃目標の述語列, 戦略) の型、攻撃者の観測状態(攻撃者集合の全 View の合併+プロポーザー予定表)、行動語彙(能力範囲の全種)、戦略の各スロット境界での実行と介入生成(攻撃者印付き)、手動介入との矛盾は手動優先で破棄印、戦略由来のフォーク作成へのフォーク上限適用+テスト",
+      "status": "pending",
+      "priority": "must",
+      "spec": [
+        "S-037",
+        "S-038",
+        "S-041",
+        "S-040",
+        "S-024"
+      ],
+      "executor": {
+        "mode": "atlas-builder"
+      },
+      "batch_group": "e3-attacks",
+      "context_cost": 5,
+      "risk_level": "normal",
+      "notes": "遂行順序 5。固定の介入列は戦略の特殊ケース。生成した行動はシナリオ(高々 1 攻撃)の実行時に決定的に再生成される。"
+    },
+    {
+      "id": "T-039",
+      "title": "攻撃目標述語(ドメイン): 安全性違反・活性停止(L)・リオーグ(k、既定 1)・攻撃者ステーク比率(θ)の 4 種を神視点で毎スロット境界に評価し、述語列を先頭から順に判定、段階ごとの達成/未達と根拠(例: 活性停止 n スロット目、第 1 段達成 @slot)のスロット軸トレースを導出+テスト",
+      "status": "pending",
+      "priority": "must",
+      "spec": [
+        "S-039",
+        "S-037"
+      ],
+      "executor": {
+        "mode": "atlas-builder"
+      },
+      "batch_group": "e3-attacks",
+      "context_cost": 4,
+      "risk_level": "normal",
+      "notes": "遂行順序 5。2 段の攻撃(A14)の判定推移をテストで固定。"
+    },
+    {
+      "id": "T-040",
+      "title": "攻撃ライブラリ(前半): A01 Ex-Ante リオーグ・A02 boost 逆用リオーグ・A03 バランシング・A04 LMD バランシング・A05 バウンシング・A06 エポック境界 finality 遅延 の定義(前提プリセット+上書き・攻撃者集合の条件・必要能力・目標・戦略・既定実行構成)と、既定構成で達成・A01/A03/A04/A05 は merge 既定で未達・A05 は current でも未達 のテスト",
+      "status": "pending",
+      "priority": "must",
+      "spec": [
+        "S-043",
+        "S-041"
+      ],
+      "executor": {
+        "mode": "atlas-builder"
+      },
+      "batch_group": "e3-library",
+      "context_cost": 5,
+      "risk_level": "normal",
+      "notes": "遂行順序 6。各攻撃は本質(保留と時機 / 正直票の割れの維持 / 競合 justified 間の跳ね / 提案遅延による target 分裂)が再現できれば簡約版でよい。表現不能と判明した攻撃は自律で読み替えず Human-input Recommendation で人間に戻す。"
+    },
+    {
+      "id": "T-041",
+      "title": "攻撃ライブラリ(後半): A07 アバランチ・A09 1/3 超棄権・A10 34% 二重投票・A11 51% 多数派支配・A12 66% 履歴支配・A14 inactivity leak 増幅(2 段目標)の定義と、既定構成で達成・A07 は merge 既定で未達 のテスト",
+      "status": "pending",
+      "priority": "must",
+      "spec": [
+        "S-043",
+        "S-041",
+        "S-039"
+      ],
+      "executor": {
+        "mode": "atlas-builder"
+      },
+      "batch_group": "e3-library",
+      "context_cost": 5,
+      "risk_level": "normal",
+      "notes": "遂行順序 6。A07 は phase0 + forkChoice = GHOST を前提に秘匿エクイボケーションブロック列の一斉公開で再現。A14 は分断で正直者を leak させ比率 ≥ 1/3 → 安全性違反の 2 段。"
+    },
+    {
+      "id": "T-042",
+      "title": "攻撃 UI: シナリオへの攻撃の組込(選択・攻撃者集合・パラメータ・プリセット+上書き・既定実行構成の提案と変更・条件未満表示)、生成行動の攻撃者印付き表示(介入一覧・状態表・チェーン表示、破棄印含む)、攻撃者バリデータの 3 表示での識別、攻撃目標判定の段階ごとの推移と根拠のスロット軸表示、攻撃+手動介入シナリオの保存・再読込・再実行+DOM テスト",
+      "status": "pending",
+      "priority": "must",
+      "spec": [
+        "S-041",
+        "S-039",
+        "S-011",
+        "S-012",
+        "S-027"
+      ],
+      "executor": {
+        "mode": "atlas-builder"
+      },
+      "batch_group": "e3-attack-ui",
+      "context_cost": 5,
+      "risk_level": "normal",
+      "notes": "遂行順序 7。成功条件 17・18・20・24 の受け入れ確認を DOM テストで残す。UI の見た目・情報設計の大きな方針転換は人間に戻す。"
+    },
+    {
+      "id": "T-043",
+      "title": "攻撃一覧ページ: 冒頭に形式体系の定義(3 つ組・能力範囲・述語)、続いて全 12 攻撃の表(攻撃名/出典 ID/前提パラメータ/攻撃者集合の条件/必要能力/攻撃目標/戦略の要約/既定実行構成)を実装ライブラリから導出して表示し、行選択で既定実行構成の提案・実行へ遷移+DOM テスト",
+      "status": "pending",
+      "priority": "must",
+      "spec": [
+        "S-042",
+        "S-040",
+        "S-006"
+      ],
+      "executor": {
+        "mode": "atlas-builder"
+      },
+      "batch_group": "e3-attack-ui",
+      "context_cost": 4,
+      "risk_level": "normal",
+      "notes": "遂行順序 7。成功条件 16 の受け入れ確認を DOM テストで残す。"
+    },
+    {
+      "id": "T-044",
+      "title": "総点検の再実施(追加分): 改訂で追加された必須対応事項 17〜29 と成功条件 14〜25 について 3 観点(整合/引き算/複合条件バグ)で点検し、ドメイン 2 モジュールの振り分けを点検項目に含め、発見問題を全解消、docs/INSPECTION.md に追記、README 更新、検証ゲート全通し",
+      "status": "pending",
+      "priority": "must",
+      "spec": [
+        "S-026",
+        "S-014",
+        "S-035"
+      ],
+      "executor": {
+        "mode": "atlas-builder"
+      },
+      "batch_group": "e3-final",
+      "context_cost": 5,
+      "risk_level": "normal",
+      "notes": "遂行順序 8。最後の必須。他のすべての must Todo 完了後に実施する。"
     }
   ]
 }

@@ -11,7 +11,13 @@
  */
 
 import { useMemo, useState } from 'react'
-import { instantDelivery, observe, validatorName } from '../../domain'
+import {
+  checkpointStatus,
+  equalStakes,
+  instantDelivery,
+  observe,
+  validatorName,
+} from '../../domain'
 import type { Delivery, SimulationState } from '../../domain'
 import { BlockTreeView } from '../BlockTreeView'
 import { blockName } from '../format'
@@ -48,6 +54,11 @@ export function ChainMode({
       ),
     [state.log, state.slot, validatorCount, delivery],
   )
+  const stakes = useMemo(() => equalStakes(validatorCount), [validatorCount])
+  const checkpoints = useMemo(
+    () => checkpointStatus(state.tree, stakes),
+    [state.tree, stakes],
+  )
 
   const toggleCell = (cell: ExpandedCell) => {
     setExpanded((prev) =>
@@ -73,7 +84,7 @@ export function ChainMode({
             tree={state.tree}
             votes={state.votes}
             heads={state.heads}
-            finality={state.finality}
+            checkpoints={checkpoints}
             throughSlot={state.slot}
           />
         </div>
@@ -121,22 +132,16 @@ export function ChainMode({
             <dt>head</dt>
             <dd>{blockName(detail.obs.head)}</dd>
             <dt>justified</dt>
-            <dd>
-              {[...detail.obs.finality.justified]
-                .sort((a, b) => a - b)
-                .map(blockName)
-                .join(', ')}
-              （先頭 {blockName(detail.obs.finality.justifiedHead)}）
-            </dd>
+            <dd>{blockName(detail.obs.chainState.justified)}</dd>
             <dt>finalized</dt>
-            <dd>{blockName(detail.obs.finality.finalized)}</dd>
+            <dd>{blockName(detail.obs.chainState.finalized)}</dd>
           </dl>
           <div className="tree-scroll">
             <BlockTreeView
               tree={detail.obs.view.blockTree}
               votes={detail.obs.view.votes}
               heads={new Map([[detail.validator, detail.obs.head]])}
-              finality={detail.obs.finality}
+              checkpoints={checkpointStatus(detail.obs.view.blockTree, stakes)}
               throughSlot={detail.slot}
             />
           </div>
@@ -160,14 +165,18 @@ export function ChainMode({
             </dd>
             <dt>justified</dt>
             <dd>
-              {[...state.finality.justified]
+              {[...checkpoints.justified]
                 .sort((a, b) => a - b)
                 .map(blockName)
                 .join(', ')}
-              （先頭 {blockName(state.finality.justifiedHead)}）
             </dd>
             <dt>finalized</dt>
-            <dd>{blockName(state.finality.finalized)}</dd>
+            <dd>
+              {[...checkpoints.finalized]
+                .sort((a, b) => a - b)
+                .map(blockName)
+                .join(', ')}
+            </dd>
           </dl>
         </div>
 

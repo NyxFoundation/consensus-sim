@@ -5,8 +5,7 @@
 // are stricter Delivery rules, not engine changes.
 
 import { addBlock, createBlockTree, type BlockTree } from "./blockTree";
-import { computeFinality, type FinalityState } from "./finality";
-import { ghostHead } from "./forkChoice";
+import { equalStakes, type ChainState } from "./chainState";
 import {
   refOfBlock,
   refOfVote,
@@ -16,6 +15,7 @@ import {
   type MessageRef,
   type PublishedBlock,
 } from "./messages";
+import { resolveView } from "./protocol";
 import type { BlockIndex, SlotIndex, ValidatorIndex } from "./types";
 import type { View } from "./view";
 
@@ -86,28 +86,15 @@ export function viewOf(
   return { validator: observer, slot, blockTree: visibleTree(blocks), votes };
 }
 
-/** Justification/finality as seen from inside a local view. */
-export function localFinalityOf(
-  view: View,
-  validatorCount: number,
-): FinalityState {
-  return computeFinality(view.blockTree, view.votes, validatorCount);
-}
-
-/** Fork-choice head as seen from inside a local view. */
-export function localHeadOf(
-  view: View,
-  finality: FinalityState,
-): BlockIndex {
-  return ghostHead(view.blockTree, view.votes, finality.justifiedHead);
-}
-
-/** A validator's vote is invisible to the tree until its head arrives; this
- * bundles the three per-validator observations the UI needs. */
+/**
+ * What a validator knows at one instant, bundled for observation: its view,
+ * its fork-choice head, and the chain state of that head — which is what the
+ * view's justified / finalized / stakes mean.
+ */
 export interface LocalObservation {
   readonly view: View;
-  readonly finality: FinalityState;
   readonly head: BlockIndex;
+  readonly chainState: ChainState;
 }
 
 export function observe(
@@ -118,6 +105,6 @@ export function observe(
   delivery: Delivery = instantDelivery,
 ): LocalObservation {
   const view = viewOf(log, observer, slot, delivery);
-  const finality = localFinalityOf(view, validatorCount);
-  return { view, finality, head: localHeadOf(view, finality) };
+  const { head, chainState } = resolveView(view, equalStakes(validatorCount));
+  return { view, head, chainState };
 }

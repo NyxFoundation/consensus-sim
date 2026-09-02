@@ -56,9 +56,9 @@ function cellValue(
     case 'head':
       return blockName(obs.head)
     case 'justified':
-      return blockName(obs.finality.justifiedHead)
+      return blockName(obs.chainState.justified)
     case 'finalized':
-      return blockName(obs.finality.finalized)
+      return blockName(obs.chainState.finalized)
     case 'latestVote': {
       const vote = latestVotes(obs.view.votes).get(validator)
       return vote ? blockName(vote.head) : '－'
