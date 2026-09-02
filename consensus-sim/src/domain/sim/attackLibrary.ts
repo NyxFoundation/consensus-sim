@@ -11,7 +11,7 @@
 // and is proposed as a scenario's initial conditions when the row is chosen.
 
 import type { Attack } from "../model/attack";
-import { ATTACK_A01, ATTACK_A02 } from "../model/attackLibrary";
+import { ATTACK_A01, ATTACK_A02, ATTACK_A09, ATTACK_A11 } from "../model/attackLibrary";
 import type { AttackGoal } from "../model/attackGoal";
 import type { AttackerCondition, AttackParams, Capability } from "../model/attack";
 import type { AttackRegistry } from "./scenarioCodec";
@@ -97,6 +97,48 @@ export const ATTACK_LIBRARY: readonly LibraryAttack[] = [
       validatorCount: 4,
       initialStakes: equalStakes(4),
       attackers: [1],
+      params: { maxDelay: 2 },
+      throughSlot: 8,
+    },
+  },
+  {
+    id: "A09",
+    name: "1/3 超の棄権による finality 停止",
+    source: `${REPORT}#A09`,
+    premise: { preset: "merge" },
+    attackers: ATTACK_A09.attackers,
+    capabilities: ["silence"],
+    goal: ATTACK_A09.goal,
+    strategySummary:
+      "攻撃者(全ステークの半分)がスロット 1 以降に沈黙(オンライン停止)する。投票者が" +
+      "残り 2 体では source→target リンクが 2/3 supermajority に届かず、finalized が錨から進まず" +
+      "活性が停止する。",
+    strategy: ATTACK_A09.strategy,
+    defaultRun: {
+      validatorCount: 4,
+      initialStakes: equalStakes(4),
+      attackers: [2, 3],
+      params: { maxDelay: 2 },
+      throughSlot: 16,
+    },
+  },
+  {
+    id: "A11",
+    name: "51% 多数派 fork choice 支配リオーグ",
+    source: `${REPORT}#A11`,
+    premise: { preset: "merge" },
+    attackers: ATTACK_A11.attackers,
+    capabilities: ["propose-parent", "vote-target"],
+    goal: ATTACK_A11.goal,
+    strategySummary:
+      "多数派の攻撃者(ステークの過半)がスロット 4 で錨上に分岐ブロックを提案し、全員が" +
+      "スロット 4・5 の投票をそこへ向ける。LMD fork choice を票数で支配し、正直 head が直前" +
+      "スロットの子孫でない分岐へ移る(リオーグ)。検閲は取引を扱わないため多数派支配として扱う。",
+    strategy: ATTACK_A11.strategy,
+    defaultRun: {
+      validatorCount: 4,
+      initialStakes: equalStakes(4),
+      attackers: [0, 1, 2],
       params: { maxDelay: 2 },
       throughSlot: 8,
     },

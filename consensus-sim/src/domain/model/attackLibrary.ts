@@ -71,3 +71,46 @@ export const ATTACK_A02: Attack = {
   goal: [REORG],
   strategy: boostReversalA02,
 };
+
+// ── A09 finality stall by ≥1/3 abstention (1/3 超の棄権) ───────────────────
+// The attackers (validators 2 and 3, half the stake) fall silent from slot 1
+// on. With only two validators voting, no source→target link ever reaches the
+// two-thirds supermajority, so finalized never leaves the anchor and the god
+// view stalls indefinitely (前提 merge; 活性停止).
+export const abstainStallA09: Strategy = once([
+  { kind: "stop", fromSlot: 1, validators: [2, 3] },
+]);
+
+/** Liveness stall threshold L: above the honest start-up stall (≤ 8 slots to
+ * the first finalization) so an honest run never trips it. */
+const STALL: AttackGoal = { kind: "liveness-stall", slots: 12 };
+
+export const ATTACK_A09: Attack = {
+  attackers: { kind: "stake-ratio", atLeast: 1 / 3 },
+  goal: [STALL],
+  strategy: abstainStallA09,
+};
+
+// ── A11 majority fork-choice domination reorg (51% 多数派支配) ─────────────
+// The attackers hold a majority of the stake (validators 0, 1, 2). Validator 0
+// proposes at slot 4 on the anchor — a fork beside the honest chain — and all
+// three attackers steer their slot-4 and slot-5 votes to it. Their weight
+// dominates LMD fork choice, so the honest head moves onto the fork, a block
+// that does not descend from its slot-3 head: a reorg (前提 merge). A11's
+// censorship is out of scope (no transactions); it is treated as majority
+// fork-choice domination (ESSENCE 前提事項).
+export const majorityReorgA11: Strategy = once([
+  { kind: "propose-parent", slot: 4, parent: 0 },
+  { kind: "vote-target", slot: 4, validator: 0, head: 4 },
+  { kind: "vote-target", slot: 4, validator: 1, head: 4 },
+  { kind: "vote-target", slot: 4, validator: 2, head: 4 },
+  { kind: "vote-target", slot: 5, validator: 0, head: 4 },
+  { kind: "vote-target", slot: 5, validator: 1, head: 4 },
+  { kind: "vote-target", slot: 5, validator: 2, head: 4 },
+]);
+
+export const ATTACK_A11: Attack = {
+  attackers: { kind: "stake-ratio", atLeast: 0.5 },
+  goal: [REORG],
+  strategy: majorityReorgA11,
+};
