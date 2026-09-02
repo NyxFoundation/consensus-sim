@@ -9,7 +9,7 @@
     "avoid_mixing_executors": true
   },
   "active_batch": [
-    "T-041"
+    "T-046"
   ],
   "items": [
     {
@@ -1570,7 +1570,7 @@
     {
       "id": "T-046",
       "title": "攻撃ライブラリ(安全性/アバランチ系 4 件): A07 アバランチ(前提 phase0 + forkChoice GHOST)・A10 34% 二重投票による二重 finality(前提 merge; 安全性違反)・A12 66% 履歴支配(前提 merge; 安全性違反)・A14 inactivity leak 増幅(前提 merge; 攻撃者比率≥1/3 → 安全性違反)の定義と達成/未達テスト",
-      "status": "pending",
+      "status": "done",
       "priority": "must",
       "spec": [
         "S-043",
@@ -1583,7 +1583,37 @@
       "batch_group": "e3-library",
       "context_cost": 5,
       "risk_level": "normal",
-      "notes": "遂行順序 6(T-041 から分離した安全性/アバランチ系)。着手方針と既知の障害: A07 アバランチ = 攻撃者の秘匿エクイボケーションブロック列を一斉公開し、GHOST(全票計上)では orphaned 枝に重みが乗って票数優位リオーグ、merge(LMD, 最新票のみ)では未達(GHOST/LMD 感受性; 成功条件 19 の A07 はmerge 未達)。要: 秘匿ブロック列を delay proposal で保留し一斉公開する構成の再設計。A12 66% 履歴支配 = 攻撃者 {0,1,2}(3/4)が数エポック協調して本流を finalize させた後、錨(または過去 finalized の祖先)から分岐して自枝を全員で投票・finalize → 過去 finalized と相反する 2 チェックポイントが finalized で安全性違反。前回 probe は vote-target head=-1(無効)で分岐へ投票できず未成立 → 分岐上の有効ブロックへvote-target する構成に修正して要検証。A10 34% 二重投票 = 【障害確認】merge はスラッシング on かつ証拠取り込みが即時(chainState は証拠を取り込んだブロック以降エクイボケータのステークを 0)なので、二重投票で両枝を 3/4 に届かせても正直提案者が証拠を取り込むと攻撃者ステークが 0 になり両枝とも finalize が崩れる。両枝で証拠を取り込ませない(攻撃者が全提案を担い omit-inclusion)構成が要るが、正直提案者が混じると成立しない。忠実な再現には (a) 証拠取り込みタイミング/スラッシング意味論の見直し(骨格変更=人間承認)か (b) 成功条件 19/必須 23 の A10 の簡約許容(ESSENCE=人間)が要る可能性 — R-006 のミティゲーション忠実度の論点に連なる。詰まれば R-006 を Blocking 昇格して人間判断を仰ぐ。A14 leak 増幅 = 分断で正直半数を leak(finalized N=4 エポック停滞 → target 未取り込みの正直ステークが率 r で減少)させ攻撃者比率を ≥1/3 に押し上げ(第 1 段)、続いて安全性違反(第 2 段は A10 型二重投票の簡約)。長走行(40〜60スロット)を defaultRun.throughSlot に。第 2 段は A10 障害の影響を受けうるため A10 の解決後に設計。"
+      "notes": "遂行順序 6(安全性/アバランチ系 4 件)。全 4 件を既定実行構成で達成させ、A07 は merge(上書きなし)で未達。A07 アバランチ = 攻撃者 V1 が秘匿チェーン B1(s1)→B5(s5, propose-parent 1)を保留(d=5)し、毎スロット B1 へ投票(s5 は B5 への二重投票 = alt 票 B1 が秘匿部分木内に落ちる)、正直投票を遅延して各正直者の可視票を『自票+古い他票 1〜2』に絞り、s6 に一斉公開。GHOST は古い票・相反票を全部数えるため秘匿枝 6 票 > 正直 ≤5 票で正直 head B4→B5(リオーグ s6)、以後正直票が乗り固定。phase0+LMD(規則だけ)でも merge でも未達(LMD は攻撃者 1 票vs 正直最新 ≥2 票、割引は相反票を 0 に、boost は正直提案側)。鍵は『送信者は自票を常に見る』制約: 正直者の直近票は消せないので、秘匿側が 2 票/スロット(二重投票)を積める 2 ブロック秘匿列と、古い正直票の一部遅延で勝ち筋を作る。A10 二重 finality = 攻撃者 {2,3} が正直 2 体の視界を分割(V0 は攻撃者の s3 ブロック B3 を、V1 は正直 B4 と V0 のs2/s3 票を見ない)し、各正直者に別枝 A: B1→B2→B4→B6→B8→B10 / B: B1→B3→B5→B7→B9→B11 を伸ばさせ、同一エポックの FFG target 投票を時機をずらして両枝へ(s4→B4, s5→B3, s8→B8, s9→B7)、攻撃者提案スロットで両枝を延ばす → {0,2,3} が A で B4 を、{1,2,3} が B で B3 を finalize(s11 安全性違反 [3,4])。本モデルの証拠は同一スロットの相反のみなので、スロットを分けた FFG 二重投票はスラッシングされない(簡約 R-007)。A12 履歴支配 = 攻撃者 {0,1,2} がs9 まで正直に振る舞い B4 を finalize させ、s12 に錨上へ分岐(propose-parent 0; 最新 finalized の部分木外なのでフォーク上限に数えない)、s12〜15 の投票を分岐へ、s13/s14 も攻撃者提案で分岐を延長 → s16(窓スロット)で全員の起点が分岐の justified(B12)に切り替わり、s17 に B12 が finalize(安全性違反 [4,12])。A14 leak 増幅 = 観測状態に反応する戦略(固定列でない): 攻撃者 {3} が孤立正直者(最小 index の正直者 V0)のエポック 1 最初の提案(s4)を他正直者から、続く正直提案(s5)を孤立者から欠落させて 2 枝 A/B に分割し、毎エポック第 2 スロットで A の先端、第 3 スロットでB の先端へ投票。A では finality 停止 → エポック 5 から V1/V2 が leak(r=0.25)、攻撃者は leak しない → s32 に V0 のhead で比率 0.352 ≥ 1/3(第 1 段)。同じ侵食で V0+攻撃者 64 ≥ 2/3×91 となり A が独自に justify(s36)・finalize(s39)し、攻撃者票で finalize し続けた B と相反(第 2 段 s39 [4,7])。既定 throughSlot 44。",
+      "evidence": [
+        {
+          "type": "diff",
+          "summary": "src/domain/model/attackLibrary.ts: avalancheA07 / ATTACK_A07 (fixed list, d=5), doubleFinalityA10 / ATTACK_A10 (fixed list with the SPLIT_HONEST drops), historyDominationA12 / ATTACK_A12 (fixed list), leakAmplificationA14 / ATTACK_A14 (reactive strategy over the observation: proposalSlotOf / blockBy / tipUnder helpers, two-stage goal [attacker-stake-ratio ≥ 1/3, safety-violation]); voteAll helper. src/domain/sim/attackLibrary.ts: A07 (phase0 + forkChoice GHOST), A10, A12, A14 rows with premises, capabilities, summaries and default runs (throughSlot 10 / 12 / 20 / 44). tests/domain/attackLibrary.test.ts: merge-miss loop over A01+A07, A07 phase0-LMD miss, A10/A12 conflicting-pair evidence with no evidence included anywhere, A14 two stages in order with the attacker unleaked and V1 leaked at the isolated head."
+        },
+        {
+          "type": "command",
+          "command": "npx vitest run tests/domain/attackLibrary.test.ts tests/domain/purity.test.ts tests/ui/typeGraph.test.ts",
+          "exit_code": 0,
+          "summary": "受け入れ確認(成功条件 19・20・24): 21 tests. ATTACK_LIBRARY = A01/A02/A07/A09/A10/A11/A12/A14 の 8 件全部が既定実行構成で goalAchievedAt 定義(A07 リオーグ s6, A10 安全性違反 s11 [3,4], A12 s17 [4,12], A14 第 1 段 s32・第 2 段 s39 [4,7]); A01/A07 は上書きを外した merge で未達; A07 は phase0+LMD-GHOST でも未達; A10/A12 は証拠を 1 つも取り込まずに相反 finalized 対を報告; A14 は第 1 段達成前は第 2 段 pending、達成時の孤立 head で攻撃者ステーク 32・V1 < 32; codec 往復で同一 generated・同一 goalAchievedAt; registry キー = ライブラリ id。purity / typeGraph 不変(const のみ export)。神視点 probe(一時テスト、撤去済)で 4 攻撃の生成行動に破棄なしを確認。"
+        },
+        {
+          "type": "command",
+          "command": "npm run typecheck",
+          "exit_code": 0,
+          "summary": "tsc --noEmit exits 0."
+        },
+        {
+          "type": "command",
+          "command": "npx vitest run",
+          "exit_code": 0,
+          "summary": "28 files / 332 tests pass (329 -> 332: +3 attackLibrary). No other suite changed outcome."
+        },
+        {
+          "type": "command",
+          "command": "npm run build",
+          "exit_code": 0,
+          "summary": "vite build emits the static dist/ bundle (373.3 kB js) with exit 0."
+        }
+      ]
     },
     {
       "id": "T-042",

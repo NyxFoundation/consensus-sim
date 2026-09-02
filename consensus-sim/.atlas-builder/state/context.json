@@ -6,11 +6,11 @@
     "stop_after_infra_fails": 2
   },
   "progress": {
-    "last_signature": "139e70f613f69cdc68e365f13aadf99608fe84735f2d54f14c8c77ccc86d97c0",
+    "last_signature": "dc46cc05c1e28d024f857b996326d8ff73e1f9f9367a134d62529a2db882e492",
     "idle_cycles_since_progress": 0,
     "infra_fails_since_ok": 0,
-    "last_progress_at": "2026-09-03T06:11:09+09:00",
-    "last_checked_at": "2026-09-03T06:11:09+09:00",
+    "last_progress_at": "2026-09-03T06:34:39+09:00",
+    "last_checked_at": "2026-09-03T06:34:39+09:00",
     "usage_limited_since_ok": 0
   },
   "reset_policy": {
@@ -21,26 +21,25 @@
     "reset_after_decisions": 5
   },
   "counters": {
-    "context_usage_estimate": 0.8,
-    "failed_attempts_since_reset": 0,
-    "changed_files_since_reset": 6,
-    "completed_todos_since_reset": 2,
-    "important_decisions_since_reset": 2,
+    "context_usage_estimate": 0.35,
+    "failed_attempts_since_reset": 1,
+    "changed_files_since_reset": 3,
+    "completed_todos_since_reset": 1,
+    "important_decisions_since_reset": 1,
     "major_spec_rewrite_since_reset": false,
     "high_risk_change_completed": false
   },
   "handoff": {
-    "written_at": "2026-09-03T06:10:00+09:00",
-    "summary": "改訂 Essence(sha c6fb67e2)の Spec 41 項 / Todo 45 項(validate ok)。T-001〜T-041 done。遂行順序 1〜5 完了、6(攻撃ライブラリ)に着手中。攻撃ライブラリは A01/A02/A09/A11 の 4 件を実装済(全 12 の 1/3)。置き場: 戦略と Attack 3 つ組は src/domain/model/attackLibrary.ts(exAnteReorgA01/boostReversalA02/abstainStallA09/majorityReorgA11 と ATTACK_A01/02/09/11。const のみ export で型カタログ不変)、メタデータは src/domain/sim/attackLibrary.ts(LibraryAttack{id,name,source,premise,attackers,capabilities,goal,strategySummary,strategy,defaultRun}・premiseParams(premise)={...PRESETS[preset],...overrides}・ATTACK_LIBRARY・ATTACK_REGISTRY)。テスト tests/domain/attackLibrary.test.ts は ATTACK_LIBRARY を汎用反復(各攻撃 goalAchievedAt 定義・条件充足・codec 往復・registry 一致)+ A01 の merge 未達。攻撃を追加するには両ファイルに 1 項ずつ足すだけ(テストは自動被覆)。ゲート typecheck / vitest 28 files 329 tests / build 全 exit 0。実装済 4 件の機構: A01=保留+正直票遅延で正直チェーンを boost だけで守らせ phase0 リオーグ/merge 未達(boost 感受性)。A02=祖父提案+自票外し+正直票遅延で対象ブロックを 1 票に落とし boost でリオーグ(merge)。A09=攻撃者半数 stop で 2/3 未達→活性停止 L=12。A11=攻撃者提案スロットで錨上分岐+過半 vote-target で LMD 票数支配リオーグ。残りは T-045(A03/A04/A05/A06 バランシング/バウンシング/境界)と T-046(A07/A10/A12/A14 安全性/アバランチ)。既知障害: A03/A04 は割引が View 局所発火でバランシングと両立せず(R-006)、A10 は即時スラッシングが二重 finality を打ち消す(L-20260903T060936・T-046 notes)。攻撃基盤ドメインと運用手順は前サイクル handoff と lessons L-20260903T060005/060936、L-20260830T011600(lock トークン .agent/tmp/loop.lock/token を ATLAS_BUILDER_LOCK_TOKEN で渡す・CWD は CONTROL_ROOT を維持)、L-20260828T000934(state 書き込みは Write/apply-projection)。",
+    "written_at": "2026-09-03T06:36:00+09:00",
+    "summary": "改訂 Essence(sha c6fb67e2)の Spec 41 項 / Todo 45 項(validate ok)。T-001〜T-041・T-046 done。遂行順序 1〜5 完了、6(攻撃ライブラリ)は 12 件中 8 件実装済(A01/A02/A07/A09/A10/A11/A12/A14)、残りは T-045 の 4 件(A03/A04/A05/A06)。置き場: 戦略と Attack 3 つ組は src/domain/model/attackLibrary.ts(const のみ export で型カタログ不変。voteAll ヘルパ、A14 は観測状態に反応する戦略で proposalSlotOf/blockBy/tipUnder ヘルパ)、メタデータは src/domain/sim/attackLibrary.ts(LibraryAttack・premiseParams・ATTACK_LIBRARY・ATTACK_REGISTRY)。テスト tests/domain/attackLibrary.test.ts は ATTACK_LIBRARY を汎用反復(達成・条件充足・codec 往復・registry 一致)+ merge 未達ループ(A01, A07 — A03/A04/A05 追加時はこの配列に id を足すだけ)+ A07 LMD 未達 + A10/A12 相反対 + A14 2 段。攻撃を追加するには両ファイルに 1 項ずつ足す。ゲート typecheck / vitest 28 files 332 tests / build 全 exit 0。今サイクルの機構(T-046 notes に詳細): A07=2 ブロック秘匿列+s5 二重投票(alt 票が秘匿部分木内)+正直票遅延で GHOST 6 票 > 正直 ≤5 票、s6 公開でリオーグ、LMD/割引/boost で未達。A10=正直 2 体の視界分割+同一エポック FFG target 投票をスロットを分けて 2 枝へ(スラッシング非発火; 簡約 R-007)。A12=B4 finalize 後に錨上分岐(最新 finalized 部分木外なので上限非計上)、s16 の窓で起点が分岐に切替、s17 finalize。A14=孤立正直者の枝で他正直者が leak、s32 比率 0.352、s39 独自 finalize で安全性違反。既知障害: A03/A04 は割引が View 局所発火でバランシングと両立せず(R-006)。運用: lock トークン .agent/tmp/loop.lock/token を ATLAS_BUILDER_LOCK_TOKEN で渡す、CWD は CONTROL_ROOT を維持(cd したら戻す)、state 書き込みは stage-projection→tmp/edit_*.py→apply-projection、probe は tests/domain/probe.test.ts を一時作成し --silent=false --disableConsoleIntercept で出力(撤去必須)。",
     "next_actions": [
-      "T-046(安全性/アバランチ系)着手: (1) A07 アバランチ = 攻撃者の秘匿エクイボケーションブロック列を delay proposal で保留し一斉公開。phase0 + forkChoice:GHOST(overrides)では GHOST が全票を数え orphaned 枝に重みが乗り票数優位リオーグ、上書きを外した merge(LMD 最新票のみ)で未達(成功条件 19 の A07)。GHOST では双子ブロックの両方が票を持つので秘匿ブロック列+その票を一斉公開して正直 head を移す構成を probe で探す。(2) A12 66% 履歴支配 = 攻撃者 {0,1,2} が数エポック協調して本流 finalize 後、攻撃者提案スロットで錨(過去 finalized の祖先)から分岐を作り、全員が分岐上の有効ブロックへ vote-target して自枝を 2 エポック finalize → 過去 finalized と相反 2 checkpoint が finalized で安全性違反(vote-target head は分岐上の実在ブロック index に; head=-1 は無効で破棄)。",
-      "T-046 の A10/A14: A10(34% 二重投票による二重 finality)は即時スラッシングが両枝 finalize を打ち消す障害を確認(L-20260903T060936)。両枝で証拠を取り込ませない構成は正直提案者が混じると作れない。忠実な再現には証拠取り込み/スラッシング意味論の見直し(骨格変更=人間)か A10 の簡約許容(ESSENCE=人間)が要る可能性 → 再設計で詰まれば R-006 を Blocking Recommendation(requires_human_approval:true)へ昇格し、A03/A04(割引)・A10(スラッシング)を含むミティゲーション忠実度の判断を人間に仰ぐ。A14 は第 2 段が A10 型のため A10 解決後に。",
-      "T-045(バランシング/バウンシング/境界): A05 バウンシング(投票保留+後出し取り込みで justified を枝間で跳ねさせ、切替 off で成立・window/unrealized で緩和; R-004)と A06 境界遅延(境界ブロックの配送操作で target 分裂→活性停止; R-005。partition {0,1}|{2,3} は merge でも stall する既確認だが A06 は境界限定の操作で)を先に。A03/A04(割引依存バランシング; R-006)は本モデル意味論と衝突するため最後、詰まれば R-006 Blocking 昇格。",
-      "T-042/T-043(遂行順序 7, 攻撃 UI): 全ライブラリ完成後。useSimulation に attack、runScenario.generated を介入一覧(攻撃者印・破棄理由)・状態表・チェーン表示・ネットワークの攻撃者識別、GoalTrace のスロット軸表示、攻撃一覧ページ(ATTACK_LIBRARY 導出・冒頭に形式体系定義)、parseScenario に ATTACK_REGISTRY。条件未満は satisfiesCondition。",
-      "T-044(遂行順序 8): 全 must 完了後に総点検再実施(必須 16)。R-003/R-004/R-005/R-006 の裁量簡約・障害を点検項目に。"
+      "T-045(バランシング/バウンシング/境界 4 件)着手。順序: (1) A06 エポック境界 finality 遅延(前提 merge; 活性停止 L=12): 攻撃者提案スロットが境界(s4e)になる構成か、正直境界ブロック(V0 の s4e)を受信者集合を分けて遅延(d≤2)し、正直者の target を『境界ブロック』と『その親(フォールバック)』に分裂させて 2/3 未達を毎エポック維持。R-005 の空境界簡約と混ざらないよう境界ブロックは存在させ配送だけ操作。(2) A05 バウンシング(前提 merge + 切替 off; 活性停止): R-004 記録どおり攻撃者が自票を保留し後出しで取り込ませ(omit-inclusion + delay)、競合 2 枝の justified を交互に出現させて正直者の起点を枝間で跳ねさせ finalize を阻む。切替 off で成立、window(merge)/unrealized(current)で未達 — テストは merge と current の両方で未達を固定(成功条件 19)。(3) A03/A04(割引依存バランシング; R-006): A07 で使った『正直票を遅延して可視集合を絞る』手筋と選択配送で正直票の割れを維持する簡約を試み、割引 on(merge)で崩れる筋が作れなければ R-006 を Human-input Recommendation(requires_human_approval:true)へ昇格して停止。",
+      "T-042/T-043(遂行順序 7, 攻撃 UI): ライブラリ完成(または A03/A04 で人間停止)後。useSimulation に attack、runScenario.generated を介入一覧(攻撃者印・破棄理由)・状態表・チェーン表示・ネットワークの攻撃者識別、GoalTrace のスロット軸表示(A14 の 2 段 pending/active/achieved と根拠)、攻撃一覧ページ(ATTACK_LIBRARY 導出・冒頭に形式体系定義)、parseScenario に ATTACK_REGISTRY、条件未満は satisfiesCondition。長走行攻撃(A14 throughSlot 44)の状態表横スクロールを確認。",
+      "T-044(遂行順序 8): 全 must 完了後に総点検再実施(必須 16)。R-003〜R-007 の裁量簡約・障害(A10/A14 の FFG 二重投票簡約 R-007 を含む)を点検項目に。"
     ],
     "open_questions": [
-      "R-006(Non-blocking→要昇格候補): ミティゲーション忠実度の判断。A03/A04=割引が View 局所発火でバランシングと両立せず、A10=即時スラッシングが二重 finality を打ち消す。選択肢: A) 緩和策意味論を拡張(骨格変更=人間承認)/ B) 成功条件 19・必須 23 の該当攻撃の未達/成立要件を緩和(ESSENCE=人間)/ C) 該当攻撃を『より具体的な抽象レベルの追加』非対応事項へ昇格(ESSENCE=人間)。A05/A06/A07/A12 を先に実装し、残った障害攻撃で詰まれば Blocking 昇格。",
+      "R-007(Non-blocking): A10/A14 の二重投票は同一エポックの FFG target 投票をスロットを分けて 2 枝へ投じる簡約で、本モデルの証拠(同一スロットの相反)に当たらずスラッシングが発火しない。FFG レベルの二重投票を証拠に加えるかは意味論変更(思想 (a))として人間判断。",
+      "R-006(Non-blocking→要昇格候補): A03/A04 の割引依存バランシングが View 局所発火の割引と両立しない。選択肢 A) 割引意味論の拡張(骨格変更=人間)/ B) 成功条件 19 の該当要件緩和(ESSENCE=人間)/ C) 非対応事項へ昇格(ESSENCE=人間)。A05/A06 を先に実装し、A03/A04 で詰まれば Blocking 昇格。",
       "R-003: fork choice の投票重みの参照先(投票 head のチェーン状態)が必須 25 の意図どおりか。",
       "R-004: justified 即時集計のままでよいか。window 切替の『ブロック slot=到着時刻』代理でよいか。A05 は投票保留形で簡約予定。",
       "R-005: 空境界チェックポイントの隣接判定を『チェックポイントのエポック』に改めるか。A06 設計で混ざらないよう配慮。"

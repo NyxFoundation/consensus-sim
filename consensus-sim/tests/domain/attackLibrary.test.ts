@@ -60,15 +60,57 @@ describe("attack library", () => {
     }
   });
 
-  it("the boost-sensitive Ex-Ante reorg (A01) misses under the merge preset (成功条件 19)", () => {
-    const a01 = ATTACK_LIBRARY.find((a) => a.id === "A01")!;
-    // Under its phase0 premise the reorg lands…
-    expect(goalAchievedAt(runScenario(scenarioFor(a01), a01.defaultRun.throughSlot).goal!)).toBeTypeOf(
-      "number",
-    );
-    // …but with the overrides removed (the merge preset, boost on) it does not.
-    const merged = runScenario(scenarioFor(a01, PRESETS.merge), a01.defaultRun.throughSlot);
-    expect(goalAchievedAt(merged.goal!)).toBeUndefined();
+  it("the mitigation-sensitive attacks (A01, A07) miss under the merge preset (成功条件 19)", () => {
+    for (const id of ["A01", "A07"]) {
+      const a = ATTACK_LIBRARY.find((x) => x.id === id)!;
+      // Under its declared premise the goal is reached…
+      expect(goalAchievedAt(runScenario(scenarioFor(a), a.defaultRun.throughSlot).goal!)).toBeTypeOf(
+        "number",
+      );
+      // …but with the overrides removed (the merge preset) it is not.
+      const merged = runScenario(scenarioFor(a, PRESETS.merge), a.defaultRun.throughSlot);
+      expect(goalAchievedAt(merged.goal!), `${id} reaches its goal under merge`).toBeUndefined();
+    }
+  });
+
+  it("the avalanche (A07) is stopped by the fork-choice rule alone: phase0 with LMD-GHOST", () => {
+    const a07 = ATTACK_LIBRARY.find((a) => a.id === "A07")!;
+    expect(premiseParams(a07.premise).forkChoice).toBe("GHOST");
+    const lmd = runScenario(scenarioFor(a07, PRESETS.phase0), a07.defaultRun.throughSlot);
+    expect(goalAchievedAt(lmd.goal!)).toBeUndefined();
+  });
+
+  it("the safety violations (A10, A12) finalize two conflicting checkpoints", () => {
+    for (const id of ["A10", "A12"]) {
+      const a = ATTACK_LIBRARY.find((x) => x.id === id)!;
+      const run = runScenario(scenarioFor(a), a.defaultRun.throughSlot);
+      const at = goalAchievedAt(run.goal!)!;
+      const evidence = run.goal![at]![0]!.evidence;
+      expect(evidence.kind).toBe("safety-violation");
+      if (evidence.kind !== "safety-violation") throw new Error("unreachable");
+      expect(evidence.conflicting, `${id} reports no conflicting pair`).toBeDefined();
+      // The strategy never trips slashing: no evidence is included anywhere.
+      const last = run.states[run.states.length - 1]!;
+      for (const block of last.tree.blocks.values()) expect(block.body.evidence).toEqual([]);
+    }
+  });
+
+  it("the leak amplification (A14) reaches its two stages in order", () => {
+    const a14 = ATTACK_LIBRARY.find((a) => a.id === "A14")!;
+    const run = runScenario(scenarioFor(a14), a14.defaultRun.throughSlot);
+    const final = run.goal![run.goal!.length - 1]!;
+    const [ratio, safety] = final as [(typeof final)[number], (typeof final)[number]];
+    expect(ratio.status).toBe("achieved");
+    expect(safety.status).toBe("achieved");
+    expect(ratio.achievedAt!).toBeLessThan(safety.achievedAt!);
+    // Before the first stage holds, the second is not judged.
+    expect(run.goal![ratio.achievedAt! - 1]![1]!.status).toBe("pending");
+    // The attacker never leaks: its stake is intact on the isolated branch.
+    const evidence = run.goal![ratio.achievedAt!]![0]!.evidence;
+    if (evidence.kind !== "attacker-stake-ratio") throw new Error("unreachable");
+    const head = run.states[ratio.achievedAt!]!.chainStates.get(evidence.head!)!;
+    expect(head.stakes.get(3)).toBe(32);
+    expect(head.stakes.get(1)!).toBeLessThan(32);
   });
 
   it("resolves and replays a saved attack through the registry (成功条件 20)", () => {

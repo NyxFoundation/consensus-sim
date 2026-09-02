@@ -11,7 +11,16 @@
 // and is proposed as a scenario's initial conditions when the row is chosen.
 
 import type { Attack } from "../model/attack";
-import { ATTACK_A01, ATTACK_A02, ATTACK_A09, ATTACK_A11 } from "../model/attackLibrary";
+import {
+  ATTACK_A01,
+  ATTACK_A02,
+  ATTACK_A07,
+  ATTACK_A09,
+  ATTACK_A10,
+  ATTACK_A11,
+  ATTACK_A12,
+  ATTACK_A14,
+} from "../model/attackLibrary";
 import type { AttackGoal } from "../model/attackGoal";
 import type { AttackerCondition, AttackParams, Capability } from "../model/attack";
 import type { AttackRegistry } from "./scenarioCodec";
@@ -102,6 +111,28 @@ export const ATTACK_LIBRARY: readonly LibraryAttack[] = [
     },
   },
   {
+    id: "A07",
+    name: "アバランチ(秘匿エクイボケーションブロック列)",
+    source: `${REPORT}#A07`,
+    premise: { preset: "phase0", overrides: { forkChoice: "GHOST" } },
+    attackers: ATTACK_A07.attackers,
+    capabilities: ["withhold", "equivocation", "vote-target", "propose-parent", "delay-honest"],
+    goal: ATTACK_A07.goal,
+    strategySummary:
+      "攻撃者はスロット 1・5 の自ブロック列を秘匿し、毎スロットそれへ投票(スロット 5 は二重投票)" +
+      "しつつ投票も保留、正直投票を遅延させる。スロット 6 に一斉公開すると、GHOST は古い票・" +
+      "相反票をすべて数えるため秘匿枝が正直枝を上回り正直 head が移る(リオーグ)。LMD-GHOST は" +
+      "最新票しか数えず、割引が相反票を除くため merge では未達。",
+    strategy: ATTACK_A07.strategy,
+    defaultRun: {
+      validatorCount: 4,
+      initialStakes: equalStakes(4),
+      attackers: [1],
+      params: { maxDelay: 5 },
+      throughSlot: 10,
+    },
+  },
+  {
     id: "A09",
     name: "1/3 超の棄権による finality 停止",
     source: `${REPORT}#A09`,
@@ -123,6 +154,29 @@ export const ATTACK_LIBRARY: readonly LibraryAttack[] = [
     },
   },
   {
+    id: "A10",
+    name: "34% 二重投票による二重 finality",
+    source: `${REPORT}#A10`,
+    premise: { preset: "merge" },
+    attackers: ATTACK_A10.attackers,
+    capabilities: ["propose-parent", "vote-target", "withhold", "drop-honest"],
+    goal: ATTACK_A10.goal,
+    strategySummary:
+      "攻撃者(ステークの 1/3 以上)は正直 2 体の視界を分割し(一方は攻撃者のスロット 3 " +
+      "ブロックを、他方は正直スロット 4 ブロックを見ない)、各正直者に別々の枝を伸ばさせる。" +
+      "同一エポックの target 投票を時機をずらして両枝へ投じ、自分の提案スロットで両枝を延ばすと、" +
+      "各枝が正直 1 体+攻撃者で 2/3 に達して両方が finalize し、相反する finalized " +
+      "チェックポイントが並ぶ(安全性違反)。",
+    strategy: ATTACK_A10.strategy,
+    defaultRun: {
+      validatorCount: 4,
+      initialStakes: equalStakes(4),
+      attackers: [2, 3],
+      params: { maxDelay: 2 },
+      throughSlot: 12,
+    },
+  },
+  {
     id: "A11",
     name: "51% 多数派 fork choice 支配リオーグ",
     source: `${REPORT}#A11`,
@@ -141,6 +195,51 @@ export const ATTACK_LIBRARY: readonly LibraryAttack[] = [
       attackers: [0, 1, 2],
       params: { maxDelay: 2 },
       throughSlot: 8,
+    },
+  },
+  {
+    id: "A12",
+    name: "66% 履歴支配",
+    source: `${REPORT}#A12`,
+    premise: { preset: "merge" },
+    attackers: ATTACK_A12.attackers,
+    capabilities: ["propose-parent", "vote-target"],
+    goal: ATTACK_A12.goal,
+    strategySummary:
+      "攻撃者(ステークの 2/3 以上)はまず正直に振る舞い、正直チェーンの B4 を finalize させる。" +
+      "スロット 12 に錨ブロック上へ分岐を提案し、以後の投票をその枝へ向けて自分の提案スロットで" +
+      "延ばすと、supermajority が分岐側のチェックポイントを justify・finalize し、finalized 済みの" +
+      "履歴と相反するチェックポイントが finalize される(安全性違反)。",
+    strategy: ATTACK_A12.strategy,
+    defaultRun: {
+      validatorCount: 4,
+      initialStakes: equalStakes(4),
+      attackers: [0, 1, 2],
+      params: { maxDelay: 2 },
+      throughSlot: 20,
+    },
+  },
+  {
+    id: "A14",
+    name: "inactivity leak 増幅",
+    source: `${REPORT}#A14`,
+    premise: { preset: "merge" },
+    attackers: ATTACK_A14.attackers,
+    capabilities: ["drop-honest", "vote-target"],
+    goal: ATTACK_A14.goal,
+    strategySummary:
+      "攻撃者(ステークの 1/3 未満)は正直 1 体を他の正直者から分断し(分断を始める 2 提案を" +
+      "互いに欠落させる)、両枝に毎エポック投票する。孤立枝では finality が停止して他の正直者が" +
+      "leak し、攻撃者は leak しないため、孤立正直者の head の枝で攻撃者比率が 1/3 に達する" +
+      "(第 1 段)。同じ侵食で孤立正直者+攻撃者が 2/3 に達して孤立枝が独自に finalize し、攻撃者が" +
+      "finalize させ続けた他枝と相反する(第 2 段: 安全性違反)。",
+    strategy: ATTACK_A14.strategy,
+    defaultRun: {
+      validatorCount: 4,
+      initialStakes: equalStakes(4),
+      attackers: [3],
+      params: { maxDelay: 2 },
+      throughSlot: 44,
     },
   },
 ];
