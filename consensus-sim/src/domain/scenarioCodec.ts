@@ -6,6 +6,7 @@
 // pure data out: no DOM, no storage — I/O belongs to the UI layer.
 
 import { equalStakes, type SimulationConfig } from "./config";
+import type { EvidenceRef } from "./inclusion";
 import type { Intervention } from "./intervention";
 import type { MessageRef } from "./messages";
 import {
@@ -233,6 +234,29 @@ function messageRefOf(
   throw new ParseError(`${what}.kind must be "block" or "vote"`);
 }
 
+function listOf(x: unknown, what: string): unknown[] {
+  if (!Array.isArray(x)) throw new ParseError(`${what} must be an array`);
+  return x;
+}
+
+const EVIDENCE_KINDS: readonly EvidenceRef["kind"][] = [
+  "double-proposal",
+  "double-vote",
+];
+
+function evidenceRefOf(
+  x: unknown,
+  validatorCount: number,
+  what: string,
+): EvidenceRef {
+  if (!isRecord(x)) throw new ParseError(`${what} must be an object`);
+  return {
+    kind: oneOf(x.kind, EVIDENCE_KINDS, `${what}.kind`),
+    validator: validatorOf(x.validator, validatorCount, `${what}.validator`),
+    slot: slotOf(x.slot, `${what}.slot`),
+  };
+}
+
 function observersOf(
   raw: Record<string, unknown>,
   validatorCount: number,
@@ -300,6 +324,50 @@ function interventionOf(
       const parent = integer(x.parent, `${what}.parent`);
       if (parent < 0) throw new ParseError(`${what}.parent must be ≥ 0`);
       return { kind: "propose-parent", slot: slotOf(x.slot, `${what}.slot`), parent };
+    }
+    case "vote-target": {
+      const block = (key: "head" | "source" | "target") => {
+        if (x[key] === undefined) return {};
+        const b = integer(x[key], `${what}.${key}`);
+        if (b < 0) throw new ParseError(`${what}.${key} must be ≥ 0`);
+        return { [key]: b };
+      };
+      return {
+        kind: "vote-target",
+        slot: slotOf(x.slot, `${what}.slot`),
+        validator: validatorOf(x.validator, validatorCount, `${what}.validator`),
+        ...block("head"),
+        ...block("source"),
+        ...block("target"),
+      };
+    }
+    case "omit-inclusion": {
+      const votes =
+        x.votes === undefined
+          ? {}
+          : {
+              votes: listOf(x.votes, `${what}.votes`).map((v, i) => {
+                const ref = messageRefOf(v, validatorCount, `${what}.votes[${i}]`);
+                if (ref.kind !== "vote") {
+                  throw new ParseError(`${what}.votes[${i}] must be a vote`);
+                }
+                return ref;
+              }),
+            };
+      const evidence =
+        x.evidence === undefined
+          ? {}
+          : {
+              evidence: listOf(x.evidence, `${what}.evidence`).map((e, i) =>
+                evidenceRefOf(e, validatorCount, `${what}.evidence[${i}]`),
+              ),
+            };
+      return {
+        kind: "omit-inclusion",
+        slot: slotOf(x.slot, `${what}.slot`),
+        ...votes,
+        ...evidence,
+      };
     }
     default:
       throw new ParseError(`${what}.kind is unknown: ${String(x.kind)}`);

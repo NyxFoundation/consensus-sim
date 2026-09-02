@@ -69,11 +69,16 @@ at the next slot boundary: partition a validator set (分断), switch a
 validator's operating state (稼働状態 — 稼働 / 停止 = silent but still
 receiving / オフライン = fully cut off with a frozen view that catches up
 through normal propagation after returning), schedule a double proposal or
-double vote (equivocation), delay or drop one specific message, and create
-a fork by designating the next proposal's parent from the proposer's own
-view (フォーク作成 — the queue holds at most 4 such designations at a time,
-so designated forks never exceed 4 at once; forks arising naturally from
-other interventions are not capped). Scheduled
+double vote (equivocation), delay or drop one specific message for a chosen
+receiver set (default: everyone but the sender), create a fork by
+designating the next proposal's parent from the proposer's own view
+(フォーク作成 — the queue holds at most 4 such designations at a time, so
+designated forks never exceed 4 at once; forks arising naturally from other
+interventions are not capped), steer one validator's next vote (投票先指定
+— head / source / target chosen among the blocks of its own view, the rest
+following fork choice and the FFG rule), and make the next proposer leave
+chosen votes or evidence out of its block (取り込みの省略 — they stay
+includable by a later block). Scheduled
 interventions stay listed — healing, resuming or deleting one recomputes
 the whole displayed history deterministically. The ◀ / ▶ cursor rewinds to
 any past slot and reproduces that state exactly; advancing from a past slot

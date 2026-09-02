@@ -15,13 +15,14 @@ import {
   epochBoundarySlot,
   epochOf,
   equalStakes,
-  equivocationKey,
   equivocationsIn,
+  evidenceRef,
   forkChoiceRoot,
   includedOn,
   isSupermajority,
   totalStake,
   voteKey,
+  voteRef,
   type Block,
   type BlockBody,
   type BlockTree,
@@ -259,8 +260,8 @@ describe("inclusion (取り込み) and evidence (証拠)", () => {
     expect(buildBody(carrying, votes, 8)).toEqual({ votes: [], evidence: [] });
     // Omissions (取り込みの省略) leave the named items out.
     const omitted = buildBody(tree, votes, 2, {
-      votes: new Set([voteKey(votes[0]!)]),
-      evidence: new Set([equivocationKey(first.evidence[0]!)]),
+      votes: [voteRef(votes[0]!)],
+      evidence: [evidenceRef(first.evidence[0]!)],
     });
     expect(omitted.votes).toEqual([votes[1]]);
     expect(omitted.evidence.map((e) => e.kind)).toEqual(["double-vote"]);

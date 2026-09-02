@@ -15,6 +15,7 @@
 import { addBlock, createBlockTree, type BlockTree } from "./blockTree";
 import { chainStatesOf, type ChainStateIndex } from "./chainState";
 import type { SimulationConfig } from "./config";
+import type { Omission } from "./inclusion";
 import { instantDelivery, viewOf, type Delivery } from "./localView";
 import { emptyLog, publishBlock, publishVotes, type MessageLog } from "./messages";
 import {
@@ -22,6 +23,7 @@ import {
   buildEquivocalAttestation,
   buildProposal,
   resolveView,
+  type VoteOverride,
 } from "./protocol";
 import { committeeForSlot, proposerForSlot } from "./schedule";
 import {
@@ -86,14 +88,20 @@ export interface SlotDirectives {
   /** The proposer builds on this block instead of its fork-choice head
    * (フォーク作成) — ignored when the block is not in the proposer's view. */
   readonly proposeParent?: BlockIndex;
+  /** The proposer leaves these votes / this evidence out of its block body
+   * (取り込みの省略); everything else follows the inclusion rule. */
+  readonly omit?: Omission;
+  /** These attesters' votes are steered to designated blocks (投票先指定);
+   * unspecified components follow fork choice and the FFG rule. */
+  readonly voteOverrides?: ReadonlyMap<ValidatorIndex, VoteOverride>;
 }
 
 /**
  * Advance one slot: the slot's proposer publishes a block built on its own
  * view, every validator attests from its own view, then the god view and
  * every validator's local head are recomputed. `directives` bends the slot's
- * protocol actions (stops, equivocations); a stopped proposer leaves the
- * slot empty.
+ * protocol actions (stops, equivocations, parent / vote designation,
+ * omitted inclusions); a stopped proposer leaves the slot empty.
  */
 export function advanceSlot(
   config: SimulationConfig,
@@ -121,6 +129,7 @@ export function advanceSlot(
       proposer,
       state.nextBlockIndex,
       directives.proposeParent ?? resolution.head,
+      directives.omit,
     );
     proposals.push(proposal);
     if (directives.doublePropose) {
@@ -140,7 +149,13 @@ export function advanceSlot(
     if (stopped.has(validator) || !committee.has(validator)) continue;
     const view = viewOf(log, validator, slot, delivery, slot - 1);
     const resolution = resolveView(view, config);
-    const vote = buildAttestation(view, resolution, slot, validator);
+    const vote = buildAttestation(
+      view,
+      resolution,
+      slot,
+      validator,
+      directives.voteOverrides?.get(validator),
+    );
     attestations.push(vote);
     if (directives.doubleVote?.has(validator)) {
       const second = buildEquivocalAttestation(view.blockTree, vote);

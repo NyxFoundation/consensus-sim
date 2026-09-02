@@ -157,23 +157,37 @@ export function buildProposal(
 /**
  * The vote an attester casts at `slot` from its view: head by fork choice,
  * source = the justified checkpoint of the head's chain state, target = the
- * current epoch's checkpoint on the head's chain.
+ * current epoch's checkpoint on the head's chain. `override` (投票先指定)
+ * replaces any of the three with a block of the view: a designated head
+ * moves source and target onto its chain by the same FFG rule, and an
+ * explicitly designated source / target wins over that. A designated block
+ * the view does not hold is ignored.
  */
 export function buildAttestation(
   view: View,
   resolution: Resolution,
   slot: SlotIndex,
   validator: ValidatorIndex,
+  override: VoteOverride = {},
 ): Vote {
-  const head = resolution.head;
-  const target = checkpointFor(view.blockTree, head, epochOf(slot));
+  const tree = view.blockTree;
+  const known = (b: BlockIndex | undefined): BlockIndex | undefined =>
+    b !== undefined && tree.blocks.has(b) ? b : undefined;
+  const head = known(override.head) ?? resolution.head;
   return {
     validator,
     slot,
     head,
-    source: resolution.chainState.justified,
-    target,
+    source: known(override.source) ?? resolution.states.get(head)!.justified,
+    target: known(override.target) ?? checkpointFor(tree, head, epochOf(slot)),
   };
+}
+
+/** 投票先指定: the blocks an attester's vote is steered to, each optional. */
+export interface VoteOverride {
+  readonly head?: BlockIndex | undefined;
+  readonly source?: BlockIndex | undefined;
+  readonly target?: BlockIndex | undefined;
 }
 
 /**

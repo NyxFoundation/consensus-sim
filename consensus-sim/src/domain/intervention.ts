@@ -1,16 +1,19 @@
 // Interventions (介入) — scenario-level disturbances specified at slot
 // boundaries: partitions (分断), operating states (稼働状態: 停止/オフライン),
-// equivocations (二重提案・二重投票), per-message delay/drop (遅延・欠落),
-// and fork creation (フォーク作成: 提案 parent の指定).
+// equivocations (二重提案・二重投票), per-message delay/drop (遅延・欠落, for
+// a chosen receiver set), fork creation (フォーク作成: 提案 parent の指定),
+// vote designation (投票先指定) and omitted inclusion (取り込みの省略).
 //
 // Interventions are pure data (persistable as part of a scenario) and are
 // compiled into the two axes the engine already accepts: a Delivery rule
 // (who sees what by when) and per-slot protocol directives (who acts, and
 // whether they equivocate). The engine itself is untouched.
 
+import type { SimulationConfig } from "./config";
+import type { EvidenceRef, Omission } from "./inclusion";
 import type { Delivery } from "./localView";
 import { sameRef, type MessageRef } from "./messages";
-import type { SimulationConfig } from "./config";
+import type { VoteOverride } from "./protocol";
 import { proposerForSlot } from "./schedule";
 import type { SlotDirectives } from "./simulation";
 import type { BlockIndex, SlotIndex, ValidatorIndex } from "./types";
@@ -91,6 +94,29 @@ export interface ProposeParentIntervention {
   readonly parent: BlockIndex;
 }
 
+/** 投票先指定: at `slot`, the validator's vote uses the designated head /
+ * source / target (each optional, each a block of its view at voting time;
+ * a block it does not hold is ignored). Unspecified components follow fork
+ * choice and the FFG rule — from the designated head when there is one. */
+export interface VoteTargetIntervention {
+  readonly kind: "vote-target";
+  readonly slot: SlotIndex;
+  readonly validator: ValidatorIndex;
+  readonly head?: BlockIndex;
+  readonly source?: BlockIndex;
+  readonly target?: BlockIndex;
+}
+
+/** 取り込みの省略: the proposer of `slot` leaves the named votes (by
+ * message identity) and evidence (by equivocator / slot / kind) out of its
+ * block body. Everything else is included by the inclusion rule. */
+export interface OmitInclusionIntervention {
+  readonly kind: "omit-inclusion";
+  readonly slot: SlotIndex;
+  readonly votes?: readonly MessageRef[];
+  readonly evidence?: readonly EvidenceRef[];
+}
+
 export type Intervention =
   | PartitionIntervention
   | StopIntervention
@@ -99,7 +125,9 @@ export type Intervention =
   | DoubleVoteIntervention
   | DelayIntervention
   | DropIntervention
-  | ProposeParentIntervention;
+  | ProposeParentIntervention
+  | VoteTargetIntervention
+  | OmitInclusionIntervention;
 
 /** The interventions that live as a slot span (fromSlot..toSlot). */
 export type SpanIntervention =
@@ -267,10 +295,34 @@ export function directivesForSlot(
       proposeParent = i.parent;
     }
   }
+  const omitted = interventions.filter(
+    (i): i is OmitInclusionIntervention =>
+      i.kind === "omit-inclusion" && i.slot === slot && !stopped.has(proposer),
+  );
+  const omit: Omission | undefined =
+    omitted.length === 0
+      ? undefined
+      : {
+          votes: omitted.flatMap((i) => i.votes ?? []),
+          evidence: omitted.flatMap((i) => i.evidence ?? []),
+        };
+  const voteOverrides = new Map<ValidatorIndex, VoteOverride>();
+  for (const i of interventions) {
+    if (i.kind === "vote-target" && i.slot === slot && !stopped.has(i.validator)) {
+      voteOverrides.set(i.validator, {
+        ...voteOverrides.get(i.validator),
+        ...(i.head !== undefined ? { head: i.head } : {}),
+        ...(i.source !== undefined ? { source: i.source } : {}),
+        ...(i.target !== undefined ? { target: i.target } : {}),
+      });
+    }
+  }
   return {
     stopped,
     doublePropose,
     doubleVote,
     ...(proposeParent !== undefined ? { proposeParent } : {}),
+    ...(omit !== undefined ? { omit } : {}),
+    ...(voteOverrides.size > 0 ? { voteOverrides } : {}),
   };
 }

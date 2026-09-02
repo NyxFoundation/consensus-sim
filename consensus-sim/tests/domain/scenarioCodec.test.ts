@@ -31,6 +31,13 @@ const ALL_KINDS: Intervention[] = [
     message: { kind: "vote", validator: 1, slot: 2, head: 2 },
     observers: [0, 3],
   },
+  { kind: "vote-target", slot: 7, validator: 2, head: 3, source: 0 },
+  {
+    kind: "omit-inclusion",
+    slot: 8,
+    votes: [{ kind: "vote", validator: 0, slot: 7, head: 7 }],
+    evidence: [{ kind: "double-vote", validator: 3, slot: 6 }],
+  },
 ];
 
 const SCENARIO: Scenario = {

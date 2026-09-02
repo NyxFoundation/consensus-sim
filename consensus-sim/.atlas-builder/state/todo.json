@@ -1217,7 +1217,7 @@
     {
       "id": "T-035",
       "title": "介入の拡張: 投票先指定(スロット s の投票の head/source/target を View 内のブロックから指定、未指定時は従来規則)、遅延・欠落の受信者集合指定(既定は全員)、取り込みの省略(次の提案で指定した投票・証拠を省く)— ドメイン+codec+UI+テスト",
-      "status": "pending",
+      "status": "done",
       "priority": "must",
       "spec": [
         "S-009",
@@ -1229,7 +1229,37 @@
       "batch_group": "e3-interventions",
       "context_cost": 5,
       "risk_level": "normal",
-      "notes": "遂行順序 3。既存の delay/drop は observers 指定を持つが UI は受信者集合を選べない — UI を追加。投票先指定・取り込み省略は SlotDirectives の互換拡張として実装。"
+      "notes": "遂行順序 3。既存の delay/drop は observers 指定を持ち UI でも受信者集合(対象チェック、未選択 = 送信者以外の全員)を選べる(T-009)— describe/README の文言で明示。 実装(裁量意味論、参照型・骨格の意味論は不変更): (1) 投票先指定 Intervention {kind:'vote-target', slot, validator, head?, source?, target?} → SlotDirectives.voteOverrides(Map<ValidatorIndex, VoteOverride>)→ buildAttestation(view, resolution, slot, validator, override): 指定ブロックがその View にあるときだけ採用、head 指定時は source/target をその枝の FFG 規則(ChainState(head).justified・現エポックのチェックポイント)で導出し、明示指定した source/target はそれに優先。停止中は無効。二重投票は指定後の投票から派生。(2) 取り込み省略 Intervention {kind:'omit-inclusion', slot, votes?: MessageRef[](投票の同一性 = validator/slot/head), evidence?: EvidenceRef[]{kind, validator, slot}} → SlotDirectives.omit: Omission → buildProposal/buildBody。Omission は voteKey 文字列集合から MessageRef/EvidenceRef の参照配列に置換(メッセージ同一性を MessageRef に一本化、codec で構造検証可能)。省いた項目は枝に未取り込みのまま残るので後続の正直ブロックが取り込む。UI: 投票先指定 fieldset(バリデータ選択、head/source/target の select、候補はそのバリデータの cursor 時点の View 内ブロック、『規則どおり』既定)、取り込みの省略 fieldset(次スロット提案者の View と提案 parent(予約済み propose-parent があればそれ、なければ fork choice)から buildBody で取り込み候補を列挙しチェック)。codec に 2 種追加。",
+      "evidence": [
+        {
+          "type": "diff",
+          "summary": "src/domain/intervention.ts: VoteTargetIntervention / OmitInclusionIntervention, directivesForSlot builds voteOverrides and omit. src/domain/protocol.ts: VoteOverride, buildAttestation(view, resolution, slot, validator, override). src/domain/simulation.ts: SlotDirectives.omit / voteOverrides threaded to buildProposal / buildAttestation. src/domain/inclusion.ts: EvidenceRef, evidenceRef, sameEvidenceRef; Omission = {votes?: MessageRef[], evidence?: EvidenceRef[]}. src/domain/messages.ts: voteRef(vote). src/domain/scenarioCodec.ts: vote-target and omit-inclusion cases (listOf, evidenceRefOf). src/ui/InterventionPanel.tsx: 投票先指定 and 取り込みの省略 fieldsets, describe() for both kinds. README: intervention paragraph covers the receiver set, vote designation and omitted inclusion. Tests: tests/domain/steering.test.ts (new, 10), tests/ui/steering.test.tsx (new, 5), chainState.test.ts omission shape, scenarioCodec.test.ts ALL_KINDS + 2, combined.test.ts everything + 2. git diff --stat (src/tests/README): 11 files changed, 412 insertions(+), 37 deletions(-) plus 2 new test files."
+        },
+        {
+          "type": "command",
+          "command": "npx vitest run tests/domain/steering.test.ts tests/ui/steering.test.tsx",
+          "exit_code": 0,
+          "summary": "受け入れ確認(必須 9、成功条件 5 (d)(f)(g)): 15 tests. ドメイン — 未指定時は規則どおり(s6 全員 head B6/source B4/target B4)、head B3 指定で {head 3, source 0, target 3}(その枝の FFG 規則)、source/target の明示指定が優先、View にないブロック(B99・欠落で未着の B2)指定は無視され正直実行と同一、停止中は投票なし、指定投票は次ブロックに通常どおり取り込まれる。省略 — アリスの s2 投票を s3 で省くと B3 body は 3 件、B4 が取り込んで 5 件(正直は 4 件)、証拠を省くと B3 は証拠なしで B4 が取り込み、ChainState(B3) のボブは 32・ChainState(B4) で 0(スラッシングは取り込みブロックから)、提案者停止スロットでは無効、決定性。codec — 2 種の往復と再実行同一性、7 件の拒否(validator 範囲外、負の head、非整数 source、votes にブロック参照、votes 非配列、未知の証拠 kind、証拠の validator 範囲外)。DOM — ボブの head 候補が View 内 B0..B3、head B1 指定で一覧に『投票先指定 ボブ @ s4（head B1）』、送り後の投票表でボブは s4/B1・アリスは B4、成分未指定では指定ボタン無効; s3 の提案者デイブの省略候補 4 件からアリスの s2 投票を省くと B3 body は 3 件でアリスなし・s4 では候補に再掲され B4 body が 5 件でアリス B2@s2 を含む; 二重投票の証拠が候補に並び省略すると B3 は『証拠なし』; 欠落の対象にボブを選ぶと一覧に『（対象: ボブ）』。"
+        },
+        {
+          "type": "command",
+          "command": "npm run typecheck",
+          "exit_code": 0,
+          "summary": "tsc --noEmit exits 0 with the two intervention kinds threaded through domain, codec, UI and tests."
+        },
+        {
+          "type": "command",
+          "command": "npx vitest run",
+          "exit_code": 0,
+          "summary": "24 files / 279 tests pass (264 → 279: +10 domain steering, +5 DOM steering); combined all-kinds determinism / rewind-prefix / codec round-trip now cover 10 intervention kinds."
+        },
+        {
+          "type": "command",
+          "command": "npm run build",
+          "exit_code": 0,
+          "summary": "vite build emits the static dist/ bundle (351.9 kB js, 12.9 kB css) with exit 0."
+        }
+      ]
     },
     {
       "id": "T-036",

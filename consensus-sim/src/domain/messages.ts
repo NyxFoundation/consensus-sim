@@ -53,12 +53,14 @@ export const refOfBlock = (m: PublishedBlock): MessageRef => ({
   block: m.block.index,
 });
 
-export const refOfVote = (m: PublishedVote): MessageRef => ({
+export const voteRef = (vote: Vote): MessageRef => ({
   kind: "vote",
-  validator: m.vote.validator,
-  slot: m.vote.slot,
-  head: m.vote.head,
+  validator: vote.validator,
+  slot: vote.slot,
+  head: vote.head,
 });
+
+export const refOfVote = (m: PublishedVote): MessageRef => voteRef(m.vote);
 
 export function sameRef(a: MessageRef, b: MessageRef): boolean {
   if (a.kind === "block" && b.kind === "block") return a.block === b.block;

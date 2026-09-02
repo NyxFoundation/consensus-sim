@@ -1,21 +1,27 @@
 /**
  * Intervention panel (介入): specify partitions, operating states
- * (稼働/停止/オフライン), equivocations, per-message delay/drop and fork
- * creation (提案 parent の指定) from the UI, at slot boundaries — new
- * interventions take effect from the slot after the cursor. The scheduled
- * list stays visible and editable; removing or healing an entry
- * deterministically recomputes the displayed history.
+ * (稼働/停止/オフライン), equivocations, per-message delay/drop (with a
+ * receiver set), fork creation (提案 parent の指定), vote designation
+ * (投票先指定) and omitted inclusion (取り込みの省略) from the UI, at slot
+ * boundaries — new interventions take effect from the slot after the
+ * cursor. The scheduled list stays visible and editable; removing or
+ * healing an entry deterministically recomputes the displayed history.
  */
 
 import { useState } from 'react'
 import {
+  buildBody,
   closeSpanAt,
+  evidenceRef,
   operatingStateAt,
   proposerForSlot,
+  resolveView,
   validatorName,
   viewOf,
+  voteRef,
 } from '../domain'
 import type {
+  EvidenceRef,
   SimulationConfig,
   Intervention,
   MessageRef,
@@ -24,6 +30,8 @@ import type {
   SimulationState,
   ValidatorIndex,
 } from '../domain'
+import { evidenceLabel } from './ChainStateDetail'
+import { blockName } from './format'
 import type { SimulationSession } from './useSimulation'
 import { validatorColor } from './validatorColor'
 
@@ -74,8 +82,22 @@ function describe(i: Intervention, config: SimulationConfig): string {
       return `欠落 ${messageLabel(i.message)}${
         i.observers ? `（対象: ${setLabel(i.observers)}）` : ''
       }`
+    case 'vote-target': {
+      const parts = (['head', 'source', 'target'] as const)
+        .filter((k) => i[k] !== undefined)
+        .map((k) => `${k} ${blockName(i[k]!)}`)
+      return `投票先指定 ${validatorLabel(i.validator)} @ s${i.slot}（${parts.join(', ')}）`
+    }
+    case 'omit-inclusion':
+      return `取り込み省略 @ s${i.slot}（提案者 ${validatorName(
+        proposerForSlot(i.slot, config),
+      )}）: 投票 ${i.votes?.length ?? 0} 件・証拠 ${i.evidence?.length ?? 0} 件`
   }
 }
+
+const voteRefKey = (r: MessageRef) =>
+  r.kind === 'vote' ? `${r.validator}:${r.slot}:${r.head}` : `block:${r.block}`
+const evidenceRefKey = (r: EvidenceRef) => `${r.kind}:${r.validator}:${r.slot}`
 
 interface MessageOption {
   readonly key: string
@@ -135,6 +157,10 @@ export function InterventionPanel({ session }: InterventionPanelProps) {
   const [msgAction, setMsgAction] = useState<'drop' | 'delay'>('drop')
   const [delayUntil, setDelayUntil] = useState('')
   const [msgTargets, setMsgTargets] = useState<readonly ValidatorIndex[]>([])
+  const [vtValidator, setVtValidator] = useState<ValidatorIndex>(0)
+  const [vtBlocks, setVtBlocks] = useState({ head: '', source: '', target: '' })
+  const [omitVotes, setOmitVotes] = useState<readonly string[]>([])
+  const [omitEvidence, setOmitEvidence] = useState<readonly string[]>([])
 
   const add = (i: Intervention) =>
     session.setInterventions([...interventions, i])
@@ -209,6 +235,57 @@ export function InterventionPanel({ session }: InterventionPanelProps) {
   const doubleVoteScheduled = interventions.some(
     (i) => i.kind === 'double-vote' && i.slot === nextSlot && i.validator === dvValidator,
   )
+
+  // Vote designation (投票先指定): blocks offered from the voter's own view
+  // at the cursor; the vote itself is cast from its view at the next slot.
+  const voterBlocks = [
+    ...viewOf(current.log, vtValidator, cursor, delivery).blockTree.blocks.values(),
+  ].sort((a, b) => a.index - b.index)
+  const voteTargetScheduled = interventions.some(
+    (i) => i.kind === 'vote-target' && i.slot === nextSlot && i.validator === vtValidator,
+  )
+  const voteTargetEmpty = !vtBlocks.head && !vtBlocks.source && !vtBlocks.target
+  const designateVote = () => {
+    add({
+      kind: 'vote-target',
+      slot: nextSlot,
+      validator: vtValidator,
+      ...(vtBlocks.head !== '' ? { head: Number(vtBlocks.head) } : {}),
+      ...(vtBlocks.source !== '' ? { source: Number(vtBlocks.source) } : {}),
+      ...(vtBlocks.target !== '' ? { target: Number(vtBlocks.target) } : {}),
+    })
+    setVtBlocks({ head: '', source: '', target: '' })
+  }
+
+  // Omitted inclusion (取り込みの省略): what the next proposer would include
+  // — everything in its view not yet on the branch it builds on.
+  const proposerView = viewOf(current.log, nextProposer, cursor, delivery)
+  const scheduledParent = interventions.find(
+    (i) => i.kind === 'propose-parent' && i.slot === nextSlot,
+  )
+  const inclusionParent =
+    scheduledParent?.kind === 'propose-parent' &&
+    proposerView.blockTree.blocks.has(scheduledParent.parent)
+      ? scheduledParent.parent
+      : resolveView(proposerView, config, nextSlot).head
+  const candidates = buildBody(proposerView.blockTree, proposerView.votes, inclusionParent)
+  const toggleKey = (list: readonly string[], key: string): string[] =>
+    list.includes(key) ? list.filter((k) => k !== key) : [...list, key]
+  const omitSelected = omitVotes.length + omitEvidence.length > 0
+  const scheduleOmission = () => {
+    const votes = candidates.votes.map(voteRef).filter((r) => omitVotes.includes(voteRefKey(r)))
+    const evidence = candidates.evidence
+      .map(evidenceRef)
+      .filter((r) => omitEvidence.includes(evidenceRefKey(r)))
+    add({
+      kind: 'omit-inclusion',
+      slot: nextSlot,
+      ...(votes.length > 0 ? { votes } : {}),
+      ...(evidence.length > 0 ? { evidence } : {}),
+    })
+    setOmitVotes([])
+    setOmitEvidence([])
+  }
 
   const optionGroups = messageOptionGroups(current)
   const selectedMessage = optionGroups
@@ -481,6 +558,110 @@ export function InterventionPanel({ session }: InterventionPanelProps) {
           >
             適用
           </button>
+        </fieldset>
+
+        <fieldset className="intervention-group">
+          <legend>投票先指定（head / source / target）</legend>
+          <div className="form-line">
+            <select
+              aria-label="投票先を指定するバリデータ"
+              value={vtValidator}
+              onChange={(e) => {
+                setVtValidator(Number(e.target.value))
+                setVtBlocks({ head: '', source: '', target: '' })
+              }}
+            >
+              {validators.map((v) => (
+                <option key={v} value={v}>
+                  {validatorLabel(v)}
+                </option>
+              ))}
+            </select>
+            の s{nextSlot} の投票
+          </div>
+          <div className="form-line">
+            {(['head', 'source', 'target'] as const).map((k) => (
+              <label key={k} className="check-inline">
+                {k}
+                <select
+                  aria-label={`投票の ${k}`}
+                  value={vtBlocks[k]}
+                  onChange={(e) => setVtBlocks({ ...vtBlocks, [k]: e.target.value })}
+                >
+                  <option value="">規則どおり</option>
+                  {voterBlocks.map((b) => (
+                    <option key={b.index} value={b.index}>
+                      {blockName(b.index)}（s{b.slot}）
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ))}
+          </div>
+          <button
+            type="button"
+            disabled={voteTargetEmpty || voteTargetScheduled}
+            onClick={designateVote}
+          >
+            {voteTargetScheduled
+              ? `投票先を指定済み（${validatorLabel(vtValidator)} s${nextSlot}）`
+              : '投票先を指定'}
+          </button>
+          <span className="intervention-note">
+            候補はそのバリデータのビュー内のブロック。未指定の成分は fork choice と FFG
+            の規則どおり（head 指定時はその枝で計算）
+          </span>
+        </fieldset>
+
+        <fieldset className="intervention-group">
+          <legend>取り込みの省略</legend>
+          <div className="form-line">
+            {`s${nextSlot} の提案者 ${validatorLabel(nextProposer)} が ${blockName(inclusionParent)} 上の提案で省く項目:`}
+          </div>
+          {candidates.votes.length === 0 && candidates.evidence.length === 0 ? (
+            <span className="intervention-note">
+              取り込み候補はありません（ビュー内の未取り込みの投票・証拠がここに並びます）
+            </span>
+          ) : (
+            <div className="validator-checks">
+              {candidates.votes.map((v) => {
+                const key = voteRefKey(voteRef(v))
+                const label = `${validatorName(v.validator)} の投票（s${v.slot}, head ${blockName(v.head)}）`
+                return (
+                  <label key={key} className="check-inline">
+                    <input
+                      type="checkbox"
+                      aria-label={`省略候補: ${label}`}
+                      checked={omitVotes.includes(key)}
+                      onChange={() => setOmitVotes(toggleKey(omitVotes, key))}
+                    />
+                    {label}
+                  </label>
+                )
+              })}
+              {candidates.evidence.map((e) => {
+                const key = evidenceRefKey(evidenceRef(e))
+                const label = evidenceLabel(e)
+                return (
+                  <label key={key} className="check-inline">
+                    <input
+                      type="checkbox"
+                      aria-label={`省略候補: ${label}`}
+                      checked={omitEvidence.includes(key)}
+                      onChange={() => setOmitEvidence(toggleKey(omitEvidence, key))}
+                    />
+                    {label}
+                  </label>
+                )
+              })}
+            </div>
+          )}
+          <button type="button" disabled={!omitSelected} onClick={scheduleOmission}>
+            次の提案で省略
+          </button>
+          <span className="intervention-note">
+            省いた項目は後のブロックが取り込める（未指定時は規則どおりすべて取り込む）
+          </span>
         </fieldset>
       </div>
 

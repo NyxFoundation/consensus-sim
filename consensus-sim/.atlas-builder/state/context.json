@@ -6,11 +6,11 @@
     "stop_after_infra_fails": 2
   },
   "progress": {
-    "last_signature": "b40ccf0186271f92f54df5b604bb61fc8b2e5b0d77d1453b41c3e7426e9ac596",
+    "last_signature": "721aa827139e6747a2b763f0d2d92068d0e0098c2b75687a72a9f2b1e17a870f",
     "idle_cycles_since_progress": 0,
     "infra_fails_since_ok": 0,
-    "last_progress_at": "2026-09-03T04:14:38+09:00",
-    "last_checked_at": "2026-09-03T04:14:38+09:00",
+    "last_progress_at": "2026-09-03T04:23:11+09:00",
+    "last_checked_at": "2026-09-03T04:23:11+09:00",
     "usage_limited_since_ok": 0
   },
   "reset_policy": {
@@ -21,20 +21,20 @@
     "reset_after_decisions": 5
   },
   "counters": {
-    "context_usage_estimate": 0.45,
+    "context_usage_estimate": 0.6,
     "failed_attempts_since_reset": 0,
-    "changed_files_since_reset": 16,
-    "completed_todos_since_reset": 2,
-    "important_decisions_since_reset": 2,
+    "changed_files_since_reset": 30,
+    "completed_todos_since_reset": 3,
+    "important_decisions_since_reset": 3,
     "major_spec_rewrite_since_reset": false,
     "high_risk_change_completed": false
   },
   "handoff": {
-    "written_at": "2026-09-03T04:14:00+09:00",
-    "summary": "改訂 Essence(sha c6fb67e2)の Spec 41 項 / Todo 44 項(validate ok)。T-001〜T-034 done。遂行順序 1・2 完了(チェーン状態、パラメータ化、ステークと罰則、緩和策、パラメータ UI)。残り: 遂行順序 3(T-035 介入拡張・T-036 フォーク数)、4(T-037 2 モジュール分割)、5(T-038/T-039 攻撃体系)、6(T-040/T-041 ライブラリ)、7(T-042/T-043 攻撃 UI)、8(T-044 総点検)。ドメイン骨格: src/domain/{types,inclusion,chainState,protocolParams,config,schedule,forkChoice,protocol,localView,simulation,intervention,scenario,scenarioCodec}.ts。UI: src/ui/{App,useSimulation(setConfig/setValidatorCount/setInterventions/loadScenario),ParamsPanel,InterventionPanel,ScenarioPanel,StateTable,ChainStateDetail,modes/*}.tsx。SlotDirectives = {stopped, doublePropose, doubleVote, proposeParent}(simulation.ts)、buildProposal(view, resolution, slot, proposer, index, parent, omit: Omission)、buildAttestation(view, resolution, slot, validator)。ゲート typecheck / vitest 22 files 264 tests / build 全 exit 0。R-003・R-004 は Non-blocking で提案中。",
+    "written_at": "2026-09-03T04:22:00+09:00",
+    "summary": "改訂 Essence(sha c6fb67e2)の Spec 41 項 / Todo 44 項(validate ok)。T-001〜T-035 done。遂行順序 1・2 完了、遂行順序 3 は T-035(投票先指定・取り込み省略・受信者集合)完了で T-036(フォーク数定義)が残り。以降: 4(T-037 2 モジュール分割)、5(T-038/T-039 攻撃体系)、6(T-040/T-041 ライブラリ)、7(T-042/T-043 攻撃 UI)、8(T-044 総点検)。ドメイン骨格: src/domain/{types,inclusion,chainState,protocolParams,config,schedule,forkChoice,protocol,localView,simulation,intervention,scenario,scenarioCodec}.ts。Intervention は 10 種(partition/stop/offline/double-propose/double-vote/delay/drop/propose-parent/vote-target/omit-inclusion)。SlotDirectives = {stopped, doublePropose, doubleVote, proposeParent, omit: Omission{votes: MessageRef[], evidence: EvidenceRef[]}, voteOverrides: Map<ValidatorIndex, VoteOverride{head?,source?,target?}>}。buildAttestation(view, resolution, slot, validator, override)(head 指定時は source/target をその枝の規則で導出、明示指定が優先、View にないブロックは無視)。UI: src/ui/{App,useSimulation,ParamsPanel,InterventionPanel(投票先指定・取り込み省略 fieldset 追加),ScenarioPanel,StateTable,ChainStateDetail,modes/*}.tsx。ゲート typecheck / vitest 24 files 279 tests / build 全 exit 0。R-003・R-004 は Non-blocking で提案中。changed_files 30 で reset 閾値(25)を超過 — 次サイクル前にリセット想定、handoff はディスクのみから再開できる粒度で記述済み。",
     "next_actions": [
-      "T-035(e3-interventions, cost 5)を単独バッチで実行: (1) 投票先指定 — Intervention {kind:'vote-target', slot, validator, head?, source?, target?}(いずれもそのバリデータの View 内ブロックに限定、指定のない成分は従来規則)を SlotDirectives.voteOverrides?: Map<ValidatorIndex, {head?,source?,target?}> に落とし、advanceSlot の attester ループで buildAttestation の結果を上書き(View にないブロック指定はフォールバック=無視)。(2) 取り込み省略 — Intervention {kind:'omit-inclusion', slot, votes: string[](voteKey), evidence: string[](equivocationKey)} を SlotDirectives.omit?: Omission に落とし buildProposal に渡す。UI: 投票先指定 fieldset(バリデータ選択 + head/source/target の select、候補はそのバリデータの viewOf(log, v, cursor, delivery) のブロック)、取り込み省略 fieldset(次スロット提案者の View にあって parent 枝に未取り込みの投票・証拠を列挙してチェック)、遅延・欠落の受信者集合は既存 msgTargets を UI で既に選べる(T-009)ので describe/README 文言の確認のみ。codec に新 2 種を追加(検証: slot 整数・validator 範囲・キーは文字列)。テスト: domain(指定どおりの投票・省略、View 外指定のフォールバック、決定性)、codec 往復、DOM(指定→次スロットの投票表/状態表に反映、省略→body に含まれない)。",
-      "T-036(cost 3): domain に forkCount(tree, config)(checkpointStatus の finalized 集合の最高チェックポイントを根とする部分木の葉数; 定義は Essence 必須 10)と designationIncrement(tree, parent)(parent が子を持てば 1、葉なら 0)を置き、InterventionPanel の MAX_FORK_DESIGNATIONS 近似を『現在フォーク数 + 未実行指定の増分 + この指定の増分 > 4 なら受け付けない』に置換。分断等の自然発生フォークは制約しない。DOM テスト: 4 本到達で拒否、finality 進行で再受付。既存テスト interventions.test の『同時 4 本まで』ケースを新定義に更新。",
+      "T-036(e3-interventions, cost 3)を単独バッチで実行: domain(blockTree または chainState)に forkCount(tree, config) = checkpointStatus(tree, config).finalized の最高チェックポイント(higherCheckpoint で選ぶ)を根とする部分木の葉数(finalized だけなら 1)と、designationIncrement(tree, parent) = childrenOf(tree, parent).length > 0 ? 1 : 0 を置く。InterventionPanel の MAX_FORK_DESIGNATIONS(キュー内 4 件)近似を Essence 必須 10 の定義『現在の神視点フォーク数 + 未実行(slot > cursor)の propose-parent 指定の増分 + この指定の増分 > 4 なら受け付けない』に置換し、理由表示を更新。分断・エクイボケーションで自然に 5 以上になっても制約しない。テスト: domain(forkCount: 線形 1、二重提案で 2、finalized 進行で減る)、DOM(4 本到達で拒否、finality が進んで減ると再受付、自然発生フォークは無制約)。interventions.test.tsx の『refuses a fifth simultaneous designation』を新定義に合わせて更新(現在は propose-parent parent B0 を 4 回で cap — 新定義では B0 上の 4 本目の指定で神視点フォーク数が 4 になった時点で判定)。README のフォーク上限記述を定義どおりに直す。",
+      "T-037(遂行順序 4, cost 4): src/domain を model/(本質的仕様: types, blockTree, view, finality, forkChoice, inclusion, chainState, protocolParams, config?, schedule, protocol, localView — Lean 対象)と sim/(制約: validatorSet の人名・上限、intervention, scenario, scenarioCodec, simulation?)に分割。判定基準は『Lean 形式化がそのまま対象とする型か』。SimulationConfig/simulation.ts の置き場は要判断(ProtocolParams・初期ステークは本質側、バリデータ数 4〜10 制約・シードは sim 側 → config を分ける可能性)。型一覧(domainSources.ts の import.meta.glob)を model/ のみに絞り、typesPage/typeGraph テストを更新。purity.test の境界も更新。",
       "運用: セッション内シェルから state コマンドを呼ぶときは cd CONTROL_ROOT(絶対パス)のうえ ATLAS_BUILDER_LOCK_TOKEN=$(cat .agent/tmp/loop.lock/token) を前置(Bash の cwd は呼び出し間で持ち越されるので相対パスに注意)。projection の編集は stage-projection → tmp/start_batch.py(active_batch/in_progress)→ 実装 → tmp/finish_tNNN.py で done+evidence → apply-projection。"
     ],
     "open_questions": [

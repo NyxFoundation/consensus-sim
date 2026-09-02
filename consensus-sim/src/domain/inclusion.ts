@@ -8,10 +8,12 @@
 // intervention may leave items out.
 
 import { pathToAnchor, type BlockTree } from "./blockTree";
+import { sameRef, voteRef, type MessageRef } from "./messages";
 import type {
   BlockBody,
   BlockIndex,
   Equivocation,
+  SlotIndex,
   ValidatorIndex,
   Vote,
 } from "./types";
@@ -129,10 +131,29 @@ export function includedOn(
   return { votes, evidence };
 }
 
-/** Items a proposer deliberately leaves out (取り込みの省略). */
+/** Names evidence by the equivocator, the slot and the kind — every pair of
+ * that validator's conflicting messages in that slot. */
+export interface EvidenceRef {
+  readonly kind: Equivocation["kind"];
+  readonly validator: ValidatorIndex;
+  readonly slot: SlotIndex;
+}
+
+export const evidenceRef = (e: Equivocation): EvidenceRef => ({
+  kind: e.kind,
+  validator: e.validator,
+  slot: e.slot,
+});
+
+export function sameEvidenceRef(a: EvidenceRef, b: EvidenceRef): boolean {
+  return a.kind === b.kind && a.validator === b.validator && a.slot === b.slot;
+}
+
+/** Items a proposer deliberately leaves out (取り込みの省略): votes by
+ * message identity, evidence by equivocator / slot / kind. */
 export interface Omission {
-  readonly votes?: ReadonlySet<string>;
-  readonly evidence?: ReadonlySet<string>;
+  readonly votes?: readonly MessageRef[];
+  readonly evidence?: readonly EvidenceRef[];
 }
 
 /**
@@ -151,13 +172,15 @@ export function buildBody(
   const bodyVotes: Vote[] = [];
   for (const vote of votes) {
     const key = voteKey(vote);
-    if (already.votes.has(key) || seen.has(key) || omit.votes?.has(key)) continue;
+    if (already.votes.has(key) || seen.has(key)) continue;
+    if (omit.votes?.some((r) => sameRef(r, voteRef(vote)))) continue;
     seen.add(key);
     bodyVotes.push(vote);
   }
-  const bodyEvidence = equivocationsIn(tree, votes).filter((e) => {
-    const key = equivocationKey(e);
-    return !already.evidence.has(key) && !omit.evidence?.has(key);
-  });
+  const bodyEvidence = equivocationsIn(tree, votes).filter(
+    (e) =>
+      !already.evidence.has(equivocationKey(e)) &&
+      !omit.evidence?.some((r) => sameEvidenceRef(r, evidenceRef(e))),
+  );
   return { votes: bodyVotes, evidence: bodyEvidence };
 }

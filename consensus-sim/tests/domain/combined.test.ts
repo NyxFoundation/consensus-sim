@@ -44,6 +44,13 @@ const everything = scenario([
   { kind: "delay", message: { kind: "block", block: 2 }, untilSlot: 4, observers: [0] },
   { kind: "drop", message: { kind: "block", block: 4 }, observers: [1] },
   { kind: "propose-parent", slot: 7, parent: 0 },
+  { kind: "vote-target", slot: 8, validator: 2, head: 1 },
+  {
+    kind: "omit-inclusion",
+    slot: 9,
+    votes: [{ kind: "vote", validator: 2, slot: 8, head: 1 }],
+    evidence: [{ kind: "double-vote", validator: 0, slot: 3 }],
+  },
 ]);
 
 describe("all intervention kinds combined", () => {
