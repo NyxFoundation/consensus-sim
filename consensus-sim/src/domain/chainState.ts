@@ -25,13 +25,26 @@
 //   votes of the epoch's last slot (included one block later) count.
 // Ethereum's quadratic penalties and rewards are deliberately absent.
 
-import { getBlock, isAncestor, pathToAnchor, type BlockTree } from "./blockTree";
+import {
+  childrenOf,
+  getBlock,
+  isAncestor,
+  pathToAnchor,
+  type BlockTree,
+} from "./blockTree";
 import type { SimulationConfig } from "./config";
-import { epochOf } from "./finality";
+import {
+  JUSTIFIED_SWITCH_WINDOW_SLOTS,
+  epochBoundarySlot,
+  epochOf,
+  inJustifiedSwitchWindow,
+} from "./finality";
+import type { CheckpointSwitch } from "./protocolParams";
 import {
   ANCHOR_BLOCK_INDEX,
   type Block,
   type BlockIndex,
+  type SlotIndex,
   type Stake,
   type ValidatorIndex,
 } from "./types";
@@ -254,18 +267,77 @@ export function checkpointStatus(
   return { justified, finalized };
 }
 
+/** The highest justified checkpoint among the given chain states. */
+function highestJustified(
+  tree: BlockTree,
+  states: Iterable<ChainState>,
+): BlockIndex {
+  let root: BlockIndex = ANCHOR_BLOCK_INDEX;
+  for (const state of states) {
+    root = higherCheckpoint(tree, root, state.justified);
+  }
+  return root;
+}
+
 /**
- * The justified checkpoint a validator starts fork choice from: the highest
- * justified checkpoint among the chain states of every block it knows. The
- * justified-checkpoint switching rule (緩和策) refines this later.
+ * The justified checkpoint a validator starts fork choice from, under the
+ * justified-checkpoint switching rule (justified チェックポイント切替,
+ * 必須 27) as a fork choice computed at `atSlot`:
+ *
+ * - `off` / `unrealized`: the highest justified checkpoint among the chain
+ *   states of every block it knows (`unrealized` filters candidates instead,
+ *   see `viableBlocks`).
+ * - `window`: the same inside the head section of the epoch; outside it the
+ *   root switches only along its own chain. A block's slot stands for its
+ *   arrival, so "the root as of the window" is the highest justified among
+ *   blocks proposed before the window closed, and a newer justified
+ *   checkpoint is adopted only when it descends from that root (Ethereum's
+ *   should_update_justified_checkpoint, simplified to a pure function of the
+ *   view: a conflicting justification realized mid-epoch waits for the next
+ *   epoch's window).
  */
 export function forkChoiceRoot(
   tree: BlockTree,
   states: ChainStateIndex,
+  switching: CheckpointSwitch = "off",
+  atSlot: SlotIndex = 0,
 ): BlockIndex {
-  let root: BlockIndex = ANCHOR_BLOCK_INDEX;
-  for (const state of states.values()) {
-    root = higherCheckpoint(tree, root, state.justified);
+  const free = highestJustified(tree, states.values());
+  if (switching !== "window" || inJustifiedSwitchWindow(atSlot)) return free;
+  const windowEnd =
+    epochBoundarySlot(epochOf(atSlot)) + JUSTIFIED_SWITCH_WINDOW_SLOTS;
+  const settled = highestJustified(
+    tree,
+    [...states].filter(([b]) => getBlock(tree, b)!.slot < windowEnd).map(([, s]) => s),
+  );
+  return highestJustified(
+    tree,
+    [...states.values()].filter((s) => isAncestor(tree, settled, s.justified)),
+  );
+}
+
+/**
+ * The blocks fork choice may descend into under `unrealized` switching: the
+ * leaves whose chain state realizes a justified checkpoint as recent as
+ * `root` (by slot, i.e. by epoch), together with their ancestors. A branch
+ * whose included votes can only justify something older is excluded even
+ * when it carries more votes. In this model every block's chain state
+ * already counts its included votes without waiting for the epoch's end, so
+ * a branch's unrealized justified checkpoint is its tip's
+ * `ChainState.justified`.
+ */
+export function viableBlocks(
+  tree: BlockTree,
+  states: ChainStateIndex,
+  root: BlockIndex,
+): ReadonlySet<BlockIndex> {
+  const rootSlot = getBlock(tree, root)!.slot;
+  const viable = new Set<BlockIndex>();
+  for (const block of tree.blocks.values()) {
+    if (childrenOf(tree, block.index).length > 0) continue;
+    const justified = states.get(block.index)!.justified;
+    if (getBlock(tree, justified)!.slot < rootSlot) continue;
+    for (const ancestor of pathToAnchor(tree, block.index)) viable.add(ancestor.index);
   }
-  return root;
+  return viable;
 }

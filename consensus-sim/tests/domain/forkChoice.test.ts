@@ -3,6 +3,7 @@ import {
   ANCHOR_BLOCK_INDEX,
   EMPTY_BODY,
   addBlock,
+  countedVotes,
   createBlockTree,
   ghostHead,
   latestVotes,
@@ -50,17 +51,29 @@ describe("latestVotes", () => {
   });
 });
 
+describe("countedVotes", () => {
+  const votes = [vote(0, 1, 1), vote(0, 2, 2), vote(1, 1, 3)];
+
+  it("keeps each validator's latest vote under LMD-GHOST", () => {
+    expect(countedVotes(votes).map((v) => v.head)).toEqual([2, 3]);
+    expect(countedVotes(votes, "LMD-GHOST").map((v) => v.head)).toEqual([2, 3]);
+  });
+
+  it("keeps every vote under GHOST", () => {
+    expect(countedVotes(votes, "GHOST")).toEqual(votes);
+  });
+});
+
 describe("subtreeWeight", () => {
-  it("counts latest votes for heads in the subtree", () => {
-    const latest = latestVotes([vote(0, 3, 2), vote(1, 3, 1), vote(2, 3, 4)]);
-    expect(subtreeWeight(tree, latest, 1)).toBe(2);
-    expect(subtreeWeight(tree, latest, 3)).toBe(1);
-    expect(subtreeWeight(tree, latest, ANCHOR_BLOCK_INDEX)).toBe(3);
+  it("counts the given votes for heads in the subtree", () => {
+    const counted = countedVotes([vote(0, 3, 2), vote(1, 3, 1), vote(2, 3, 4)]);
+    expect(subtreeWeight(tree, counted, 1)).toBe(2);
+    expect(subtreeWeight(tree, counted, 3)).toBe(1);
+    expect(subtreeWeight(tree, counted, ANCHOR_BLOCK_INDEX)).toBe(3);
   });
 
   it("ignores votes whose head is unknown to the tree", () => {
-    const latest = latestVotes([vote(0, 3, 99)]);
-    expect(subtreeWeight(tree, latest, ANCHOR_BLOCK_INDEX)).toBe(0);
+    expect(subtreeWeight(tree, [vote(0, 3, 99)], ANCHOR_BLOCK_INDEX)).toBe(0);
   });
 });
 
@@ -79,6 +92,16 @@ describe("ghostHead", () => {
   it("descends only below the given root", () => {
     const votes = [vote(0, 3, 2), vote(1, 3, 4), vote(2, 3, 4)];
     expect(ghostHead(tree, votes, 1)).toBe(2);
+  });
+
+  it("descends only into candidate blocks when a candidate set is given", () => {
+    const votes = [vote(0, 3, 2), vote(1, 3, 4), vote(2, 3, 4)];
+    const candidates = new Set([ANCHOR_BLOCK_INDEX, 1, 2]);
+    expect(ghostHead(tree, votes, ANCHOR_BLOCK_INDEX, { candidates })).toBe(2);
+    // No candidate child: the descent stops at the root.
+    expect(ghostHead(tree, votes, ANCHOR_BLOCK_INDEX, { candidates: new Set() })).toBe(
+      ANCHOR_BLOCK_INDEX,
+    );
   });
 
   it("rejects a root missing from the tree", () => {

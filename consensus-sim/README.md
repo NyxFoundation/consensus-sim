@@ -132,6 +132,20 @@ npm run build      # static bundle in dist/ (no backend; plain static SPA)
   the slot; a proposal delivered late is never boosted. A validator's
   justified / finalized / stakes are the chain state of its head (the
   inclusion layer).
+- **Mitigations** are three more protocol parameters, each following
+  Ethereum's rule in simplified form. The **fork-choice rule** decides which
+  votes count: LMD-GHOST only each validator's latest, GHOST every vote (so
+  stale votes and both halves of a double vote keep their weight). The
+  **equivocation discount** zeroes a validator's votes in the fork choice of
+  any view that holds two conflicting votes of it for one slot — immediate,
+  local to that view, and fork choice only; chain state waits for slashing.
+  **Justified-checkpoint switching** governs the fork-choice root: `off`
+  always starts from the highest justified checkpoint known; `window` lets
+  the root move to a conflicting justified checkpoint only in the first slot
+  of an epoch (a quarter of the epoch, as in Ethereum), while a newer
+  checkpoint on the root's own chain is adopted at once; `unrealized`
+  starts from the highest justified checkpoint but never descends into a
+  branch whose included votes justify only an older one.
 - **Local views** are pure filters over a global append-only message log: a
   delivery rule decides who has seen what by when. Instant broadcast is the
   default; partitions, delays and drops plug in as stricter delivery rules

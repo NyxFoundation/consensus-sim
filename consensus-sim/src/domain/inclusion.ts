@@ -12,6 +12,7 @@ import type {
   BlockBody,
   BlockIndex,
   Equivocation,
+  ValidatorIndex,
   Vote,
 } from "./types";
 
@@ -89,6 +90,27 @@ export function equivocationsIn(
         });
       }
     }
+  }
+  return found;
+}
+
+/**
+ * Validators seen casting two content-different votes in one slot — the
+ * equivocation discount (エクイボケーション割引, 必須 27) drops their votes
+ * from fork choice the moment a view holds the conflicting pair: immediate,
+ * local to that view, and fork choice only (chain state is untouched until a
+ * block includes the evidence).
+ */
+export function equivocatingVoters(
+  votes: readonly Vote[],
+): ReadonlySet<ValidatorIndex> {
+  const first = new Map<string, Vote>();
+  const found = new Set<ValidatorIndex>();
+  for (const vote of votes) {
+    const key = `${vote.validator}@${vote.slot}`;
+    const seen = first.get(key);
+    if (seen === undefined) first.set(key, vote);
+    else if (!sameVote(seen, vote)) found.add(vote.validator);
   }
   return found;
 }

@@ -122,6 +122,19 @@
       ],
       "raised_by": "atlas-builder",
       "created_at": "2026-09-03T03:55:00+09:00"
+    },
+    {
+      "id": "R-004",
+      "type": "Non-blocking Recommendation",
+      "status": "proposed",
+      "title": "justified の実現時期(ブロック毎の即時集計)と切替規則の純関数化に伴う簡約の確認",
+      "detail": "T-033 の緩和策は次の 2 つの裁量簡約の上に実装した。判断が意図と異なる場合は resume で指示してほしい(いずれも思想節 (a) の骨格意味論に触れるため自律では変えない)。【1】本モデルの ChainState.justified は T-029 の裁量で各ブロックの取り込み後に即時再評価される(エポック末を待たない)ため、Essence の『unrealized justification(エポック末を待たずに集計した justified)』は枝先端の ChainState.justified と一致し、`unrealized` 切替は『葉の ChainState.justified が起点より古い(slot が小さい)枝を fork choice の候補から除外する』として実装した。Ethereum の実仕様のように realized justification をエポック遷移時にのみ確定させる(B4 の justified が s5 でなく s8、finalized が s9 でなく s12 になる)には ChainState の finality 評価時期を変える必要があり、これは J/F バッジ・状態表・既存テストのタイムラインを一律に約 3 スロット遅らせる骨格変更となる。現状(即時集計)は『取り込み層で決まる』という Essence の記述と矛盾せず、攻撃ライブラリ(A05 バウンシング等)は取り込みの遅延・省略で justified の出現時期を操作できるため、即時集計のまま進める。【2】`window` 切替は View が起点の履歴を持てないため純関数化し、『ブロックの slot を到着時刻の代理』として、窓(各エポック先頭 1 スロット = Ethereum の SAFE_SLOTS_TO_UPDATE_JUSTIFIED の比率)の閉じる前のブロックから得た最高 justified を窓時点の起点とし、それ以外のスロットではその子孫の justified にのみ切り替える。したがって『投票を保留し後のブロックで取り込ませて justified を途中で出現させる』戦略は window で緩和されるが、『justified を含むブロック自体を遅延配送で途中に出す』戦略は(到着時刻を View が持たないので)ブロックの slot 時点で到着した扱いとなり緩和されない。到着時刻に基づく忠実な window にするには View 型に受信時刻を加える必要がある(参照型の変更 = 人間判断)。攻撃ライブラリの A05 は前者(投票保留)の形で簡約する予定。",
+      "requires_human_approval": false,
+      "source": [
+        "T-033"
+      ],
+      "raised_by": "atlas-builder",
+      "created_at": "2026-09-03T04:06:00+09:00"
     }
   ]
 }

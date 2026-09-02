@@ -6,11 +6,11 @@
     "stop_after_infra_fails": 2
   },
   "progress": {
-    "last_signature": "8b9815ef4733e515d06f6533f7141416bfe4a6606b18b246dfeac8992bef04b6",
+    "last_signature": "e9a1821796cca9b80bc6f6132ad37caa2652935b3eb8916c9966437d0f938fef",
     "idle_cycles_since_progress": 0,
     "infra_fails_since_ok": 0,
-    "last_progress_at": "2026-09-03T03:55:28+09:00",
-    "last_checked_at": "2026-09-03T03:55:28+09:00",
+    "last_progress_at": "2026-09-03T04:07:50+09:00",
+    "last_checked_at": "2026-09-03T04:07:50+09:00",
     "usage_limited_since_ok": 0
   },
   "reset_policy": {
@@ -21,25 +21,26 @@
     "reset_after_decisions": 5
   },
   "counters": {
-    "context_usage_estimate": 0.35,
+    "context_usage_estimate": 0.3,
     "failed_attempts_since_reset": 0,
-    "changed_files_since_reset": 25,
+    "changed_files_since_reset": 9,
     "completed_todos_since_reset": 1,
     "important_decisions_since_reset": 1,
     "major_spec_rewrite_since_reset": false,
     "high_risk_change_completed": false
   },
   "handoff": {
-    "written_at": "2026-09-03T03:58:00+09:00",
-    "summary": "改訂 Essence(sha c6fb67e2)の Spec 41 項 / Todo 44 項(validate ok)。T-001〜T-032 done。遂行順序 1 完了、遂行順序 2 は T-031(パラメータ化)・T-032(ステークと罰則)完了で T-033(緩和策)・T-034(UI)が残り。ドメイン骨格: src/domain/{types,inclusion,chainState,protocolParams,config,schedule,forkChoice,protocol,localView,simulation}.ts — SimulationConfig={validatorCount,seed,params,initialStakes}(equalStakes(n)=全員 32)、chainStatesOf/chainStateOf/checkpointStatus(tree, config) は枝を錨から逐次リプレイ(スラッシング→取り込み→finality 再評価→終了エポックの leak)、resolveView(view, config, atSlot) の投票重み = ChainState(vote.head).stakes[voter](R-003 参照)+boost(boost 対象ブロックの committee 総重み × boost)。ForkChoiceWeights.weightOf は (vote) => Stake。ゲート typecheck / vitest 20 files 238 tests / build 全 exit 0。changed_files 25 で reset 閾値到達。",
+    "written_at": "2026-09-03T04:08:00+09:00",
+    "summary": "改訂 Essence(sha c6fb67e2)の Spec 41 項 / Todo 44 項(validate ok)。T-001〜T-033 done。遂行順序 1 完了、遂行順序 2 はドメイン側(T-031 パラメータ化・T-032 ステークと罰則・T-033 緩和策)完了で T-034(UI)のみ残り。ドメイン骨格: src/domain/{types,inclusion,chainState,protocolParams,config,schedule,forkChoice,protocol,localView,simulation}.ts — SimulationConfig={validatorCount,seed,params,initialStakes}、chainStatesOf/checkpointStatus(tree, config)、resolveView(view, config, atSlot) が params の全緩和策を適用: forkChoiceRoot(tree, states, params.checkpointSwitch, atSlot)(window は JUSTIFIED_SWITCH_WINDOW_SLOTS=1 の純関数規則)、weightOf = 割引(equivocatingVoters)→ ChainState(vote.head).stakes[voter]、ghostHead(tree, votes, root, {weights, rule, candidates})(unrealized は viableBlocks を candidates に)。ゲート typecheck / vitest 21 files 255 tests / build 全 exit 0。R-003(投票重みの参照先)・R-004(justified 即時集計と window の到着代理の簡約)は Non-blocking で提案中。",
     "next_actions": [
-      "T-033(e3-params, cost 4)を単独バッチで実行: resolveView(protocol.ts)で (1) params.forkChoice: 'GHOST' なら latestVotes を使わず view.votes 全票を数える(forkChoice.ts の ghostHead に『全票』モードを追加 — subtreeWeight は latest Map を前提なので Vote[] を受ける形に一般化)、(2) params.equivocationDiscount: equivocationsIn(view.blockTree, view.votes) の double-vote 対象バリデータを weightOf で 0 にする(即時・局所・fork choice のみ、チェーン状態は不変)、(3) params.checkpointSwitch: forkChoiceRoot(tree, states) を規則付きに拡張 — window: エポック内の先頭区間(裁量: エポック先頭スロット±1 など Ethereum の SAFE_SLOTS_TO_UPDATE_JUSTIFIED 相当を 4 スロットエポックに簡約)以外では前スロットの起点を維持(起点の履歴は View に持てないため、『atSlot がエポック先頭区間でなければ、justified のうち前エポック以前に justified となった最高のもの』等の純関数定義にする)、unrealized: 各枝の unrealized justified(枝の取り込み済み投票をエポック末を待たず集計)を deriveBranch で併せて導出し、起点より古い justified しか実現し得ない枝を候補(GHOST の子)から除外、off: 常に最高 justified。プリセット対応(phase0: off 割引・window / merge: on・window / current: on・unrealized)をテストで固定。",
-      "T-034(UI): プロトコルパラメータ・プリセット・シード・初期ステーク(バリデータ別数値入力、正の整数)の設定パネル(既定 merge、プリセット選択で一括切替、presetOf で現在値からプリセット名を逆引き)、useSimulation に setConfig(config) を追加(新しい run を slot 0 から)。DOM テスト: committee サイズ c で投票者限定、boost 変更で head 変化、二重投票→状態表ステーク項目が 0、leak の減少(s24 以降)と leak off、初期ステークの保存・再読込。",
-      "T-035 の取り込み省略は inclusion.ts の Omission(voteKey/equivocationKey の集合)を SlotDirectives 経由で buildProposal に渡す。投票先指定は buildAttestation の head/source/target を上書き(View 内ブロックに限定)。",
-      "運用: セッション内シェルから state コマンドを呼ぶときは ATLAS_BUILDER_LOCK_TOKEN=$(cat .agent/tmp/loop.lock/token) を前置(lessons L-20260830T011600)。Bash guard と state ファイル読み書きの作法は lessons L-20260828T000934。"
+      "T-034(e3-params, cost 5)を単独バッチで実行: プロトコルパラメータ(committee all|sized c、boost、forkChoice、equivocationDiscount、checkpointSwitch、slashing、inactivityLeak {enabled, delayEpochs, rate})・プリセット選択(既定 merge、presetOf で現在値から逆引き、選択で一括切替)・シード・初期ステーク(バリデータ別の正の整数入力、既定 equalStakes)の設定パネルを App に追加し、useSimulation に setConfig(config)(新しい run を slot 0 から)を追加。codec は params/initialStakes を既に保存・検証済み(T-031/T-032)なので UI 側の保存・再読込のみ確認。DOM テスト(tests/ui/params.test.tsx 等): committee サイズ c で投票者限定、boost 変更で head 変化(protocolParams.test の s2 停止+s3 フォーク作成シナリオを流用)、二重投票→状態表ステーク項目が 0、leak の減少(s24 以降)と leak off、初期ステークの保存・再読込・既定は全員等しい。UI の見た目の大転換はしない(設定パネルは介入パネルと同じ details/summary 様式)。",
+      "T-035 の取り込み省略は inclusion.ts の Omission(voteKey/equivocationKey の集合)を SlotDirectives 経由で buildProposal に渡す。投票先指定は buildAttestation の head/source/target を上書き(View 内ブロックに限定)。遅延・欠落の受信者集合は既存 observers を UI で選べるようにするだけ。",
+      "T-036 のフォーク数は chainState.checkpointStatus / 神視点 tree で『最新 finalized を根とする部分木の葉数』を domain 関数 forkCount(tree, config) として置き、InterventionPanel の MAX_FORK_DESIGNATIONS 近似を置換。",
+      "運用: セッション内シェルから state コマンドを呼ぶときは cd CONTROL_ROOT(絶対パス)のうえ ATLAS_BUILDER_LOCK_TOKEN=$(cat .agent/tmp/loop.lock/token) を前置(Bash の cwd は呼び出し間で持ち越されるので相対パスに注意)。projection の編集は stage-projection → tmp/finish_tNNN.py で bundle を書き換え → apply-projection。"
     ],
     "open_questions": [
-      "R-003: fork choice の投票重みの参照先(投票 head のチェーン状態)が必須 25 の意図どおりか。異なる場合は resolveView.weightOf の 1 関数を差し替える。"
+      "R-003: fork choice の投票重みの参照先(投票 head のチェーン状態)が必須 25 の意図どおりか。異なる場合は resolveView.weightOf の 1 関数を差し替える。",
+      "R-004: (1) ChainState.justified のブロック毎即時集計(realized = unrealized)のままでよいか、Ethereum 準拠のエポック遷移時確定(J/F が約 3 スロット遅れる骨格変更)にするか。(2) window 切替の『ブロック slot = 到着時刻』代理でよいか(遅延配送ブロックによる途中出現は緩和されない)。"
     ],
     "pending_cycle": false
   }

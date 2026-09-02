@@ -21,6 +21,22 @@ export function epochBoundarySlot(epoch: number): SlotIndex {
   return epoch * SLOTS_PER_EPOCH;
 }
 
+export function slotsSinceEpochStart(slot: SlotIndex): number {
+  return slot - epochBoundarySlot(epochOf(slot));
+}
+
+/**
+ * The head section of an epoch in which the fork-choice root may switch to
+ * a conflicting justified checkpoint (justified チェックポイント切替 =
+ * window): Ethereum's SAFE_SLOTS_TO_UPDATE_JUSTIFIED is a quarter of its
+ * epoch, which is one slot of this model's four.
+ */
+export const JUSTIFIED_SWITCH_WINDOW_SLOTS = 1;
+
+export function inJustifiedSwitchWindow(slot: SlotIndex): boolean {
+  return slotsSinceEpochStart(slot) < JUSTIFIED_SWITCH_WINDOW_SLOTS;
+}
+
 /**
  * The checkpoint of `epoch` on the chain ending at `head`: the last block on
  * that chain with slot ≤ the epoch's boundary slot (the epoch-boundary

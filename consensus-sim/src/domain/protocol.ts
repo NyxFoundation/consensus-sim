@@ -11,13 +11,14 @@ import { type BlockTree } from "./blockTree";
 import {
   chainStatesOf,
   forkChoiceRoot,
+  viableBlocks,
   type ChainState,
   type ChainStateIndex,
 } from "./chainState";
 import type { SimulationConfig } from "./config";
 import { checkpointFor, epochOf } from "./finality";
 import { ghostHead, type ForkChoiceWeights } from "./forkChoice";
-import { buildBody, type Omission } from "./inclusion";
+import { buildBody, equivocatingVoters, type Omission } from "./inclusion";
 import { committeeForSlot, proposerForSlot } from "./schedule";
 import {
   ANCHOR_BLOCK_INDEX,
@@ -82,17 +83,27 @@ export function committeeWeight(
  * weighs the voter's stake in the chain state of the head it votes for
  * (ESSENCE 必須 25: a validator's weight is its stake in its head's chain
  * state), so a penalty included on a branch bites exactly there; the timely
- * proposal of `atSlot` gets its committee's weight × boost on top.
+ * proposal of `atSlot` gets its committee's weight × boost on top. The
+ * mitigations (緩和策, 必須 27) apply here: the fork-choice rule picks the
+ * counted votes, the equivocation discount zeroes a voter this view has
+ * seen double-voting, and the checkpoint-switching rule chooses the root
+ * (`window`) or prunes the candidates (`unrealized`).
  */
 export function resolveView(
   view: View,
   config: SimulationConfig,
   atSlot: SlotIndex = view.slot,
 ): Resolution {
+  const { params } = config;
   const states = chainStatesOf(view.blockTree, config);
-  const root = forkChoiceRoot(view.blockTree, states);
+  const root = forkChoiceRoot(view.blockTree, states, params.checkpointSwitch, atSlot);
+  const discounted = params.equivocationDiscount
+    ? equivocatingVoters(view.votes)
+    : undefined;
   const weightOf = (vote: Vote): Stake =>
-    states.get(vote.head)?.stakes.get(vote.validator) ?? 0;
+    discounted?.has(vote.validator)
+      ? 0
+      : (states.get(vote.head)?.stakes.get(vote.validator) ?? 0);
   const boosted = boostedBlock(view, atSlot, config);
   const weights: ForkChoiceWeights = {
     weightOf,
@@ -106,7 +117,14 @@ export function resolveView(
               config.params.boost,
           },
   };
-  const head = ghostHead(view.blockTree, view.votes, root, weights);
+  const head = ghostHead(view.blockTree, view.votes, root, {
+    weights,
+    rule: params.forkChoice,
+    candidates:
+      params.checkpointSwitch === "unrealized"
+        ? viableBlocks(view.blockTree, states, root)
+        : undefined,
+  });
   return { states, root, head, chainState: states.get(head)!, weights };
 }
 

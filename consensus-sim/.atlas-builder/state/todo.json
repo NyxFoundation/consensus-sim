@@ -1119,7 +1119,7 @@
     {
       "id": "T-033",
       "title": "緩和策(ドメイン): fork choice 規則(GHOST 全投票 | LMD-GHOST 最新投票のみ)、エクイボケーション割引(View 内で相反 2 投票を観測した瞬間から fork choice 重みから除外)、justified チェックポイント切替(window: エポック先頭区間に限る | unrealized: unrealized justification により古い justified しか実現し得ない枝を除外 | off)+テスト",
-      "status": "pending",
+      "status": "done",
       "priority": "must",
       "spec": [
         "S-034",
@@ -1131,7 +1131,37 @@
       "batch_group": "e3-params",
       "context_cost": 4,
       "risk_level": "normal",
-      "notes": "遂行順序 2。Ethereum の実仕様に準拠しつつ細部は裁量。プリセットごとの値の対応(phase0: 割引 off・window / merge: on・window / current: on・unrealized)をテストで固定。"
+      "notes": "遂行順序 2。Ethereum の実仕様に準拠しつつ細部は裁量。プリセットごとの値の対応(phase0: 割引 off・window / merge: on・window / current: on・unrealized)をテストで固定。 実装(裁量意味論、参照型・骨格の意味論は不変更): (1) fork choice 規則 — countedVotes(votes, rule): LMD-GHOST は latestVotes、GHOST は全票(旧い票もエクイボケーションの両票も数える)。ghostHead は ForkChoiceOptions {weights, rule, candidates} を取る。(2) エクイボケーション割引 — equivocatingVoters(view.votes)(同一スロットの内容の異なる 2 投票を持つバリデータ)を resolveView の weightOf で 0 にする。即時・局所(観測した View だけ)・fork choice のみ(チェーン状態は証拠取り込みのスラッシングまで不変)。(3) 切替 — forkChoiceRoot(tree, states, switching, atSlot): off/unrealized は既知の最高 justified。window は JUSTIFIED_SWITCH_WINDOW_SLOTS=1(Ethereum の SAFE_SLOTS_TO_UPDATE_JUSTIFIED = エポックの 1/4)でエポック先頭スロットのみ自由切替、それ以外は『窓の閉じる前のスロットのブロックの中の最高 justified(= 窓時点の起点)』の子孫である justified にのみ切替(should_update_justified_checkpoint の純関数化: ブロックの slot を到着時刻の代理とする)。unrealized は viableBlocks(tree, states, root): 葉の ChainState.justified の slot が起点の slot 以上の葉とその祖先のみ候補にし、ghostHead はそれ以外の子へ降りない。本モデルでは各ブロックの ChainState が取り込み票を即時集計するため unrealized justified = 枝先端の ChainState.justified(R-004 に記録)。",
+      "evidence": [
+        {
+          "type": "diff",
+          "summary": "src/domain/forkChoice.ts: countedVotes(votes, rule), subtreeWeight over a vote list, ghostHead(tree, votes, root, ForkChoiceOptions {weights, rule, candidates}) — a child outside `candidates` is skipped with its subtree. src/domain/inclusion.ts: equivocatingVoters(votes). src/domain/finality.ts: slotsSinceEpochStart, JUSTIFIED_SWITCH_WINDOW_SLOTS = 1, inJustifiedSwitchWindow. src/domain/chainState.ts: forkChoiceRoot(tree, states, switching, atSlot) with the window rule (settled root = highest justified among blocks proposed before the window closed; a newer justified is adopted only when it descends from it), viableBlocks(tree, states, root) for the unrealized filter. src/domain/protocol.ts: resolveView applies rule / discount / switching. Tests: tests/domain/mitigations.test.ts (new, 14), forkChoice.test.ts (+countedVotes, candidate descent), protocolParams.test.ts (options shape). README model section documents the mitigations. git diff --stat (implementation + tests): 7 files changed, 234 insertions(+), 48 deletions(-) plus 1 new test file and the README paragraph."
+        },
+        {
+          "type": "command",
+          "command": "npx vitest run tests/domain/mitigations.test.ts tests/domain/forkChoice.test.ts tests/domain/protocolParams.test.ts",
+          "exit_code": 0,
+          "summary": "受け入れ確認(必須 27、成功条件 13 のドメイン側): 3 files / 37 tests. fork choice 規則 — アリスの古い票が GHOST では枝 A に残り(64:64 のタイで B2)、LMD では最新票のみ(B3); 二重投票は GHOST で両票が数えられ(枝 B 64)LMD では 1 票に解決。割引 — equivocatingVoters は同スロットの内容の異なる 2 票のみ検出(同一票の重複・別スロットは非該当); on で二重投票者の両票が weightOf 0・他は 32、off で 32、チェーン状態のステークは 32 のまま(fork choice のみ); シミュレーションでは s2 の二重投票を観測した瞬間(B3 の証拠取り込み前)に merge で 0・phase0 で 32(B3 以降スラッシングで 0); 2 票目を欠落させたアリスは割引せず(32)キャロルは割引(0)= 局所。切替 — 手組みの二枝木(枝 A: B4 justified@B5、B8 justified@B10 / 枝 B: B6 justified@B7)で off は常に最高(B6、同スロットは小 index)、window は s10・s11 で窓時点の起点 B4 の子孫 B8 のみ採用し矛盾する B6 は s12(次エポック先頭)で採用、窓は各エポック先頭スロットのみ(8,12 が true / 9,10,11 が false); unrealized は起点 B6 の下で古い justified しか実現しない B11 を候補から外し 3 票対 1 票でも B7 を head にする(off は B11、window は起点 B8 の下で B9)。プリセット — 表どおりの対応(phase0 off/window、merge on/window、current on/unrealized)、正直な実行は 3 プリセットで heads/justified/finalized が同一(s12 で finalized=B4)、二重投票+フォーク+分断の実行が current で決定的。"
+        },
+        {
+          "type": "command",
+          "command": "npm run typecheck",
+          "exit_code": 0,
+          "summary": "tsc --noEmit exits 0 with the ForkChoiceOptions / forkChoiceRoot / viableBlocks API."
+        },
+        {
+          "type": "command",
+          "command": "npx vitest run",
+          "exit_code": 0,
+          "summary": "21 files / 255 tests pass (238 → 255: +14 mitigations, +3 fork choice); determinism, rewind, interventions, combined, chain state, penalties, protocol params and every UI suite unchanged in outcome."
+        },
+        {
+          "type": "command",
+          "command": "npm run build",
+          "exit_code": 0,
+          "summary": "vite build emits the static dist/ bundle (332.3 kB js, 12.6 kB css) with exit 0."
+        }
+      ]
     },
     {
       "id": "T-034",

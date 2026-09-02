@@ -157,15 +157,16 @@ describe("proposer boost in fork choice", () => {
     expect(ghostHead(tree, votes, ANCHOR_BLOCK_INDEX)).toBe(2);
     expect(
       ghostHead(tree, votes, ANCHOR_BLOCK_INDEX, {
-        weightOf: () => 1,
-        boost: { block: 3, weight: 0.5 },
+        weights: { weightOf: () => 1, boost: { block: 3, weight: 0.5 } },
       }),
     ).toBe(3);
     // Stakes weigh votes: a heavier validator outweighs the boost.
     expect(
       ghostHead(tree, votes, ANCHOR_BLOCK_INDEX, {
-        weightOf: (v) => (v.validator === 0 ? 10 : 1),
-        boost: { block: 3, weight: 0.5 },
+        weights: {
+          weightOf: (v) => (v.validator === 0 ? 10 : 1),
+          boost: { block: 3, weight: 0.5 },
+        },
       }),
     ).toBe(2);
   });
