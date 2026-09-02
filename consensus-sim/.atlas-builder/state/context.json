@@ -30,20 +30,10 @@
     "high_risk_change_completed": false
   },
   "handoff": {
-    "written_at": "2026-09-03T06:56:00+09:00",
-    "summary": "STOP: R-006(Human-input Recommendation, requires_human_approval)で停止中。人間が resume で A/B/C を選ぶまで must は進めない。状況: 改訂 Essence(sha c6fb67e2)の Spec 41 / Todo 45(validate ok)。攻撃ライブラリは 12 件中 8 件実装済(A01/A02/A07/A09/A10/A11/A12/A14, done)。残る T-045 の 4 件(A03 バランシング/A04 LMD バランシング/A05 バウンシング/A06 境界 finality 遅延)は本モデルの緩和策・収束意味論と衝突し忠実に成立しないため blocked(blocked_by R-006)。probe で確定した壁: A03/A04 は partition バランシングが phase0/merge 双方で停止し割引が崩さない → 成功条件 19『merge 未達』が作れない(割引は View 局所発火で片側しか見ない正直 View に相反 2 票が揃わない); A06 は有界提案遅延(d≤2)が 1 エポック遅延どまり・境界ドロップも boost で再収束(fin=15 @ s24)で L=12 停止に到達せず、持続停止は永続 partition(=均等分割の維持=読み替え)でのみ生じる; A05 は競合 2 justified に正直票の 2 枝割り(バランシング)が前提で同じ壁。R-006 の選択肢: A) 割引/切替/View 受信順など骨格・緩和策意味論の拡張(=人間承認), B) 成功条件 19・必須 23 の当該 4 攻撃の成立/未達要件を簡約に緩和(ESSENCE), C) 4 攻撃を非対応昇格しライブラリを 8 件に(ESSENCE)。実装済 8 件はいずれの選択でも維持。置き場: 戦略/Attack 3 つ組=src/domain/model/attackLibrary.ts(const のみ export で型カタログ不変。voteAll・A14 は反応型で proposalSlotOf/blockBy/tipUnder)、メタデータ=src/domain/sim/attackLibrary.ts(ATTACK_LIBRARY・ATTACK_REGISTRY)。テスト=tests/domain/attackLibrary.test.ts(ATTACK_LIBRARY 汎用反復+merge 未達ループ[A01,A07]+A07 LMD 未達+A10/A12 相反対+A14 2 段)。ゲート最新値=typecheck/vitest 28 files 332 tests/build 全 exit 0(このサイクルは src 変更なし)。運用: lock トークン .agent/tmp/loop.lock/token を ATLAS_BUILDER_LOCK_TOKEN で渡す、CWD は CONTROL_ROOT 維持、state 書き込みは stage-projection→tmp/edit_*.py→apply-projection、Human-input Recommendation には reason 必須(無いと apply 時 warning)、probe は tests/domain/probe.test.ts 一時作成し --silent=false --disableConsoleIntercept で出力・撤去必須。",
-    "next_actions": [
-      "【人間待ち】R-006 の A/B/C を just resume --resolve R-006 --note で指示。解決後: 選択に応じて T-045 を再設計(A: 意味論拡張後に 4 攻撃実装 / B: 簡約要件で 4 攻撃実装 / C: T-045 を close 相当にしライブラリを 8 件へ=必須 23 の改訂を反映)。C の場合 sim/attackLibrary.ts はそのまま 8 件、model 側の未使用戦略は無し(未実装)。",
-      "R-006 解決後に攻撃 UI(T-042/T-043, 遂行順序 7): useSimulation に attack、runScenario.generated を介入一覧(攻撃者印・破棄理由)・状態表・チェーン表示・ネットワークの攻撃者識別、GoalTrace のスロット軸表示(A14 の 2 段 pending/active/achieved と根拠)、攻撃一覧ページ(ATTACK_LIBRARY 導出・冒頭に形式体系定義)、parseScenario に ATTACK_REGISTRY、条件未満は satisfiesCondition。長走行(A14 throughSlot 44)の状態表横スクロールを確認。",
-      "T-044(遂行順序 8, 総点検): 全 must 完了後。R-003/R-004/R-005/R-007 の裁量簡約と R-006 の決着(4 攻撃の扱い)を点検項目に。"
-    ],
-    "open_questions": [
-      "R-006(Human-input, STOP 中): A03/A04/A05/A06 の 4 攻撃が緩和策・収束意味論と衝突。A) 意味論拡張=骨格変更(人間承認)/ B) 成功条件 19・必須 23 の該当要件緩和(ESSENCE)/ C) 非対応昇格でライブラリ 8 件(ESSENCE)。実装済 8 件はどの選択でも維持。",
-      "R-007(Non-blocking): A10/A14 の二重投票は同一エポックの FFG target 投票をスロットを分けて 2 枝へ投じる簡約で、本モデルの証拠(同一スロットの相反)に当たらずスラッシング非発火。FFG レベル二重投票を証拠に加えるかは意味論変更(思想 (a))=人間判断。R-006 と併せて確認いただけると総点検がまとまる。",
-      "R-003: fork choice の投票重みの参照先(投票 head のチェーン状態)が必須 25 の意図どおりか。",
-      "R-004: justified 即時集計のままでよいか。window 切替の『ブロック slot=到着時刻』代理でよいか。",
-      "R-005: 空境界チェックポイントの隣接判定を『チェックポイントのエポック』に改めるか。"
-    ],
-    "pending_cycle": false
+    "written_at": "2026-09-03T08:37:38+09:00",
+    "summary": "Human resume: R-006 は選択肢 D で解決する: ESSENCE も骨格・緩和策の意味論も変えず、A03/A04/A05/A06 を現行意味論の範囲で再挑戦する。R-006 の probe は分断(partition)で正直票を割っていたが出典の手段は「同時二重+選択配送」であり、攻撃者自身の票を有界遅延(d=2)で選択配送すれば相反 2 票は d スロット後に反対陣営の View にも揃って割引が発火し、latestVotes が最新スロットの票を採る現行実装で LMD 均衡が維持できる(5 体・攻撃者 1・正直 2+2 で各陣営 96 vs 64)。A03 = 交互投票+反対陣営への +1 スロット遅延(二重投票なし・正直提案は遅延しない)→ phase0 で活性停止、merge では proposer boost で収束(未達); A04 = 同スロット二重投票+選択配送(+正直提案の 1 スロット遅延で boost を無効化)→ 割引 off で活性停止、merge 既定では割引で収束(未達); A05 は A03/A04 成立後に競合 justified の跳ねを再設計; A06 は開始直後の境界(s4)を d=4 で遅延し L を正直基準(8〜9)の少し上に置いて再検討(R-005 の空境界簡約が判定に混ざらないよう根拠を確認)。それでも不成立の攻撃だけ、攻撃ごとに B(要件緩和)/C(非対応昇格)を個別に再提案すること。\nR-003(投票重みは投票 head のチェーン状態)・R-004(justified 即時集計、window は block slot を到着時刻の代理)・R-005(空境界チェックポイントは finalize されず 1 エポック遅れ)・R-007(A10/A14 のスロット分割 FFG 二重投票は証拠に当たらずスラッシング非発火)の裁量簡約は 4 件とも現状のまま了承する。ループ側で閉じ、総点検(T-044)の点検項目として記録すること。",
+    "next_actions": [],
+    "open_questions": [],
+    "pending_cycle": true
   }
 }
