@@ -9,7 +9,7 @@
 
 import { latestVotes, validatorName } from '../domain'
 import type { LocalObservation, ValidatorIndex } from '../domain'
-import { blockName } from './format'
+import { blockName, stakeLabel } from './format'
 import { COL_W, LABEL_W, TABLE_OFFSET } from './treeGeometry'
 import { validatorColor } from './validatorColor'
 
@@ -63,7 +63,7 @@ function cellValue(
       return blockName(obs.chainState.finalized)
     case 'stake':
       // The validator's own stake in the chain state of its head.
-      return String(obs.chainState.stakes.get(validator) ?? 0)
+      return stakeLabel(obs.chainState.stakes.get(validator) ?? 0)
     case 'latestVote': {
       const vote = latestVotes(obs.view.votes).get(validator)
       return vote ? blockName(vote.head) : '－'

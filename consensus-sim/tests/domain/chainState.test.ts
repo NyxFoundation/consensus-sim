@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   ANCHOR_BLOCK_INDEX,
+  DEFAULT_PARAMS,
   DEFAULT_STAKE,
   EMPTY_BODY,
   SLOTS_PER_EPOCH,
@@ -24,10 +25,17 @@ import {
   type Block,
   type BlockBody,
   type BlockTree,
+  type SimulationConfig,
   type Vote,
 } from "../../src/domain";
 
-const stakes = equalStakes(4);
+const config: SimulationConfig = {
+  validatorCount: 4,
+  seed: 0,
+  params: DEFAULT_PARAMS,
+  initialStakes: equalStakes(4),
+};
+const stakes = new Map(config.initialStakes.map((s, v) => [v, s]));
 
 const block = (
   index: number,
@@ -95,7 +103,7 @@ describe("checkpointFor", () => {
 
 describe("chain state derivation (チェーン状態)", () => {
   it("starts every branch with the anchor justified and finalized", () => {
-    const states = chainStatesOf(chain(3), stakes);
+    const states = chainStatesOf(chain(3), config);
     for (const state of states.values()) {
       expect(state.justified).toBe(ANCHOR_BLOCK_INDEX);
       expect(state.finalized).toBe(ANCHOR_BLOCK_INDEX);
@@ -105,7 +113,7 @@ describe("chain state derivation (チェーン状態)", () => {
 
   it("justifies a checkpoint only once a block includes the link", () => {
     const tree = chain(6, { 5: withVotes(link(4, 0, 4)) });
-    const states = chainStatesOf(tree, stakes);
+    const states = chainStatesOf(tree, config);
     expect(states.get(4)?.justified).toBe(0);
     expect(states.get(5)?.justified).toBe(4);
     expect(states.get(6)?.justified).toBe(4);
@@ -115,7 +123,7 @@ describe("chain state derivation (チェーン状態)", () => {
   it("completes a link whose votes are spread across blocks", () => {
     const [a, b, c] = link(4, 0, 4);
     const tree = chain(7, { 5: withVotes([a!, b!]), 6: withVotes([c!]) });
-    const states = chainStatesOf(tree, stakes);
+    const states = chainStatesOf(tree, config);
     expect(states.get(5)?.justified).toBe(0);
     expect(states.get(6)?.justified).toBe(4);
   });
@@ -125,7 +133,7 @@ describe("chain state derivation (チェーン状態)", () => {
       5: withVotes([vote(0, 4, 4, 0, 4), vote(1, 4, 4, 0, 4)]),
       6: withVotes([vote(0, 5, 5, 0, 4)]),
     });
-    expect(chainStateOf(tree, 6, stakes).justified).toBe(0);
+    expect(chainStateOf(tree, 6, config).justified).toBe(0);
   });
 
   it("finalizes the source of a justified adjacent-epoch link", () => {
@@ -133,7 +141,7 @@ describe("chain state derivation (チェーン状態)", () => {
       5: withVotes(link(4, 0, 4)),
       9: withVotes(link(8, 4, 8)),
     });
-    const states = chainStatesOf(tree, stakes);
+    const states = chainStatesOf(tree, config);
     expect(states.get(8)?.finalized).toBe(0);
     expect(states.get(9)?.justified).toBe(8);
     expect(states.get(9)?.finalized).toBe(4);
@@ -145,7 +153,7 @@ describe("chain state derivation (チェーン状態)", () => {
       5: withVotes(link(4, 0, 4)),
       13: withVotes(link(12, 4, 12)),
     });
-    const state = chainStateOf(tree, 13, stakes);
+    const state = chainStateOf(tree, 13, config);
     expect(state.justified).toBe(12);
     expect(state.finalized).toBe(0);
   });
@@ -156,7 +164,7 @@ describe("chain state derivation (チェーン状態)", () => {
     let tree = chain(5, { 5: withVotes(link(4, 0, 4)) });
     tree = addBlock(tree, block(9, 0, 4, 1));
     tree = addBlock(tree, block(10, 9, 5, 2, withVotes(link(4, 0, 4))));
-    const states = chainStatesOf(tree, stakes);
+    const states = chainStatesOf(tree, config);
     expect(states.get(5)?.justified).toBe(4);
     expect(states.get(10)?.justified).toBe(0);
   });
@@ -166,7 +174,7 @@ describe("chain state derivation (チェーン状態)", () => {
       5: withVotes(link(4, 0, 4)),
       9: withVotes(link(8, 4, 8)),
     });
-    expect(chainStatesOf(tree, stakes)).toEqual(chainStatesOf(tree, stakes));
+    expect(chainStatesOf(tree, config)).toEqual(chainStatesOf(tree, config));
   });
 });
 
@@ -177,7 +185,7 @@ describe("checkpointStatus and forkChoiceRoot", () => {
   });
 
   it("lists every justified checkpoint and finalizes below the frontier", () => {
-    const status = checkpointStatus(tree, stakes);
+    const status = checkpointStatus(tree, config);
     expect([...status.justified].sort((a, b) => a - b)).toEqual([0, 4, 8]);
     expect([...status.finalized].sort((a, b) => a - b)).toEqual([0, 4]);
   });
@@ -188,17 +196,17 @@ describe("checkpointStatus and forkChoiceRoot", () => {
     const late = chain(13, {
       13: withVotes([...link(4, 0, 4), ...link(12, 4, 12)]),
     });
-    const status = checkpointStatus(late, stakes);
+    const status = checkpointStatus(late, config);
     expect(status.justified.has(4)).toBe(true);
     expect(status.justified.has(12)).toBe(true);
     expect(status.finalized.has(4)).toBe(false);
   });
 
   it("starts fork choice from the highest justified checkpoint known", () => {
-    expect(forkChoiceRoot(tree, chainStatesOf(tree, stakes))).toBe(8);
+    expect(forkChoiceRoot(tree, chainStatesOf(tree, config))).toBe(8);
     const early = chain(6, { 5: withVotes(link(4, 0, 4)) });
-    expect(forkChoiceRoot(early, chainStatesOf(early, stakes))).toBe(4);
-    expect(forkChoiceRoot(chain(3), chainStatesOf(chain(3), stakes))).toBe(0);
+    expect(forkChoiceRoot(early, chainStatesOf(early, config))).toBe(4);
+    expect(forkChoiceRoot(chain(3), chainStatesOf(chain(3), config))).toBe(0);
   });
 });
 

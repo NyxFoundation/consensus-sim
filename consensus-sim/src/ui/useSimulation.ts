@@ -15,6 +15,7 @@
 import { useCallback, useMemo, useState } from 'react'
 import {
   compileDelivery,
+  equalStakes,
   scenarioStates,
   DEFAULT_PARAMS,
   DEFAULT_VALIDATOR_COUNT,
@@ -61,7 +62,12 @@ interface SessionCore {
 }
 
 const freshCore = (validatorCount: number): SessionCore => ({
-  config: { validatorCount, seed: DEFAULT_SEED, params: DEFAULT_PARAMS },
+  config: {
+    validatorCount,
+    seed: DEFAULT_SEED,
+    params: DEFAULT_PARAMS,
+    initialStakes: equalStakes(validatorCount),
+  },
   interventions: [],
   runSlot: 0,
   cursor: 0,

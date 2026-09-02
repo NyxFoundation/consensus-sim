@@ -15,6 +15,7 @@ import {
   boostedBlock,
   committeeForSlot,
   createBlockTree,
+  equalStakes,
   ghostHead,
   presetOf,
   proposerForSlot,
@@ -33,7 +34,12 @@ const withParams = (
   params: ProtocolParams,
   validatorCount = 4,
   seed = 0,
-): SimulationConfig => ({ validatorCount, seed, params });
+): SimulationConfig => ({
+  validatorCount,
+  seed,
+  params,
+  initialStakes: equalStakes(validatorCount),
+});
 
 describe("presets (プロトコルプリセット)", () => {
   it("match the Essence table", () => {
@@ -158,7 +164,7 @@ describe("proposer boost in fork choice", () => {
     // Stakes weigh votes: a heavier validator outweighs the boost.
     expect(
       ghostHead(tree, votes, ANCHOR_BLOCK_INDEX, {
-        weightOf: (v) => (v === 0 ? 10 : 1),
+        weightOf: (v) => (v.validator === 0 ? 10 : 1),
         boost: { block: 3, weight: 0.5 },
       }),
     ).toBe(2);
@@ -179,7 +185,7 @@ describe("proposer boost in fork choice", () => {
     const config = withParams(PRESETS.merge);
     const view = { validator: 0, slot: 3, blockTree: tree, votes: [] };
     const { weights } = resolveView(view, config);
-    expect(weights.weightOf(0)).toBe(32);
+    expect(weights.weightOf(vote(0, 3, 3))).toBe(32);
     expect(weights.boost).toEqual({ block: 3, weight: 4 * 32 * 0.4 });
   });
 });

@@ -109,6 +109,19 @@
       "resolved_at": "2026-09-03T02:37:48+09:00",
       "resolved_by": "human",
       "resolution": "ESSENCE.md の大改訂(攻撃の形式体系・チェーン状態・プロトコルパラメータ化とプリセット・ステークと罰則・緩和策・12 攻撃ライブラリ・攻撃一覧ページの追加、必須対応事項 29 項/成功条件 25 項)と essences/deep-research-report.md の配置は人間自身による編集であり、レビュー済みとして attest する。\nmust 境界ゲート R-LG-20260830T024920+0900-05f3 は旧 Essence(bcb5982e)の must 完了を根拠とするため解除し、フェーズは must のまま(approve-should / close-at-must のいずれも選ばない)、次サイクルは新 Essence から Spec/Todo を再投影して遂行順序 1〜8 の必須対応を継続する。\nR-001(Playwright)は非ブロッキングのためループ側で閉じる(chromium は導入済み)。新ビジュアルの目視確認は人間の手元実行として別途行う。"
+    },
+    {
+      "id": "R-003",
+      "type": "Non-blocking Recommendation",
+      "status": "proposed",
+      "title": "fork choice の投票重みは「その投票の head のチェーン状態」のステークで計算する(必須対応事項 25 の読み)",
+      "detail": "必須対応事項 25「fork choice の重みはそのバリデータの head のチェーン状態のステークで」は、(A)『投票するバリデータの head(= その投票の head)のチェーン状態』と (B)『fork choice を実行する観測者自身の head のチェーン状態』の 2 通りに読める。(B) は head が fork choice の出力なので循環し、T-031 では暫定的に『起点 justified チェックポイントのチェーン状態のステーク』(Ethereum の justified state balances 相当)を採っていた(等ステーク下では差が出ない)。T-032 で罰則が入り差が生じるため、(A) を採用した: 投票の重み = ChainState(vote.head).stakes[voter]。根拠: 循環せず決定的で、成功条件 22「証拠を取り込んだブロック以降の枝の…以後その枝の fork choice 重み・finality 閾値から除外」が字義どおり観測できる(証拠を取り込んだ枝を head とする票だけが 0 になり、取り込んでいない枝の票は従来どおり)。T-031 の起点方式では、justified が証拠ブロックを越えるまで fork choice 重みに反映されず、成功条件 22 の『以後』が数エポック遅れる。Ethereum 実装との差: Ethereum は justified state の balances を全票に一律適用し、スラッシング済みの即時除外は equivocating_indices(= 必須 27 のエクイボケーション割引、T-033)が担う。本読みが意図と異なる場合(起点方式または別の定義を望む場合)は、ESSENCE の必須 25 の文言を明確化のうえ resume で指示してほしい。変更は resolveView の weightOf 1 関数に局所化してある。",
+      "requires_human_approval": false,
+      "source": [
+        "T-032"
+      ],
+      "raised_by": "atlas-builder",
+      "created_at": "2026-09-03T03:55:00+09:00"
     }
   ]
 }

@@ -8,6 +8,7 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_PARAMS,
   advanceScenario,
+  equalStakes,
   scenarioStates,
   type Intervention,
   type Scenario,
@@ -28,7 +29,12 @@ const scenario = (
   interventions: Intervention[],
   validatorCount = 4,
 ): Scenario => ({
-  config: { validatorCount, seed: 0, params: DEFAULT_PARAMS },
+  config: {
+    validatorCount,
+    seed: 0,
+    params: DEFAULT_PARAMS,
+    initialStakes: equalStakes(validatorCount),
+  },
   interventions,
 });
 

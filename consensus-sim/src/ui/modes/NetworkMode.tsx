@@ -14,7 +14,6 @@
 import { useState } from 'react'
 import {
   checkpointStatus,
-  equalStakes,
   instantDelivery,
   latestVotes,
   observe,
@@ -154,10 +153,7 @@ export function NetworkMode({
               tree={detail.view.blockTree}
               votes={detail.view.votes}
               heads={new Map([[inspected, detail.head]])}
-              checkpoints={checkpointStatus(
-                detail.view.blockTree,
-                equalStakes(validatorCount),
-              )}
+              checkpoints={checkpointStatus(detail.view.blockTree, config)}
               throughSlot={state.slot}
             />
           </div>

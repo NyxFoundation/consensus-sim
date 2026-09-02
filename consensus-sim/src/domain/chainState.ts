@@ -3,16 +3,30 @@
 // stakes. Reference type from ESSENCE.md:
 //   ChainState(block) = {stakes, justified, finalized}
 //
-// Finality is FFG-lite over included votes only: a source→target link is
-// supermajority when the stake of the distinct validators voting it reaches
-// 2/3 of the branch's total stake; justification is the fixpoint from the
-// anchor; a justified source whose direct successor-epoch checkpoint gets
-// justified is finalized. Only checkpoints on the branch count — a vote
-// included here whose checkpoints lie elsewhere is inert for this branch.
-// Penalties (罰則) alter stakes along the branch; until they are modelled,
-// stakes stay at their initial values.
+// The branch is replayed block by block from the anchor. Each block first
+// applies the penalties (罰則) its evidence triggers, then adds its included
+// votes, then re-evaluates finality with the stakes as they stand:
+//
+// - Finality is FFG-lite over included votes: a source→target link is
+//   supermajority when the current stake of the distinct validators voting
+//   it reaches 2/3 of the branch's current total; justification is the
+//   monotone fixpoint from the anchor; a justified source whose direct
+//   successor-epoch checkpoint gets justified is finalized. Only checkpoints
+//   on the branch count — a vote included here whose checkpoints lie
+//   elsewhere is inert for this branch.
+// - Slashing (スラッシング, on/off): from the block that includes evidence of
+//   an equivocation onward, the equivocator's stake on this branch is 0, so
+//   it drops out of every weight and threshold from then on.
+// - Inactivity leak (on/off, N, r): once an epoch ends on the branch, if
+//   finalized lags that epoch by more than N epochs (Ethereum's finality
+//   delay), every validator without a target vote of that epoch included on
+//   the branch loses the fraction r of its stake. An epoch is processed at
+//   the first block of a later epoch, after that block's inclusions, so the
+//   votes of the epoch's last slot (included one block later) count.
+// Ethereum's quadratic penalties and rewards are deliberately absent.
 
 import { getBlock, isAncestor, pathToAnchor, type BlockTree } from "./blockTree";
+import type { SimulationConfig } from "./config";
 import { epochOf } from "./finality";
 import {
   ANCHOR_BLOCK_INDEX,
@@ -21,7 +35,6 @@ import {
   type Stake,
   type ValidatorIndex,
 } from "./types";
-import { validatorIndices } from "./validatorSet";
 
 export interface ChainState {
   readonly stakes: ReadonlyMap<ValidatorIndex, Stake>;
@@ -38,13 +51,6 @@ export type ChainStateIndex = ReadonlyMap<BlockIndex, ChainState>;
 export interface CheckpointStatus {
   readonly justified: ReadonlySet<BlockIndex>;
   readonly finalized: ReadonlySet<BlockIndex>;
-}
-
-/** Initial stake per validator; the default is equal stake for everyone. */
-export const DEFAULT_STAKE: Stake = 32;
-
-export function equalStakes(validatorCount: number): ReadonlyMap<ValidatorIndex, Stake> {
-  return new Map(validatorIndices(validatorCount).map((v) => [v, DEFAULT_STAKE]));
 }
 
 export function totalStake(stakes: ReadonlyMap<ValidatorIndex, Stake>): Stake {
@@ -77,68 +83,105 @@ interface BranchState {
   readonly justifiedCheckpoints: ReadonlySet<BlockIndex>;
 }
 
-/**
- * Derive the state at the end of the branch anchor → … → `tip` from the
- * bodies along it. Distinct voters per link are accumulated over the whole
- * branch, so a link spread across several blocks still completes.
- */
+interface Link {
+  readonly source: BlockIndex;
+  readonly target: BlockIndex;
+  readonly voters: Set<ValidatorIndex>;
+}
+
+/** Replay the branch anchor → … → `tip` and derive its state at the tip. */
 function deriveBranch(
   tree: BlockTree,
   branch: readonly Block[],
-  initialStakes: ReadonlyMap<ValidatorIndex, Stake>,
+  config: SimulationConfig,
 ): BranchState {
+  const { slashing, inactivityLeak } = config.params;
   const tip = branch[branch.length - 1]!.index;
-  const stakes = initialStakes;
-  const total = totalStake(stakes);
   const onBranch = (checkpoint: BlockIndex): boolean =>
     tree.blocks.has(checkpoint) && isAncestor(tree, checkpoint, tip);
 
-  const linkWeight = new Map<string, Stake>();
-  const linkVoters = new Map<string, Set<ValidatorIndex>>();
-  for (const block of branch) {
-    for (const vote of block.body.votes) {
-      const key = `${vote.source}->${vote.target}`;
-      let voters = linkVoters.get(key);
-      if (!voters) {
-        voters = new Set();
-        linkVoters.set(key, voters);
-      }
-      if (voters.has(vote.validator)) continue;
-      voters.add(vote.validator);
-      linkWeight.set(
-        key,
-        (linkWeight.get(key) ?? 0) + (stakes.get(vote.validator) ?? 0),
-      );
-    }
-  }
-  const links: Array<{ source: BlockIndex; target: BlockIndex }> = [];
-  for (const [key, weight] of linkWeight) {
-    if (!isSupermajority(weight, total)) continue;
-    const [source, target] = key.split("->").map(Number) as [number, number];
-    if (source === target || !onBranch(source) || !onBranch(target)) continue;
-    if (!isAncestor(tree, source, target)) continue;
-    links.push({ source, target });
-  }
-
+  const stakes = new Map<ValidatorIndex, Stake>(
+    config.initialStakes.map((s, v) => [v, s]),
+  );
+  // Distinct voters per source→target link, over the whole branch, so a link
+  // spread across several blocks still completes. Only links between
+  // checkpoints of this branch are kept.
+  const links = new Map<string, Link>();
+  // Validators with a target vote of each epoch included on this branch.
+  const participation = new Map<number, Set<ValidatorIndex>>();
   const justifiedCheckpoints = new Set<BlockIndex>([ANCHOR_BLOCK_INDEX]);
-  let grew = true;
-  while (grew) {
-    grew = false;
-    for (const { source, target } of links) {
-      if (justifiedCheckpoints.has(source) && !justifiedCheckpoints.has(target)) {
-        justifiedCheckpoints.add(target);
-        grew = true;
+  let finalized: BlockIndex = ANCHOR_BLOCK_INDEX;
+  let processedEpoch = epochOf(branch[0]!.slot) - 1;
+
+  const evaluateFinality = (): void => {
+    const total = totalStake(stakes);
+    const supermajority = [...links.values()].filter((link) => {
+      let weight = 0;
+      for (const v of link.voters) weight += stakes.get(v) ?? 0;
+      return isSupermajority(weight, total);
+    });
+    let grew = true;
+    while (grew) {
+      grew = false;
+      for (const { source, target } of supermajority) {
+        if (justifiedCheckpoints.has(source) && !justifiedCheckpoints.has(target)) {
+          justifiedCheckpoints.add(target);
+          grew = true;
+        }
       }
     }
-  }
+    for (const { source, target } of supermajority) {
+      if (!justifiedCheckpoints.has(target)) continue;
+      const sourceEpoch = epochOf(getBlock(tree, source)!.slot);
+      const targetEpoch = epochOf(getBlock(tree, target)!.slot);
+      if (targetEpoch === sourceEpoch + 1) {
+        finalized = higherCheckpoint(tree, finalized, source);
+      }
+    }
+  };
 
-  let finalized: BlockIndex = ANCHOR_BLOCK_INDEX;
-  for (const { source, target } of links) {
-    if (!justifiedCheckpoints.has(target)) continue;
-    const sourceBlock = getBlock(tree, source)!;
-    const targetBlock = getBlock(tree, target)!;
-    if (epochOf(targetBlock.slot) === epochOf(sourceBlock.slot) + 1) {
-      finalized = higherCheckpoint(tree, finalized, source);
+  const leakEpoch = (epoch: number): void => {
+    const finalizedEpoch = epochOf(getBlock(tree, finalized)!.slot);
+    if (epoch - finalizedEpoch <= inactivityLeak.delayEpochs) return;
+    const active = participation.get(epoch);
+    for (const [v, stake] of stakes) {
+      if (!active?.has(v)) stakes.set(v, stake * (1 - inactivityLeak.rate));
+    }
+  };
+
+  for (const block of branch) {
+    if (slashing) {
+      for (const evidence of block.body.evidence) stakes.set(evidence.validator, 0);
+    }
+    for (const vote of block.body.votes) {
+      if (
+        vote.source === vote.target ||
+        !onBranch(vote.source) ||
+        !onBranch(vote.target) ||
+        !isAncestor(tree, vote.source, vote.target)
+      ) {
+        continue;
+      }
+      const key = `${vote.source}->${vote.target}`;
+      let link = links.get(key);
+      if (!link) {
+        link = { source: vote.source, target: vote.target, voters: new Set() };
+        links.set(key, link);
+      }
+      link.voters.add(vote.validator);
+      const epoch = epochOf(vote.slot);
+      let active = participation.get(epoch);
+      if (!active) {
+        active = new Set();
+        participation.set(epoch, active);
+      }
+      active.add(vote.validator);
+    }
+    evaluateFinality();
+    if (inactivityLeak.enabled) {
+      const ended = epochOf(block.slot) - 1;
+      for (let epoch = processedEpoch + 1; epoch <= ended; epoch++) leakEpoch(epoch);
+      processedEpoch = Math.max(processedEpoch, ended);
     }
   }
 
@@ -146,18 +189,17 @@ function deriveBranch(
   for (const checkpoint of justifiedCheckpoints) {
     justified = higherCheckpoint(tree, justified, checkpoint);
   }
-
   return { chain: { stakes, justified, finalized }, justifiedCheckpoints };
 }
 
 function deriveAll(
   tree: BlockTree,
-  initialStakes: ReadonlyMap<ValidatorIndex, Stake>,
+  config: SimulationConfig,
 ): Map<BlockIndex, BranchState> {
   const out = new Map<BlockIndex, BranchState>();
   for (const block of tree.blocks.values()) {
     const branch = pathToAnchor(tree, block.index).reverse();
-    out.set(block.index, deriveBranch(tree, branch, initialStakes));
+    out.set(block.index, deriveBranch(tree, branch, config));
   }
   return out;
 }
@@ -165,10 +207,10 @@ function deriveAll(
 /** ChainState(block) for every block of the tree. */
 export function chainStatesOf(
   tree: BlockTree,
-  initialStakes: ReadonlyMap<ValidatorIndex, Stake>,
+  config: SimulationConfig,
 ): ChainStateIndex {
   const out = new Map<BlockIndex, ChainState>();
-  for (const [index, { chain }] of deriveAll(tree, initialStakes)) {
+  for (const [index, { chain }] of deriveAll(tree, config)) {
     out.set(index, chain);
   }
   return out;
@@ -178,11 +220,11 @@ export function chainStatesOf(
 export function chainStateOf(
   tree: BlockTree,
   block: BlockIndex,
-  initialStakes: ReadonlyMap<ValidatorIndex, Stake>,
+  config: SimulationConfig,
 ): ChainState {
   const branch = pathToAnchor(tree, block).reverse();
   if (branch.length === 0) throw new Error(`block ${block} is not in the tree`);
-  return deriveBranch(tree, branch, initialStakes).chain;
+  return deriveBranch(tree, branch, config).chain;
 }
 
 /**
@@ -192,11 +234,11 @@ export function chainStateOf(
  */
 export function checkpointStatus(
   tree: BlockTree,
-  initialStakes: ReadonlyMap<ValidatorIndex, Stake>,
+  config: SimulationConfig,
 ): CheckpointStatus {
   const justified = new Set<BlockIndex>();
   const finalizedFrontier = new Set<BlockIndex>();
-  for (const { chain, justifiedCheckpoints } of deriveAll(tree, initialStakes).values()) {
+  for (const { chain, justifiedCheckpoints } of deriveAll(tree, config).values()) {
     for (const c of justifiedCheckpoints) justified.add(c);
     finalizedFrontier.add(chain.finalized);
   }

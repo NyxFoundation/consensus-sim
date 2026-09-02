@@ -78,7 +78,7 @@ the `merge` preset with committee = everyone and seed 0.
 Sanity check:
 
 ```bash
-npm test           # vitest — model, chain state, fork choice, protocol params, determinism, rewind, UI shell
+npm test           # vitest — model, chain state, fork choice, protocol params, stakes and penalties, determinism, rewind, UI shell
 npm run typecheck  # tsc --noEmit
 npm run build      # static bundle in dist/ (no backend; plain static SPA)
 ```
@@ -111,16 +111,27 @@ npm run build      # static bundle in dist/ (no backend; plain static SPA)
   the initial stakes: `{stakes, justified, finalized}`. A vote counts toward
   a branch's justification only once a block on that branch includes it, so
   the same vote set can justify one branch and be inert on another.
+- **Stakes** start equal (32 each, settable per validator as part of the
+  scenario) and live in chain state, never in a view. **Finality** follows
+  supermajority source→target links over included votes — 2/3 of the
+  branch's stake, not of its validators (justification fixpoint,
+  adjacent-epoch finalization). Two **penalties** reshape a branch's stakes:
+  **slashing** zeroes an equivocator from the block that includes the
+  evidence onward (a branch without the evidence is untouched), and the
+  **inactivity leak** removes the fraction `r` per epoch from every
+  validator whose target vote for that epoch the branch has not included,
+  once finality lags by more than `N` epochs, stopping as soon as finality
+  catches up. Both are protocol parameters; Ethereum's quadratic amounts and
+  rewards are deliberately absent.
 - **Fork choice** is GHOST over each validator's own view (the message
-  layer), starting from the highest justified checkpoint it knows, with
-  votes weighed by the stakes of that checkpoint's chain state. The
-  **proposer boost** adds committee weight × boost to the current slot's
-  proposal — in that slot's fork choice only, and only for validators that
-  received it during the slot; a proposal delivered late is never boosted.
-  A validator's justified / finalized / stakes are the chain state of its
-  head (the inclusion layer). **Finality** follows supermajority
-  source→target links over included votes (justification fixpoint,
-  adjacent-epoch finalization).
+  layer), starting from the highest justified checkpoint it knows. A vote
+  weighs the voter's stake in the chain state of the head it votes for, so
+  a penalty included on a branch bites exactly there. The **proposer boost**
+  adds committee weight × boost to the current slot's proposal — in that
+  slot's fork choice only, and only for validators that received it during
+  the slot; a proposal delivered late is never boosted. A validator's
+  justified / finalized / stakes are the chain state of its head (the
+  inclusion layer).
 - **Local views** are pure filters over a global append-only message log: a
   delivery rule decides who has seen what by when. Instant broadcast is the
   default; partitions, delays and drops plug in as stricter delivery rules

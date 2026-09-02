@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_PARAMS,
   DEFAULT_VALIDATOR_COUNT,
+  equalStakes,
   instantDelivery,
   observe,
   stateAtSlot,
@@ -14,6 +15,7 @@ const config: SimulationConfig = {
   validatorCount: DEFAULT_VALIDATOR_COUNT,
   seed: 42,
   params: DEFAULT_PARAMS,
+  initialStakes: equalStakes(DEFAULT_VALIDATOR_COUNT),
 };
 
 describe("local views under instant delivery", () => {

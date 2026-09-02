@@ -13,7 +13,7 @@
 // committee — comes from (slot, ProtocolParams, seed) via schedule.ts.
 
 import { addBlock, createBlockTree, type BlockTree } from "./blockTree";
-import { chainStatesOf, equalStakes, type ChainStateIndex } from "./chainState";
+import { chainStatesOf, type ChainStateIndex } from "./chainState";
 import type { SimulationConfig } from "./config";
 import { instantDelivery, viewOf, type Delivery } from "./localView";
 import { emptyLog, publishBlock, publishVotes, type MessageLog } from "./messages";
@@ -63,7 +63,7 @@ export function initialState(config: SimulationConfig): SimulationState {
     log: emptyLog(),
     tree,
     votes: [],
-    chainStates: chainStatesOf(tree, equalStakes(config.validatorCount)),
+    chainStates: chainStatesOf(tree, config),
     heads,
     nextBlockIndex: ANCHOR_BLOCK_INDEX + 1,
   };
@@ -164,7 +164,7 @@ export function advanceSlot(
     log,
     tree,
     votes,
-    chainStates: chainStatesOf(tree, equalStakes(config.validatorCount)),
+    chainStates: chainStatesOf(tree, config),
     heads,
     nextBlockIndex: state.nextBlockIndex + proposals.length,
   };

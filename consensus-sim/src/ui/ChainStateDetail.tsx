@@ -17,7 +17,7 @@ import type {
   Equivocation,
   ValidatorIndex,
 } from '../domain'
-import { blockName } from './format'
+import { blockName, stakeLabel } from './format'
 import { diffFlags } from './StateTable'
 import { validatorColor } from './validatorColor'
 
@@ -57,7 +57,7 @@ export function ChainStateTable({
   const justified = column((s) => blockName(s.justified))
   const finalized = column((s) => blockName(s.finalized))
   const stakes = Array.from({ length: validatorCount }, (_, v) =>
-    column((s) => String(s.stakes.get(v) ?? 0)),
+    column((s) => stakeLabel(s.stakes.get(v) ?? 0)),
   )
 
   return (

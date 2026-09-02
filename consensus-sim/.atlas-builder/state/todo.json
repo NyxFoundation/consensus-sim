@@ -1071,7 +1071,7 @@
     {
       "id": "T-032",
       "title": "ステークと罰則(ドメイン): バリデータごとの初期ステーク(既定は全員等しい)、ChainState のステーク導出、fork choice 重みと FFG 2/3 閾値をステークで計算、スラッシング(証拠取り込み以降の枝でエクイボケータを 0)、inactivity leak(finalized が N=4 エポック停滞で発動、target 投票未取り込みのバリデータを率 r で減額、finalized 進行で停止)+テスト",
-      "status": "pending",
+      "status": "done",
       "priority": "must",
       "spec": [
         "S-032",
@@ -1084,7 +1084,37 @@
       "batch_group": "e3-params",
       "context_cost": 5,
       "risk_level": "normal",
-      "notes": "遂行順序 2。r は裁量(Ethereum の二次関数的罰則は持ち込まない)。証拠を取り込んでいない枝・スラッシング off では不変、leak off では減らないことをテストで固定。"
+      "notes": "遂行順序 2。r は裁量(Ethereum の二次関数的罰則は持ち込まない)。 実装(裁量意味論、参照型・骨格の意味論は不変更): (1) SimulationConfig.initialStakes: readonly Stake[](バリデータ別、既定 equalStakes = 全員 32、codec は正の整数×validatorCount を検証し欠落は等分で後方互換)。(2) chainState.deriveBranch を枝の錨からの逐次リプレイに書き換え: 各ブロックで [証拠→スラッシング(ステーク 0)] → [投票の取り込み(枝上のチェックポイント対の link に投票者を集合で蓄積、エポック別 target 参加を記録)] → [finality 再評価: link 重み = 投票者の現在ステークの和、閾値 = 現在の総ステークの 2/3、justified 集合と finalized は単調(後退しない)] → [エポック処理: そのブロックのエポックより前に終わった各エポック p について、finality 遅延 p − epoch(finalized) > N(Ethereum の is_in_inactivity_leak と同じ厳密不等号)なら、p の target 投票が枝に未取り込みのバリデータのステークを ×(1 − r)]。エポック p の処理は p より後のエポックの最初のブロックの取り込み後に行うので、p の最終スロットの投票(翌ブロックで取り込み)が参加に数えられる。(3) fork choice の投票重み = その投票の head のチェーン状態における投票者のステーク(必須 25『そのバリデータの head のチェーン状態のステーク』の読み。T-031 の暫定『起点 justified のステーク』を置換 — 等ステーク下では同値だった)。boost の committee 総重みは boost 対象ブロックのチェーン状態で計算。証拠を取り込んだ枝では即座にエクイボケータの票が 0、取り込んでいない枝では従来どおり。R-003 に判断根拠を記録。(4) UI は最小追随: checkpointStatus/chainStatesOf が config を取るよう配線、ステーク表示は stakeLabel(整数はそのまま、leak の端数は小数 2 桁)。設定 UI は T-034。",
+      "evidence": [
+        {
+          "type": "diff",
+          "summary": "src/domain/config.ts: SimulationConfig.initialStakes (readonly Stake[]), DEFAULT_STAKE/equalStakes moved here. src/domain/chainState.ts: deriveBranch replays the branch block by block — slashing zeroes evidence validators (params.slashing), links keep distinct voter sets and are re-weighed with current stakes, justified/finalized monotone, inactivity leak per ended epoch (finality delay > N ⇒ non-participants × (1 − r)); chainStatesOf/chainStateOf/checkpointStatus take SimulationConfig. src/domain/forkChoice.ts: ForkChoiceWeights.weightOf(vote). src/domain/protocol.ts: resolveView weighs a vote by the voter's stake in ChainState(vote.head); committeeWeight over the boosted block's stakes. src/domain/simulation.ts: chainStatesOf(tree, config). src/domain/scenarioCodec.ts: initialStakes validated (one positive integer per validator; absent ⇒ equal). UI: useSimulation seeds equalStakes, ChainMode/NetworkMode pass config to checkpointStatus, StateTable/ChainStateDetail format via format.stakeLabel. Tests: new tests/domain/penalties.test.ts (12), codec +7 stake cases, existing suites updated to the config shape. README model section documents stakes, penalties and the per-vote weight. git diff --stat: 24 files changed, 317 insertions(+), 152 deletions(-) plus 1 new test file."
+        },
+        {
+          "type": "command",
+          "command": "npx vitest run tests/domain/penalties.test.ts tests/domain/scenarioCodec.test.ts tests/domain/chainState.test.ts",
+          "exit_code": 0,
+          "summary": "受け入れ確認(必須 25・26、成功条件 22・23・25 のドメイン側): 3 files / 76 tests. 初期ステーク — 既定は全員 32、[100,32,32,32] で 1 名の重い票が 2 名の軽い票に勝ち head が変わる、FFG 閾値は人数でなくステークの 2/3([200,32,32,32] では 1 票で justified、[100,…] や等分では未達)。スラッシング — 証拠を取り込んだブロック(B5)以降その枝でエクイボケータのステーク 0、証拠を取り込んでいない兄弟枝(B6)では 32、slashing off では不変; 残り 3 名中 2 名(64/96)で justified になり off では 64/128 で未達(閾値からの除外); fork choice ではエクイボケータの票が証拠枝 head で重み 0・非証拠枝 head で 32; シミュレーションでは s2 の二重投票を B3 が証拠として取り込み B3 以降で 0、B2 では 32、off では 32。inactivity leak — デイブ永久停止・キャロル s25 まで停止(64/128 で justification なし): s23 まで全員 32、epoch 5 が処理される s24 で停止中の 2 名が 24(× 0.75)、キャロルが s26 から参加すると s28 の epoch 6 処理でデイブのみ 18(キャロルは 24 のまま)、88/112 で epoch 6 が finalized になると s32・s36 の処理で不参加のデイブも減らない(18 のまま); leak off では s36 でも全員 32; 罰則込みの再計算が完全一致(決定性)。codec — initialStakes の往復([32,48,16,32])と再実行同一性、6 件の拒否(個数不一致・0・負・小数・非配列)、欠落時は等分。"
+        },
+        {
+          "type": "command",
+          "command": "npm run typecheck",
+          "exit_code": 0,
+          "summary": "tsc --noEmit exits 0 with SimulationConfig.initialStakes and the config-taking chain-state API threaded through domain, codec, UI and tests."
+        },
+        {
+          "type": "command",
+          "command": "npx vitest run",
+          "exit_code": 0,
+          "summary": "20 files / 238 tests pass (219 → 238: +12 penalties, +7 codec stake cases); determinism, rewind, interventions, combined, protocol params and every UI suite unchanged in outcome."
+        },
+        {
+          "type": "command",
+          "command": "npm run build",
+          "exit_code": 0,
+          "summary": "tsc --noEmit && vite build emits the static dist/ bundle (325.1 kB js, 12.6 kB css) with exit 0."
+        }
+      ]
     },
     {
       "id": "T-033",

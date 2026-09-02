@@ -1,20 +1,21 @@
 // Fork choice (GHOST 系) — pure functions over a block tree and votes.
 // LMD: only each validator's latest vote counts. GHOST: descend from a root
 // checkpoint, always into the heaviest child subtree. Weights are stakes
-// (from the chain state the caller picks) plus, for one slot's proposal,
-// the proposer boost.
+// (from the chain state the caller picks per vote) plus, for one slot's
+// proposal, the proposer boost.
 
 import { childrenOf, isAncestor, type BlockTree } from "./blockTree";
 import type { BlockIndex, Stake, ValidatorIndex, Vote } from "./types";
 
 /**
  * How votes and the proposer boost weigh in one fork-choice computation.
- * `weightOf` is a validator's stake; `boost` adds `weight` to the subtree of
- * `block` (the current slot's timely proposal, ESSENCE 必須 3) for this
- * computation only.
+ * `weightOf` is the stake a vote carries — the caller decides which chain
+ * state it reads it from; `boost` adds `weight` to the subtree of `block`
+ * (the current slot's timely proposal, ESSENCE 必須 3) for this computation
+ * only.
  */
 export interface ForkChoiceWeights {
-  readonly weightOf: (validator: ValidatorIndex) => Stake;
+  readonly weightOf: (vote: Vote) => Stake;
   readonly boost?:
     | { readonly block: BlockIndex; readonly weight: Stake }
     | undefined;
@@ -66,7 +67,7 @@ export function subtreeWeight(
   let weight = 0;
   for (const vote of latest.values()) {
     if (tree.blocks.has(vote.head) && isAncestor(tree, block, vote.head)) {
-      weight += weights.weightOf(vote.validator);
+      weight += weights.weightOf(vote);
     }
   }
   const boost = weights.boost;

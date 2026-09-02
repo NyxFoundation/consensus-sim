@@ -10,7 +10,6 @@
 import { type BlockTree } from "./blockTree";
 import {
   chainStatesOf,
-  equalStakes,
   forkChoiceRoot,
   type ChainState,
   type ChainStateIndex,
@@ -65,34 +64,35 @@ export function boostedBlock(
   return boosted;
 }
 
-/** Total stake of `slot`'s committee under `weightOf`. */
+/** Total stake of `slot`'s committee in `stakes`. */
 export function committeeWeight(
   slot: SlotIndex,
   config: SimulationConfig,
-  weightOf: (validator: ValidatorIndex) => Stake,
+  stakes: ReadonlyMap<ValidatorIndex, Stake>,
 ): Stake {
   let total = 0;
-  for (const v of committeeForSlot(slot, config)) total += weightOf(v);
+  for (const v of committeeForSlot(slot, config)) total += stakes.get(v) ?? 0;
   return total;
 }
 
 /**
  * Run chain-state derivation and fork choice over a view, as a fork choice
  * computed at `atSlot` (the view's own slot unless the caller acts later,
- * as a proposer does on its view of the slots before its own). Vote weights
- * are the stakes of the fork-choice root's chain state; the timely proposal
- * of `atSlot` gets committee weight × boost on top.
+ * as a proposer does on its view of the slots before its own). A vote
+ * weighs the voter's stake in the chain state of the head it votes for
+ * (ESSENCE 必須 25: a validator's weight is its stake in its head's chain
+ * state), so a penalty included on a branch bites exactly there; the timely
+ * proposal of `atSlot` gets its committee's weight × boost on top.
  */
 export function resolveView(
   view: View,
   config: SimulationConfig,
   atSlot: SlotIndex = view.slot,
 ): Resolution {
-  const states = chainStatesOf(view.blockTree, equalStakes(config.validatorCount));
+  const states = chainStatesOf(view.blockTree, config);
   const root = forkChoiceRoot(view.blockTree, states);
-  const rootStakes = states.get(root)!.stakes;
-  const weightOf = (validator: ValidatorIndex): Stake =>
-    rootStakes.get(validator) ?? 0;
+  const weightOf = (vote: Vote): Stake =>
+    states.get(vote.head)?.stakes.get(vote.validator) ?? 0;
   const boosted = boostedBlock(view, atSlot, config);
   const weights: ForkChoiceWeights = {
     weightOf,
@@ -101,7 +101,9 @@ export function resolveView(
         ? undefined
         : {
             block: boosted,
-            weight: committeeWeight(atSlot, config, weightOf) * config.params.boost,
+            weight:
+              committeeWeight(atSlot, config, states.get(boosted)!.stakes) *
+              config.params.boost,
           },
   };
   const head = ghostHead(view.blockTree, view.votes, root, weights);

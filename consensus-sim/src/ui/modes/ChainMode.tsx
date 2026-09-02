@@ -13,7 +13,6 @@
 import { useMemo, useState } from 'react'
 import {
   checkpointStatus,
-  equalStakes,
   getBlock,
   instantDelivery,
   observe,
@@ -58,10 +57,9 @@ export function ChainMode({
       ),
     [state.log, state.slot, validatorCount, config, delivery],
   )
-  const stakes = useMemo(() => equalStakes(validatorCount), [validatorCount])
   const checkpoints = useMemo(
-    () => checkpointStatus(state.tree, stakes),
-    [state.tree, stakes],
+    () => checkpointStatus(state.tree, config),
+    [state.tree, config],
   )
 
   const toggleCell = (cell: ExpandedCell) => {
@@ -191,7 +189,7 @@ export function ChainMode({
               tree={detail.obs.view.blockTree}
               votes={detail.obs.view.votes}
               heads={new Map([[detail.validator, detail.obs.head]])}
-              checkpoints={checkpointStatus(detail.obs.view.blockTree, stakes)}
+              checkpoints={checkpointStatus(detail.obs.view.blockTree, config)}
               throughSlot={detail.slot}
             />
           </div>

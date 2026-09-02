@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_PARAMS,
   PRESETS,
+  equalStakes,
   parseScenario,
   scenarioStates,
   serializeScenario,
@@ -37,6 +38,7 @@ const SCENARIO: Scenario = {
     validatorCount: 4,
     seed: 7,
     params: { ...PRESETS.phase0, committee: { kind: "sized", size: 3 } },
+    initialStakes: [32, 48, 16, 32],
   },
   interventions: ALL_KINDS,
 };
@@ -118,6 +120,29 @@ describe("parse rejection", () => {
     const { params: _dropped, ...config } = base.config;
     const parsed = parseScenario({ ...base, config });
     expect(parsed.scenario.config.params).toEqual(DEFAULT_PARAMS);
+  });
+
+  const withStakes = (initialStakes: unknown) => {
+    const base = valid();
+    return { ...base, config: { ...base.config, initialStakes } };
+  };
+
+  it.each([
+    ["too few stakes", [32, 32, 32]],
+    ["too many stakes", [32, 32, 32, 32, 32]],
+    ["a zero stake", [32, 0, 32, 32]],
+    ["a negative stake", [32, -1, 32, 32]],
+    ["a fractional stake", [32, 1.5, 32, 32]],
+    ["stakes not an array", { 0: 32 }],
+  ])("rejects initial stakes with %s", (_name, stakes) => {
+    expect(() => parseScenario(withStakes(stakes))).toThrow();
+  });
+
+  it("defaults absent initial stakes to equal stakes (pre-stake scenarios)", () => {
+    const base = valid();
+    const { initialStakes: _dropped, ...config } = base.config;
+    const parsed = parseScenario({ ...base, config });
+    expect(parsed.scenario.config.initialStakes).toEqual(equalStakes(4));
   });
 
   const withIntervention = (i: unknown) => ({

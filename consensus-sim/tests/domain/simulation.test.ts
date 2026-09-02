@@ -3,6 +3,7 @@ import {
   DEFAULT_PARAMS,
   DEFAULT_VALIDATOR_COUNT,
   advanceSlot,
+  equalStakes,
   initialState,
   proposerForSlot,
   stateAtSlot,
@@ -14,6 +15,7 @@ const config: SimulationConfig = {
   validatorCount: DEFAULT_VALIDATOR_COUNT,
   seed: 42,
   params: DEFAULT_PARAMS,
+  initialStakes: equalStakes(DEFAULT_VALIDATOR_COUNT),
 };
 
 describe("proposer schedule", () => {
@@ -105,7 +107,12 @@ describe("determinism (決定性)", () => {
 
   it("is stable across validator counts in [4, 10]", () => {
     for (const validatorCount of [4, 7, 10]) {
-      const cfg = { validatorCount, seed: 7, params: DEFAULT_PARAMS };
+      const cfg = {
+        validatorCount,
+        seed: 7,
+        params: DEFAULT_PARAMS,
+        initialStakes: equalStakes(validatorCount),
+      };
       expect(stateAtSlot(cfg, 9)).toEqual(stateAtSlot(cfg, 9));
     }
   });

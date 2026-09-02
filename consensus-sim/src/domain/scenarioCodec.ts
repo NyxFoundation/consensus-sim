@@ -5,7 +5,7 @@
 // loaded scenario is exactly as trustworthy as a built one. Pure data in,
 // pure data out: no DOM, no storage — I/O belongs to the UI layer.
 
-import type { SimulationConfig } from "./config";
+import { equalStakes, type SimulationConfig } from "./config";
 import type { Intervention } from "./intervention";
 import type { MessageRef } from "./messages";
 import {
@@ -192,6 +192,25 @@ function paramsOf(
   };
 }
 
+/** Validate initial stakes: one positive integer per validator; absent
+ * means equal stakes, so scenarios saved before stakes existed stay
+ * loadable. */
+function initialStakesOf(
+  x: unknown,
+  validatorCount: number,
+  what: string,
+): readonly number[] {
+  if (x === undefined) return equalStakes(validatorCount);
+  if (!Array.isArray(x) || x.length !== validatorCount) {
+    throw new ParseError(`${what} must list one stake per validator`);
+  }
+  return x.map((s, v) => {
+    const stake = integer(s, `${what}[${v}]`);
+    if (stake <= 0) throw new ParseError(`${what}[${v}] must be positive`);
+    return stake;
+  });
+}
+
 function messageRefOf(
   x: unknown,
   validatorCount: number,
@@ -314,6 +333,11 @@ export function parseScenario(data: unknown): SavedRun {
   }
   const seed = integer(data.config.seed, "config.seed");
   const params = paramsOf(data.config.params, validatorCount, "config.params");
+  const initialStakes = initialStakesOf(
+    data.config.initialStakes,
+    validatorCount,
+    "config.initialStakes",
+  );
   const runSlot = slotOf(data.runSlot, "runSlot");
   if (!Array.isArray(data.interventions)) {
     throw new ParseError("interventions must be an array");
@@ -322,7 +346,10 @@ export function parseScenario(data: unknown): SavedRun {
     interventionOf(x, validatorCount, `interventions[${i}]`),
   );
   return {
-    scenario: { config: { validatorCount, seed, params }, interventions },
+    scenario: {
+      config: { validatorCount, seed, params, initialStakes },
+      interventions,
+    },
     runSlot,
   };
 }
