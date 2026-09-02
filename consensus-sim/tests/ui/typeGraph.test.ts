@@ -83,6 +83,9 @@ describe('domain type catalog (実装との一致)', () => {
       'AttackerObservation',
       'Action',
       'Capability',
+      'GodView',
+      'GoalEvidence',
+      'GoalTrace',
     ]) {
       expect(byName.has(name), `missing type: ${name}`).toBe(true)
     }

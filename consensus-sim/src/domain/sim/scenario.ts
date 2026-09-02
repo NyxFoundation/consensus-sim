@@ -5,6 +5,7 @@
 // (決定性): the same scenario always reproduces the same states — and, with
 // an attack, the same generated actions.
 
+import { evaluateGoal, type GoalTrace } from "../model/attackGoal";
 import type { SimulationConfig } from "../model/config";
 import { generateActions, type AttackInstance, type GeneratedAction } from "./attackRun";
 import { compileDelivery, directivesForSlot, type Intervention } from "./intervention";
@@ -41,12 +42,14 @@ export function advanceScenario(
 }
 
 /** A scenario computed through some slot: its states, every action the
- * attack's strategy generated (accepted or discarded) and the interventions
- * in effect — the manual ones plus the accepted actions. */
+ * attack's strategy generated (accepted or discarded), the interventions
+ * in effect — the manual ones plus the accepted actions — and, with an
+ * attack, the goal's verdict at every slot (攻撃目標の判定推移). */
 export interface ScenarioRun {
   readonly states: readonly SimulationState[];
   readonly generated: readonly GeneratedAction[];
   readonly interventions: readonly Intervention[];
+  readonly goal?: GoalTrace;
 }
 
 /**
@@ -88,7 +91,14 @@ export function runScenario(scenario: Scenario, throughSlot: SlotIndex): Scenari
       advanceSlot(config, last, delivery, directivesForSlot(effective, last.slot + 1, config)),
     );
   }
-  return { states, generated, interventions: effective };
+  return {
+    states,
+    generated,
+    interventions: effective,
+    ...(attack === undefined
+      ? {}
+      : { goal: evaluateGoal(attack.attack.goal, states, attack.attackers, config) }),
+  };
 }
 
 /** All states of the scenario from slot 0 through `throughSlot`. */

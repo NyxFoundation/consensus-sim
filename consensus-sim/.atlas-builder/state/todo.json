@@ -1408,7 +1408,7 @@
     {
       "id": "T-039",
       "title": "攻撃目標述語(ドメイン): 安全性違反・活性停止(L)・リオーグ(k、既定 1)・攻撃者ステーク比率(θ)の 4 種を神視点で毎スロット境界に評価し、述語列を先頭から順に判定、段階ごとの達成/未達と根拠(例: 活性停止 n スロット目、第 1 段達成 @slot)のスロット軸トレースを導出+テスト",
-      "status": "pending",
+      "status": "done",
       "priority": "must",
       "spec": [
         "S-039",
@@ -1420,7 +1420,37 @@
       "batch_group": "e3-attacks",
       "context_cost": 4,
       "risk_level": "normal",
-      "notes": "遂行順序 5。2 段の攻撃(A14)の判定推移をテストで固定。"
+      "notes": "遂行順序 5。攻撃目標述語の評価を model/attackGoal.ts に純関数として置いた: GodView{slot, tree, chainStates, heads}(SimulationState がそのまま適合)、evaluatePredicate(goal, history, at, attackers, config) → GoalEvidence(述語ごとの構造化された根拠: safety-violation{conflicting}, liveness-stall{finalized, stalledSlots}, reorg{count, latest{validator, slot, from, to}}, attacker-stake-ratio{ratio, validator, head})、evaluateGoal → GoalTrace = trace[slot][stage] の StageVerdict{stage, status: pending|active|achieved, evidence, achievedAt?}、goalAchievedAt。 意味論: 安全性違反 = checkpointStatus(tree).finalized(各枝のチェーン状態で finalized なチェックポイント)に互いに祖先でない対がある(最小 index 対を根拠に); 活性停止 L = 神視点の latestFinalized が最後に前進したスロットからの経過 ≥ L(錨は slot 0 で finalized 扱い。正直実行でも起動時に 8〜9 スロット停滞するので、ライブラリの L はそれより大きく取る); リオーグ k = 正直バリデータごとに『heads[s] が heads[s-1] の子孫でない』事象を slot 0 から累計し最大が ≥ k(攻撃者の head は数えない); 攻撃者ステーク比率 θ = 正直バリデータの head のチェーン状態での攻撃者合計 ÷ 全合計の最大 ≥ θ(枝で罰則が効くと変わる)。段階: stage 0 は slot 0 から判定、stage i+1 は stage i の達成スロットから判定(同一スロットで連続達成可)、未判定段階の根拠も毎スロット報告(推移表示用)、達成は不可逆。根拠は文字列でなく構造化データ(UI が日本語に整形、T-042)。 sim: runScenario が attack ありのとき ScenarioRun.goal に GoalTrace を載せる(states をそのまま history に渡す)。",
+      "evidence": [
+        {
+          "type": "diff",
+          "summary": "src/domain/model/attackGoal.ts: GodView, GoalEvidence, StageStatus, StageVerdict, GoalTrace, evaluatePredicate (4 predicates over a god-view history), evaluateGoal (staged judgment), goalAchievedAt. src/domain/sim/scenario.ts: ScenarioRun.goal? computed by runScenario when the scenario has an attack. tests/domain/attackGoal.test.ts (10 tests). tests/ui/typeGraph.test.ts: GodView / GoalEvidence / GoalTrace in the catalog. README: goal judgment paragraph and test line. git diff --stat (implementation files): README.md, src/domain/model/attackGoal.ts (+228), src/domain/sim/scenario.ts, tests/ui/typeGraph.test.ts — 4 files changed, ~245 insertions(+), 10 deletions(-) — plus the new tests/domain/attackGoal.test.ts."
+        },
+        {
+          "type": "command",
+          "command": "npx vitest run tests/domain/attackGoal.test.ts",
+          "exit_code": 0,
+          "summary": "受け入れ確認(必須 19、成功条件 13 の『攻撃目標判定』、成功条件 18・24 の判定推移の土台): 安全性違反 — 手組みの二枝木(各枝が {0,1,2} / {1,2,3} の 75% で自分のエポック 1 チェックポイント B1 / B4 を finalize)で holds かつ conflicting [1, 4]、正直実行では 13 スロットまで false; 活性停止 — 正直実行で stalledSlots が『latestFinalized が最後に前進したスロットからの経過』に一致し finality は前進する(最大停滞 < 12)、2 体停止(s1〜12)で L=10 は slot 10〜12 で holds(finalized 0)、復帰後 slot 28 で finalized が前進し解除; リオーグ — 錨へのフォーク作成+全員の投票先指定で heads が B2 → B3(非子孫)に移り slot 3 で count 1・latest {validator 1, slot 3, from 2, to 3}、k=2 は未達、攻撃者 {1,2,3} なら validator 0 だけを数える、正直実行では 12 スロットまで false; 攻撃者ステーク比率 — 等ステークで 0.25(validator 1 の head で読む)、{0,1} は 0.5 で θ=0.5 達成、偏り [64,32,32,32] は slot 0 で 0.4 達成、二重投票の証拠を取り込んだ枝ではスラッシングで比率 0 に落ちて未達; 段階判定 — [リオーグ, 活性停止 6] で stage 0 が slot 3 達成・stage 1 は slot 2 まで pending(根拠は報告)→ slot 3 から active → slot 6 達成、goalAchievedAt = 6(through 5 では未達)、stage 0 が達成されない限り stage 1 は pending のまま、両段が同一スロットで達成されうる、攻撃なしのシナリオは goal を持たない — 10 tests exit 0."
+        },
+        {
+          "type": "command",
+          "command": "npm run typecheck",
+          "exit_code": 0,
+          "summary": "tsc --noEmit exits 0."
+        },
+        {
+          "type": "command",
+          "command": "npx vitest run",
+          "exit_code": 0,
+          "summary": "27 files / 324 tests pass (314 → 324: attackGoal +10); the type catalog lists GodView / GoalEvidence / GoalTrace among the model types."
+        },
+        {
+          "type": "command",
+          "command": "npm run build",
+          "exit_code": 0,
+          "summary": "vite build emits the static dist/ bundle (344.4 kB js) with exit 0."
+        }
+      ]
     },
     {
       "id": "T-040",

@@ -95,7 +95,7 @@ identity, and the list shows each entry's preset.
 Sanity check:
 
 ```bash
-npm test           # vitest — model, chain state, fork choice, protocol params, stakes and penalties, attack execution, determinism, rewind, UI shell
+npm test           # vitest — model, chain state, fork choice, protocol params, stakes and penalties, attack execution and goal judgment, determinism, rewind, UI shell
 npm run typecheck  # tsc --noEmit
 npm run build      # static bundle in dist/ (no backend; plain static SPA)
 ```
@@ -186,7 +186,11 @@ npm run build      # static bundle in dist/ (no backend; plain static SPA)
   causal, outside the range, contradicted by a manual intervention of the
   same slot and validator (the manual one wins) or past the fork limit is
   discarded — kept in the list with its reason. Generated actions are never
-  saved: replaying the scenario regenerates them identically.
+  saved: replaying the scenario regenerates them identically. The goal is
+  judged from the god view at every slot: a stage is judged only once the
+  stage before it is achieved, and every verdict carries its evidence (the
+  conflicting finalized checkpoints, the slots finality has stalled, the
+  reorg count and latest event, the stake ratio and the head it is read at).
 - **Determinism and rewind:** the state at slot *n* is recomputed from the
   anchor, never replayed from mutable history — the same scenario always
   reproduces the same run, and rewinding is just recomputation.
