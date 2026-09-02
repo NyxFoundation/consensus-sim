@@ -1,9 +1,27 @@
 // Fork choice (GHOST 系) — pure functions over a block tree and votes.
 // LMD: only each validator's latest vote counts. GHOST: descend from a root
-// checkpoint, always into the heaviest child subtree.
+// checkpoint, always into the heaviest child subtree. Weights are stakes
+// (from the chain state the caller picks) plus, for one slot's proposal,
+// the proposer boost.
 
 import { childrenOf, isAncestor, type BlockTree } from "./blockTree";
-import type { BlockIndex, ValidatorIndex, Vote } from "./types";
+import type { BlockIndex, Stake, ValidatorIndex, Vote } from "./types";
+
+/**
+ * How votes and the proposer boost weigh in one fork-choice computation.
+ * `weightOf` is a validator's stake; `boost` adds `weight` to the subtree of
+ * `block` (the current slot's timely proposal, ESSENCE 必須 3) for this
+ * computation only.
+ */
+export interface ForkChoiceWeights {
+  readonly weightOf: (validator: ValidatorIndex) => Stake;
+  readonly boost?:
+    | { readonly block: BlockIndex; readonly weight: Stake }
+    | undefined;
+}
+
+/** Every vote weighs 1 and nothing is boosted — the bare GHOST count. */
+export const UNIT_WEIGHTS: ForkChoiceWeights = { weightOf: () => 1 };
 
 /**
  * The latest vote of each validator (LMD). For votes at the same slot by the
@@ -34,20 +52,30 @@ export function latestVotes(
 }
 
 /**
- * GHOST subtree weight of `block`: how many latest votes support a head
- * inside the subtree rooted at `block`. Votes whose head is unknown to this
- * tree are ignored (that validator has not shown us its head yet).
+ * GHOST subtree weight of `block`: the stake of the latest votes supporting
+ * a head inside the subtree rooted at `block`, plus the proposer boost when
+ * the boosted block lies in that subtree. Votes whose head is unknown to
+ * this tree are ignored (that validator has not shown us its head yet).
  */
 export function subtreeWeight(
   tree: BlockTree,
   latest: ReadonlyMap<ValidatorIndex, Vote>,
   block: BlockIndex,
-): number {
+  weights: ForkChoiceWeights = UNIT_WEIGHTS,
+): Stake {
   let weight = 0;
   for (const vote of latest.values()) {
     if (tree.blocks.has(vote.head) && isAncestor(tree, block, vote.head)) {
-      weight += 1;
+      weight += weights.weightOf(vote.validator);
     }
+  }
+  const boost = weights.boost;
+  if (
+    boost !== undefined &&
+    tree.blocks.has(boost.block) &&
+    isAncestor(tree, block, boost.block)
+  ) {
+    weight += boost.weight;
   }
   return weight;
 }
@@ -61,6 +89,7 @@ export function ghostHead(
   tree: BlockTree,
   votes: readonly Vote[],
   root: BlockIndex,
+  weights: ForkChoiceWeights = UNIT_WEIGHTS,
 ): BlockIndex {
   if (!tree.blocks.has(root)) {
     throw new Error(`fork choice root ${root} is not in the tree`);
@@ -73,7 +102,7 @@ export function ghostHead(
     let best: BlockIndex | undefined;
     let bestWeight = -1;
     for (const child of children) {
-      const weight = subtreeWeight(tree, latest, child);
+      const weight = subtreeWeight(tree, latest, child, weights);
       if (weight > bestWeight) {
         best = child;
         bestWeight = weight;

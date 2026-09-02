@@ -70,24 +70,36 @@ truncates the discarded future.
 
 The シナリオ panel saves the current run — initial conditions plus the
 intervention list and how far it advanced — to a browser-local list, and
-reloading replays it deterministically to the identical states. A seed is
-part of the saved identity for forward compatibility, but the current
-skeleton has no random choice, so there is no seed control in the UI yet.
+reloading replays it deterministically to the identical states. The seed
+and the protocol parameters are part of the saved identity (the seed drives
+sized-committee sampling); until the parameter panel lands, the UI runs
+the `merge` preset with committee = everyone and seed 0.
 
 Sanity check:
 
 ```bash
-npm test           # vitest — model, chain state, fork choice, determinism, rewind, UI shell
+npm test           # vitest — model, chain state, fork choice, protocol params, determinism, rewind, UI shell
 npm run typecheck  # tsc --noEmit
 npm run build      # static bundle in dist/ (no backend; plain static SPA)
 ```
 
 ## The model
 
-- **Validators** (4–10, default 4) act as proposers and attesters in a
-  round-robin schedule, and carry recognizable katakana names (アリス, ボブ,
-  キャロル, …) throughout the UI. Time advances in slots; epoch boundaries
-  fall every 4 slots.
+- **Validators** (4–10, default 4) act as proposers and attesters, and carry
+  recognizable katakana names (アリス, ボブ, キャロル, …) throughout the UI.
+  Time advances in slots; epoch boundaries fall every 4 slots. The proposer
+  of a slot (round-robin) and its **committee** — everyone, or `c`
+  validators drawn per slot from the seed — derive deterministically from
+  (slot, protocol parameters, seed) and are public to every validator.
+- **Protocol parameters** (`ProtocolParams`) make the skeleton's knobs
+  explicit: committee assignment, proposer boost, fork-choice rule (GHOST /
+  LMD-GHOST), equivocation discount, justified-checkpoint switching
+  (window / unrealized / off), slashing and inactivity leak. Three
+  **presets** name real points of Ethereum's history — `phase0` (no boost,
+  no discount), `merge` (boost 0.4, discount on; the default) and `current`
+  (unrealized justification) — and an attack later declares its premise as
+  a preset plus overrides. The parameters are part of the scenario and are
+  saved with it.
 - **Blocks** form a tree rooted at the **anchor block** (slot 0), which every
   validator already agrees is finalized — there is no genesis ceremony. A
   block carries a **body**: the votes and equivocation evidence its proposer
@@ -100,11 +112,15 @@ npm run build      # static bundle in dist/ (no backend; plain static SPA)
   a branch's justification only once a block on that branch includes it, so
   the same vote set can justify one branch and be inert on another.
 - **Fork choice** is GHOST over each validator's own view (the message
-  layer), starting from the highest justified checkpoint it knows; a
-  validator's justified / finalized / stakes are the chain state of its head
-  (the inclusion layer). **Finality** follows supermajority source→target
-  links over included votes (justification fixpoint, adjacent-epoch
-  finalization).
+  layer), starting from the highest justified checkpoint it knows, with
+  votes weighed by the stakes of that checkpoint's chain state. The
+  **proposer boost** adds committee weight × boost to the current slot's
+  proposal — in that slot's fork choice only, and only for validators that
+  received it during the slot; a proposal delivered late is never boosted.
+  A validator's justified / finalized / stakes are the chain state of its
+  head (the inclusion layer). **Finality** follows supermajority
+  source→target links over included votes (justification fixpoint,
+  adjacent-epoch finalization).
 - **Local views** are pure filters over a global append-only message log: a
   delivery rule decides who has seen what by when. Instant broadcast is the
   default; partitions, delays and drops plug in as stricter delivery rules

@@ -16,6 +16,7 @@ import {
   viewOf,
 } from '../domain'
 import type {
+  SimulationConfig,
   Intervention,
   MessageRef,
   OperatingState,
@@ -49,7 +50,7 @@ function spanLabel(fromSlot: number, toSlot: number | undefined): string {
   return toSlot === undefined ? `s${fromSlot}〜` : `s${fromSlot}〜s${toSlot}`
 }
 
-function describe(i: Intervention, validatorCount: number): string {
+function describe(i: Intervention, config: SimulationConfig): string {
   switch (i.kind) {
     case 'partition':
       return `分断 { ${i.groups.map(setLabel).join(' | ')} } ⇔ 残り全員 ${spanLabel(i.fromSlot, i.toSlot)}`
@@ -59,7 +60,7 @@ function describe(i: Intervention, validatorCount: number): string {
       return `オフライン ${setLabel(i.validators)} ${spanLabel(i.fromSlot, i.toSlot)}`
     case 'propose-parent':
       return `フォーク作成 parent B${i.parent} @ s${i.slot}（提案者 ${validatorName(
-        proposerForSlot(i.slot, validatorCount),
+        proposerForSlot(i.slot, config),
       )}）`
     case 'double-propose':
       return `二重提案 ${validatorLabel(i.validator)} @ s${i.slot}`
@@ -125,7 +126,7 @@ export function InterventionPanel({ session }: InterventionPanelProps) {
   const { current, config, interventions, cursor, delivery } = session
   const validators = Array.from({ length: config.validatorCount }, (_, v) => v)
   const nextSlot = cursor + 1
-  const nextProposer = proposerForSlot(nextSlot, config.validatorCount)
+  const nextProposer = proposerForSlot(nextSlot, config)
 
   const [groupA, setGroupA] = useState<readonly ValidatorIndex[]>([])
   const [dvValidator, setDvValidator] = useState<ValidatorIndex>(0)
@@ -488,7 +489,7 @@ export function InterventionPanel({ session }: InterventionPanelProps) {
           {interventions.map((i, index) => (
             <li key={index}>
               <span className="intervention-desc">
-                {describe(i, config.validatorCount)}
+                {describe(i, config)}
               </span>
               {openPartition(i) && (
                 <button

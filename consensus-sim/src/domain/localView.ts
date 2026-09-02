@@ -5,7 +5,8 @@
 // are stricter Delivery rules, not engine changes.
 
 import { addBlock, createBlockTree, type BlockTree } from "./blockTree";
-import { equalStakes, type ChainState } from "./chainState";
+import type { ChainState } from "./chainState";
+import type { SimulationConfig } from "./config";
 import {
   refOfBlock,
   refOfVote,
@@ -101,10 +102,10 @@ export function observe(
   log: MessageLog,
   observer: ValidatorIndex,
   slot: SlotIndex,
-  validatorCount: number,
+  config: SimulationConfig,
   delivery: Delivery = instantDelivery,
 ): LocalObservation {
   const view = viewOf(log, observer, slot, delivery);
-  const { head, chainState } = resolveView(view, equalStakes(validatorCount));
+  const { head, chainState } = resolveView(view, config);
   return { view, head, chainState };
 }

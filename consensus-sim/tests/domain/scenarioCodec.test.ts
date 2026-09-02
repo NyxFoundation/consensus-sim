@@ -5,6 +5,8 @@
 
 import { describe, expect, it } from "vitest";
 import {
+  DEFAULT_PARAMS,
+  PRESETS,
   parseScenario,
   scenarioStates,
   serializeScenario,
@@ -31,7 +33,11 @@ const ALL_KINDS: Intervention[] = [
 ];
 
 const SCENARIO: Scenario = {
-  config: { validatorCount: 4, seed: 7 },
+  config: {
+    validatorCount: 4,
+    seed: 7,
+    params: { ...PRESETS.phase0, committee: { kind: "sized", size: 3 } },
+  },
   interventions: ALL_KINDS,
 };
 
@@ -82,6 +88,36 @@ describe("parse rejection", () => {
     ["interventions not an array", { ...valid(), interventions: {} }],
   ])("rejects %s", (_name, data) => {
     expect(() => parseScenario(data)).toThrow();
+  });
+
+  const withParams = (patch: Record<string, unknown>) => {
+    const base = valid();
+    return {
+      ...base,
+      config: { ...base.config, params: { ...base.config.params, ...patch } },
+    };
+  };
+
+  it.each([
+    ["boost above 1", { boost: 1.5 }],
+    ["negative boost", { boost: -0.1 }],
+    ["unknown fork choice rule", { forkChoice: "PBFT" }],
+    ["unknown checkpoint switch", { checkpointSwitch: "sometimes" }],
+    ["non-boolean slashing", { slashing: "on" }],
+    ["committee of unknown kind", { committee: { kind: "random" } }],
+    ["committee larger than the validator set", { committee: { kind: "sized", size: 5 } }],
+    ["empty committee", { committee: { kind: "sized", size: 0 } }],
+    ["leak without delay", { inactivityLeak: { enabled: true, delayEpochs: 0, rate: 0.25 } }],
+    ["leak rate above 1", { inactivityLeak: { enabled: true, delayEpochs: 4, rate: 2 } }],
+  ])("rejects protocol params with %s", (_name, patch) => {
+    expect(() => parseScenario(withParams(patch))).toThrow();
+  });
+
+  it("defaults absent protocol params to the merge preset (pre-parameter scenarios)", () => {
+    const base = valid();
+    const { params: _dropped, ...config } = base.config;
+    const parsed = parseScenario({ ...base, config });
+    expect(parsed.scenario.config.params).toEqual(DEFAULT_PARAMS);
   });
 
   const withIntervention = (i: unknown) => ({

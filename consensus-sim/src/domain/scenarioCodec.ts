@@ -5,8 +5,16 @@
 // loaded scenario is exactly as trustworthy as a built one. Pure data in,
 // pure data out: no DOM, no storage — I/O belongs to the UI layer.
 
+import type { SimulationConfig } from "./config";
 import type { Intervention } from "./intervention";
 import type { MessageRef } from "./messages";
+import {
+  DEFAULT_PARAMS,
+  type CheckpointSwitch,
+  type CommitteeAssignment,
+  type ForkChoiceRule,
+  type ProtocolParams,
+} from "./protocolParams";
 import type { Scenario } from "./scenario";
 import { START_SLOT } from "./types";
 import {
@@ -26,7 +34,7 @@ export interface SavedRun {
 export interface SerializedScenario {
   readonly format: typeof SCENARIO_FORMAT;
   readonly version: number;
-  readonly config: { readonly validatorCount: number; readonly seed: number };
+  readonly config: SimulationConfig;
   readonly runSlot: number;
   readonly interventions: readonly Intervention[];
 }
@@ -96,6 +104,92 @@ function spanOf(
     throw new ParseError(`${what}.toSlot must be ≥ fromSlot`);
   }
   return { fromSlot, toSlot };
+}
+
+function booleanOf(x: unknown, what: string): boolean {
+  if (typeof x !== "boolean") throw new ParseError(`${what} must be a boolean`);
+  return x;
+}
+
+function fractionOf(x: unknown, what: string): number {
+  if (typeof x !== "number" || !Number.isFinite(x) || x < 0 || x > 1) {
+    throw new ParseError(`${what} must be a number in [0, 1]`);
+  }
+  return x;
+}
+
+function oneOf<T extends string>(
+  x: unknown,
+  options: readonly T[],
+  what: string,
+): T {
+  if (typeof x !== "string" || !(options as readonly string[]).includes(x)) {
+    throw new ParseError(`${what} must be one of ${options.join(" | ")}`);
+  }
+  return x as T;
+}
+
+function committeeOf(
+  x: unknown,
+  validatorCount: number,
+  what: string,
+): CommitteeAssignment {
+  if (!isRecord(x)) throw new ParseError(`${what} must be an object`);
+  if (x.kind === "all") return { kind: "all" };
+  if (x.kind === "sized") {
+    const size = integer(x.size, `${what}.size`);
+    if (size < 1 || size > validatorCount) {
+      throw new ParseError(`${what}.size must be in [1, ${validatorCount}]`);
+    }
+    return { kind: "sized", size };
+  }
+  throw new ParseError(`${what}.kind must be "all" or "sized"`);
+}
+
+const FORK_CHOICE_RULES: readonly ForkChoiceRule[] = ["GHOST", "LMD-GHOST"];
+const CHECKPOINT_SWITCHES: readonly CheckpointSwitch[] = [
+  "window",
+  "unrealized",
+  "off",
+];
+
+/** Validate protocol parameters; absent means the default preset (merge),
+ * so scenarios saved before parameters existed stay loadable. */
+function paramsOf(
+  x: unknown,
+  validatorCount: number,
+  what: string,
+): ProtocolParams {
+  if (x === undefined) return DEFAULT_PARAMS;
+  if (!isRecord(x)) throw new ParseError(`${what} must be an object`);
+  const leak = x.inactivityLeak;
+  if (!isRecord(leak)) {
+    throw new ParseError(`${what}.inactivityLeak must be an object`);
+  }
+  const delayEpochs = integer(leak.delayEpochs, `${what}.inactivityLeak.delayEpochs`);
+  if (delayEpochs < 1) {
+    throw new ParseError(`${what}.inactivityLeak.delayEpochs must be ≥ 1`);
+  }
+  return {
+    committee: committeeOf(x.committee, validatorCount, `${what}.committee`),
+    boost: fractionOf(x.boost, `${what}.boost`),
+    forkChoice: oneOf(x.forkChoice, FORK_CHOICE_RULES, `${what}.forkChoice`),
+    equivocationDiscount: booleanOf(
+      x.equivocationDiscount,
+      `${what}.equivocationDiscount`,
+    ),
+    checkpointSwitch: oneOf(
+      x.checkpointSwitch,
+      CHECKPOINT_SWITCHES,
+      `${what}.checkpointSwitch`,
+    ),
+    slashing: booleanOf(x.slashing, `${what}.slashing`),
+    inactivityLeak: {
+      enabled: booleanOf(leak.enabled, `${what}.inactivityLeak.enabled`),
+      delayEpochs,
+      rate: fractionOf(leak.rate, `${what}.inactivityLeak.rate`),
+    },
+  };
 }
 
 function messageRefOf(
@@ -219,6 +313,7 @@ export function parseScenario(data: unknown): SavedRun {
     );
   }
   const seed = integer(data.config.seed, "config.seed");
+  const params = paramsOf(data.config.params, validatorCount, "config.params");
   const runSlot = slotOf(data.runSlot, "runSlot");
   if (!Array.isArray(data.interventions)) {
     throw new ParseError("interventions must be an array");
@@ -227,7 +322,7 @@ export function parseScenario(data: unknown): SavedRun {
     interventionOf(x, validatorCount, `interventions[${i}]`),
   );
   return {
-    scenario: { config: { validatorCount, seed }, interventions },
+    scenario: { config: { validatorCount, seed, params }, interventions },
     runSlot,
   };
 }

@@ -10,7 +10,8 @@
 
 import type { Delivery } from "./localView";
 import { sameRef, type MessageRef } from "./messages";
-import { proposerForSlot } from "./protocol";
+import type { SimulationConfig } from "./config";
+import { proposerForSlot } from "./schedule";
 import type { SlotDirectives } from "./simulation";
 import type { BlockIndex, SlotIndex, ValidatorIndex } from "./types";
 
@@ -235,7 +236,7 @@ export function compileDelivery(
 export function directivesForSlot(
   interventions: readonly Intervention[],
   slot: SlotIndex,
-  validatorCount: number,
+  config: SimulationConfig,
 ): SlotDirectives {
   const stopped = new Set<ValidatorIndex>();
   for (const i of interventions) {
@@ -246,7 +247,7 @@ export function directivesForSlot(
       for (const v of i.validators) stopped.add(v);
     }
   }
-  const proposer = proposerForSlot(slot, validatorCount);
+  const proposer = proposerForSlot(slot, config);
   const doublePropose = interventions.some(
     (i) =>
       i.kind === "double-propose" &&

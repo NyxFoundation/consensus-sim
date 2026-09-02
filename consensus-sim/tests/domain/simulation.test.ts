@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  DEFAULT_PARAMS,
   DEFAULT_VALIDATOR_COUNT,
   advanceSlot,
   initialState,
@@ -12,11 +13,12 @@ import {
 const config: SimulationConfig = {
   validatorCount: DEFAULT_VALIDATOR_COUNT,
   seed: 42,
+  params: DEFAULT_PARAMS,
 };
 
 describe("proposer schedule", () => {
   it("rotates round-robin over the validator set", () => {
-    expect([1, 2, 3, 4, 5].map((s) => proposerForSlot(s, 4))).toEqual([
+    expect([1, 2, 3, 4, 5].map((s) => proposerForSlot(s, config))).toEqual([
       1, 2, 3, 0, 1,
     ]);
   });
@@ -103,7 +105,7 @@ describe("determinism (決定性)", () => {
 
   it("is stable across validator counts in [4, 10]", () => {
     for (const validatorCount of [4, 7, 10]) {
-      const cfg = { validatorCount, seed: 7 };
+      const cfg = { validatorCount, seed: 7, params: DEFAULT_PARAMS };
       expect(stateAtSlot(cfg, 9)).toEqual(stateAtSlot(cfg, 9));
     }
   });

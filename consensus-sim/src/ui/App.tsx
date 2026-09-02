@@ -42,7 +42,7 @@ export function App() {
 
   const { current, config, delivery, cursor, runSlot } = session
   const inPast = cursor < runSlot
-  const nextProposer = proposerForSlot(cursor + 1, config.validatorCount)
+  const nextProposer = proposerForSlot(cursor + 1, config)
 
   return (
     <div className="app">
@@ -137,16 +137,12 @@ export function App() {
 
       <main className="mode-body">
         {mode === 'chain' && (
-          <ChainMode
-            state={current}
-            validatorCount={config.validatorCount}
-            delivery={delivery}
-          />
+          <ChainMode state={current} config={config} delivery={delivery} />
         )}
         {mode === 'network' && (
           <NetworkMode
             state={current}
-            validatorCount={config.validatorCount}
+            config={config}
             delivery={delivery}
             interventions={session.interventions}
           />
@@ -154,7 +150,7 @@ export function App() {
         {mode === 'global' && (
           <GlobalMode
             state={current}
-            validatorCount={config.validatorCount}
+            config={config}
             delivery={delivery}
             interventions={session.interventions}
           />

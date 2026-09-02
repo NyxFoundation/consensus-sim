@@ -19,7 +19,7 @@ import {
   observe,
   validatorName,
 } from '../../domain'
-import type { Delivery, SimulationState } from '../../domain'
+import type { Delivery, SimulationConfig, SimulationState } from '../../domain'
 import { BlockTreeView } from '../BlockTreeView'
 import { BlockBodyView, ChainStateTable } from '../ChainStateDetail'
 import { blockName } from '../format'
@@ -31,16 +31,18 @@ import { VoteTable } from '../VoteTable'
 
 export interface ChainModeProps {
   readonly state: SimulationState
-  readonly validatorCount: number
+  /** The scenario's initial conditions — local views resolve under them. */
+  readonly config: SimulationConfig
   /** The scenario's delivery rule — local views are filtered through it. */
   readonly delivery?: Delivery | undefined
 }
 
 export function ChainMode({
   state,
-  validatorCount,
+  config,
   delivery = instantDelivery,
 }: ChainModeProps) {
+  const { validatorCount } = config
   const [item, setItem] = useState<StateCellItem>('head')
   const [expanded, setExpanded] = useState<ExpandedCell | undefined>()
 
@@ -51,10 +53,10 @@ export function ChainMode({
     () =>
       Array.from({ length: state.slot + 1 }, (_, s) =>
         Array.from({ length: validatorCount }, (_, v) =>
-          observe(state.log, v, s, validatorCount, delivery),
+          observe(state.log, v, s, config, delivery),
         ),
       ),
-    [state.log, state.slot, validatorCount, delivery],
+    [state.log, state.slot, validatorCount, config, delivery],
   )
   const stakes = useMemo(() => equalStakes(validatorCount), [validatorCount])
   const checkpoints = useMemo(

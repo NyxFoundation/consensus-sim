@@ -16,6 +16,7 @@ import { useCallback, useMemo, useState } from 'react'
 import {
   compileDelivery,
   scenarioStates,
+  DEFAULT_PARAMS,
   DEFAULT_VALIDATOR_COUNT,
 } from '../domain'
 import type {
@@ -60,7 +61,7 @@ interface SessionCore {
 }
 
 const freshCore = (validatorCount: number): SessionCore => ({
-  config: { validatorCount, seed: DEFAULT_SEED },
+  config: { validatorCount, seed: DEFAULT_SEED, params: DEFAULT_PARAMS },
   interventions: [],
   runSlot: 0,
   cursor: 0,

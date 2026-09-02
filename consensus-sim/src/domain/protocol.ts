@@ -1,7 +1,8 @@
-// Protocol skeleton (簡約プロトコル骨格) — who proposes, how a proposal is
-// built (parent by fork choice, body by inclusion), and how an attester
-// votes. Pure functions over a view; the simulation driver decides when they
-// run.
+// Protocol skeleton (簡約プロトコル骨格) — how a proposal is built (parent by
+// fork choice, body by inclusion), how an attester votes, and how a view is
+// resolved into a head under the protocol parameters. Pure functions over a
+// view; the simulation driver decides when they run, and schedule.ts says
+// who (proposer, committee).
 //
 // Fork choice reads the message layer (the view's votes); the checkpoints a
 // vote carries read the chain-state layer (the head's ChainState).
@@ -9,13 +10,16 @@
 import { type BlockTree } from "./blockTree";
 import {
   chainStatesOf,
+  equalStakes,
   forkChoiceRoot,
   type ChainState,
   type ChainStateIndex,
 } from "./chainState";
+import type { SimulationConfig } from "./config";
 import { checkpointFor, epochOf } from "./finality";
-import { ghostHead } from "./forkChoice";
+import { ghostHead, type ForkChoiceWeights } from "./forkChoice";
 import { buildBody, type Omission } from "./inclusion";
+import { committeeForSlot, proposerForSlot } from "./schedule";
 import {
   ANCHOR_BLOCK_INDEX,
   type Block,
@@ -27,14 +31,6 @@ import {
 } from "./types";
 import type { View } from "./view";
 
-/** Round-robin proposer schedule: deterministic and committee-free. */
-export function proposerForSlot(
-  slot: SlotIndex,
-  validatorCount: number,
-): ValidatorIndex {
-  return ((slot % validatorCount) + validatorCount) % validatorCount;
-}
-
 /** What a validator concludes from its view: chain states, root and head. */
 export interface Resolution {
   readonly states: ChainStateIndex;
@@ -43,17 +39,73 @@ export interface Resolution {
   readonly head: BlockIndex;
   /** ChainState(head) — the view's justified / finalized / stakes. */
   readonly chainState: ChainState;
+  /** The weights this fork choice ran with (stakes and any proposer boost). */
+  readonly weights: ForkChoiceWeights;
 }
 
-/** Run chain-state derivation and fork choice over a view. */
+/**
+ * The block that receives the proposer boost in a fork choice run at
+ * `atSlot` over `view`: the proposal of `atSlot`'s scheduled proposer that
+ * the view holds — received during the slot it was proposed in. A proposal
+ * that arrives later (delay) belongs to an earlier slot and never qualifies;
+ * under a double proposal the smaller index counts as the one received first.
+ */
+export function boostedBlock(
+  view: View,
+  atSlot: SlotIndex,
+  config: SimulationConfig,
+): BlockIndex | undefined {
+  if (config.params.boost <= 0) return undefined;
+  const proposer = proposerForSlot(atSlot, config);
+  let boosted: BlockIndex | undefined;
+  for (const block of view.blockTree.blocks.values()) {
+    if (block.slot !== atSlot || block.proposer !== proposer) continue;
+    if (boosted === undefined || block.index < boosted) boosted = block.index;
+  }
+  return boosted;
+}
+
+/** Total stake of `slot`'s committee under `weightOf`. */
+export function committeeWeight(
+  slot: SlotIndex,
+  config: SimulationConfig,
+  weightOf: (validator: ValidatorIndex) => Stake,
+): Stake {
+  let total = 0;
+  for (const v of committeeForSlot(slot, config)) total += weightOf(v);
+  return total;
+}
+
+/**
+ * Run chain-state derivation and fork choice over a view, as a fork choice
+ * computed at `atSlot` (the view's own slot unless the caller acts later,
+ * as a proposer does on its view of the slots before its own). Vote weights
+ * are the stakes of the fork-choice root's chain state; the timely proposal
+ * of `atSlot` gets committee weight × boost on top.
+ */
 export function resolveView(
   view: View,
-  initialStakes: ReadonlyMap<ValidatorIndex, Stake>,
+  config: SimulationConfig,
+  atSlot: SlotIndex = view.slot,
 ): Resolution {
-  const states = chainStatesOf(view.blockTree, initialStakes);
+  const states = chainStatesOf(view.blockTree, equalStakes(config.validatorCount));
   const root = forkChoiceRoot(view.blockTree, states);
-  const head = ghostHead(view.blockTree, view.votes, root);
-  return { states, root, head, chainState: states.get(head)! };
+  const rootStakes = states.get(root)!.stakes;
+  const weightOf = (validator: ValidatorIndex): Stake =>
+    rootStakes.get(validator) ?? 0;
+  const boosted = boostedBlock(view, atSlot, config);
+  const weights: ForkChoiceWeights = {
+    weightOf,
+    boost:
+      boosted === undefined
+        ? undefined
+        : {
+            block: boosted,
+            weight: committeeWeight(atSlot, config, weightOf) * config.params.boost,
+          },
+  };
+  const head = ghostHead(view.blockTree, view.votes, root, weights);
+  return { states, root, head, chainState: states.get(head)!, weights };
 }
 
 /**

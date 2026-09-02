@@ -1024,7 +1024,7 @@
     {
       "id": "T-031",
       "title": "プロトコルパラメータ化(ドメイン): ProtocolParams 型、プリセット phase0 / merge / current(既定 merge)、committee 割当(全員 | サイズ c をシードから決定的に割当、committee 所属者のみ投票)、プロポーザー予定表(ラウンドロビン、(slot, params, seed) から導出)、proposer boost(同スロット受信時のみ committee 総重み × boost の追加重み)+テスト",
-      "status": "pending",
+      "status": "done",
       "priority": "must",
       "spec": [
         "S-031",
@@ -1036,7 +1036,37 @@
       "batch_group": "e3-params",
       "context_cost": 5,
       "risk_level": "normal",
-      "notes": "遂行順序 2。SimulationConfig にシードと ProtocolParams を持たせ、fork choice の入力に「スロット s 中に受信した s の提案」の判定を加える(遅延到着には boost なし)。"
+      "notes": "遂行順序 2。SimulationConfig にシードと ProtocolParams を持たせ、fork choice の入力に「スロット s 中に受信した s の提案」の判定を加える(遅延到着には boost なし)。 実装(裁量意味論、参照型の意味論は不変更): (1) src/domain/protocolParams.ts に ProtocolParams(committee all|sized c、boost 0〜1、forkChoice、equivocationDiscount、checkpointSwitch、slashing、inactivityLeak{enabled,delayEpochs,rate})とプリセット phase0/merge/current(既定 merge、leak N=4・r=0.25)。(2) src/domain/config.ts の SimulationConfig = {validatorCount, seed, params}。(3) src/domain/schedule.ts: proposerForSlot(slot, config) はラウンドロビン(シード非依存)、committeeForSlot は (seed, slot) のハッシュで種を作る mulberry32 の部分 Fisher–Yates で c 名を決定的に抽出。attester は committee 所属者のみ。(4) proposer boost: fork choice を「atSlot の計算」として resolveView(view, config, atSlot=view.slot) に定義し、boostedBlock = atSlot の予定プロポーザーの atSlot のブロックのうち View にある最小 index(遅延到着は slot が過去なので対象外、二重提案は小さい index を先着扱い)。boost 重み = committee 総重み × boost、投票重み = fork choice 起点(justified)の ChainState のステーク(Ethereum の justified state balances に準拠、循環回避)。プロポーザーは自分の提案スロットで計算するため過去提案に boost は付かない。(5) codec: config.params を保存・検証(欠落時は merge 既定で後方互換)。forkChoice/discount/checkpointSwitch/slashing/leak の意味論は T-032/T-033 で実装。UI は config の受け渡しのみ(パラメータ UI は T-034)。",
+      "evidence": [
+        {
+          "type": "diff",
+          "summary": "New: src/domain/protocolParams.ts (ProtocolParams, CommitteeAssignment, ForkChoiceRule, CheckpointSwitch, InactivityLeak, PRESETS phase0/merge/current, DEFAULT_PRESET/DEFAULT_PARAMS, presetOf/sameParams), src/domain/config.ts (SimulationConfig {validatorCount, seed, params}), src/domain/schedule.ts (proposerForSlot round-robin, committeeForSlot seeded partial Fisher–Yates, inCommittee). src/domain/forkChoice.ts: ForkChoiceWeights {weightOf, boost}, stake-weighted subtreeWeight/ghostHead with boost added to the boosted block's subtree. src/domain/protocol.ts: boostedBlock, committeeWeight, resolveView(view, config, atSlot) with root-state stake weights and committee×boost; proposerForSlot moved to schedule.ts. src/domain/simulation.ts: committee-only attestation, proposer fork choice computed at its own slot. localView.observe / intervention.directivesForSlot / scenario take config. scenarioCodec: params serialized and validated (absent ⇒ merge). UI: config threaded to ChainMode/NetworkMode/GlobalMode/InterventionPanel, useSimulation seeds DEFAULT_PARAMS. README model section documents parameters, presets, committee and boost. git diff --stat: 20 files changed, 353 insertions(+), 122 deletions(-) plus 4 new files."
+        },
+        {
+          "type": "command",
+          "command": "npx vitest run tests/domain/protocolParams.test.ts",
+          "exit_code": 0,
+          "summary": "受け入れ確認(必須 3・24、成功条件 13・14 のドメイン側): 12 tests — プリセット表が Essence の表と一致(forkChoice/boost/割引/切替/slashing/leak N=4/committee=all)、既定 merge・presetOf、ラウンドロビンはシード非依存、committee=all は全員、sized c=3・n=10 は毎スロット重複なし 3 名・同 (seed,slot) で再現・スロット/シードで変化、範囲外サイズは拒否、シミュレーションで committee 所属者のみが投票(n=5,c=2 で毎スロット 2 票=committee)かつ決定的、fork choice で boost が同点を覆し・ステーク重みが boost に勝つ、boostedBlock は atSlot の予定プロポーザーの当該スロットのブロックのみ(後のスロットの計算・phase0 では無し)、boost 重み = 4×32×0.4、シナリオで s2 に 1 票しかない B2 に対し s3 のフォーク B3 が merge では全員の票を得て phase0 では B2 のまま、B3 を s4 まで遅延させると s3 は提案者のみ B3・s4 では boost なしで B2 枝が多数のまま(B4.parent=B2、全員 head B4)。"
+        },
+        {
+          "type": "command",
+          "command": "npm run typecheck",
+          "exit_code": 0,
+          "summary": "tsc --noEmit exits 0 with SimulationConfig.params threaded through domain, codec, UI and tests."
+        },
+        {
+          "type": "command",
+          "command": "npx vitest run",
+          "exit_code": 0,
+          "summary": "19 files / 219 tests pass (196 → 219: +12 protocolParams, +11 codec params validation/back-compat); determinism, rewind, interventions, combined, chain state and every UI suite unchanged in outcome."
+        },
+        {
+          "type": "command",
+          "command": "npm run build",
+          "exit_code": 0,
+          "summary": "vite build emits the static dist/ bundle (321.0 kB js) with exit 0."
+        }
+      ]
     },
     {
       "id": "T-032",

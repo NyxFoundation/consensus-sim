@@ -6,6 +6,7 @@
 
 import { describe, expect, it } from "vitest";
 import {
+  DEFAULT_PARAMS,
   latestVotes,
   parseScenario,
   scenarioDelivery,
@@ -20,7 +21,7 @@ const scenario = (
   interventions: Intervention[],
   validatorCount = 4,
 ): Scenario => ({
-  config: { validatorCount, seed: 0 },
+  config: { validatorCount, seed: 0, params: DEFAULT_PARAMS },
   interventions,
 });
 

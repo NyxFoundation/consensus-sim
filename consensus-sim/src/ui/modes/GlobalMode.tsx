@@ -24,7 +24,7 @@ export function GlobalMode({ interventions, ...chain }: GlobalModeProps) {
         <h2 className="pane-title">ネットワーク</h2>
         <NetworkMode
           state={chain.state}
-          validatorCount={chain.validatorCount}
+          config={chain.config}
           delivery={chain.delivery}
           interventions={interventions}
         />

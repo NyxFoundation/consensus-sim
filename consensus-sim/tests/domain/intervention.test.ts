@@ -6,10 +6,12 @@
 
 import { describe, expect, it } from "vitest";
 import {
+  DEFAULT_PARAMS,
   advanceScenario,
   scenarioStates,
   type Intervention,
   type Scenario,
+  type SimulationConfig,
   type SimulationState,
 } from "../../src/domain";
 import {
@@ -26,9 +28,11 @@ const scenario = (
   interventions: Intervention[],
   validatorCount = 4,
 ): Scenario => ({
-  config: { validatorCount, seed: 0 },
+  config: { validatorCount, seed: 0, params: DEFAULT_PARAMS },
   interventions,
 });
+
+const CONFIG4: SimulationConfig = scenario([]).config;
 
 const statesAt = (s: Scenario, slot: number): SimulationState[] =>
   scenarioStates(s, slot);
@@ -50,7 +54,7 @@ describe("partition intervention (分断)", () => {
     const state = statesAt(partitioned, 3)[3];
     if (!state) throw new Error("missing state");
     // Block of slot 1 (published pre-partition) is visible to everyone.
-    const obs2 = observe(state.log, 2, state.slot, 4);
+    const obs2 = observe(state.log, 2, state.slot, CONFIG4);
     const slot1Blocks = [...obs2.view.blockTree.blocks.values()].filter(
       (b) => b.slot === 1,
     );
@@ -63,7 +67,7 @@ describe("partition intervention (分断)", () => {
     const heads = [...state.heads.values()];
     expect(new Set(heads).size).toBe(1);
     // After healing (toSlot 8), every camp's blocks are visible to everyone.
-    const obs0 = observe(state.log, 0, state.slot, 4);
+    const obs0 = observe(state.log, 0, state.slot, CONFIG4);
     expect(obs0.view.blockTree.blocks.size).toBe(state.tree.blocks.size);
   });
 });
@@ -101,7 +105,7 @@ describe("stop intervention (停止/復帰)", () => {
     ]);
     const state = statesAt(s, 4)[4];
     if (!state) throw new Error("missing state");
-    const obs = observe(state.log, 3, state.slot, 4);
+    const obs = observe(state.log, 3, state.slot, CONFIG4);
     expect(obs.view.blockTree.blocks.size).toBe(state.tree.blocks.size);
     expect(state.heads.get(3)).toBe(state.heads.get(0));
   });
@@ -135,7 +139,7 @@ describe("offline intervention (オフライン)", () => {
     const state = statesAt(offline, 4)[4];
     if (!state) throw new Error("missing state");
     const delivery = scenarioDelivery(offline);
-    const obs = observe(state.log, 3, state.slot, 4, delivery);
+    const obs = observe(state.log, 3, state.slot, CONFIG4, delivery);
     // Frozen at the state entering slot 2: anchor + the slot-1 block only,
     // and only votes published through slot 1.
     expect([...obs.view.blockTree.blocks.keys()].sort()).toEqual([0, 1]);
@@ -150,7 +154,7 @@ describe("offline intervention (オフライン)", () => {
     // Return slot is 5: the whole backlog becomes visible there, not before.
     const at5 = states[5];
     if (!at5) throw new Error("missing state");
-    const obs5 = observe(at5.log, 3, at5.slot, 4, delivery);
+    const obs5 = observe(at5.log, 3, at5.slot, CONFIG4, delivery);
     expect(obs5.view.blockTree.blocks.size).toBe(at5.tree.blocks.size);
     // Caught up: by slot 6 V3 votes again and shares the common head.
     const at6 = states[6];
@@ -196,7 +200,7 @@ describe("propose-parent intervention (フォーク作成)", () => {
 describe("equivocation interventions (二重提案・二重投票)", () => {
   it("double propose publishes two sibling blocks in one slot", () => {
     const s = scenario([
-      { kind: "double-propose", slot: 1, validator: proposerForSlot(1, 4) },
+      { kind: "double-propose", slot: 1, validator: proposerForSlot(1, CONFIG4) },
     ]);
     const state = statesAt(s, 1)[1];
     if (!state) throw new Error("missing state");
@@ -210,7 +214,7 @@ describe("equivocation interventions (二重提案・二重投票)", () => {
   });
 
   it("double propose by a non-proposer of that slot is ignored", () => {
-    const nonProposer = (proposerForSlot(1, 4) + 1) % 4;
+    const nonProposer = (proposerForSlot(1, CONFIG4) + 1) % 4;
     const s = scenario([
       { kind: "double-propose", slot: 1, validator: nonProposer },
     ]);
@@ -255,7 +259,7 @@ describe("delay / drop interventions (遅延・欠落)", () => {
     const sees = (slot: number, observer: number) => {
       const st = states[slot];
       if (!st) throw new Error("missing state");
-      return observe(st.log, observer, st.slot, 4, delivery)
+      return observe(st.log, observer, st.slot, CONFIG4, delivery)
         .view.blockTree.blocks.has(1);
     };
     expect(sees(1, 0)).toBe(false);
@@ -277,7 +281,7 @@ describe("delay / drop interventions (遅延・欠落)", () => {
     if (!state) throw new Error("missing state");
     const delivery = scenarioDelivery(s);
     const sees = (observer: number) =>
-      observe(state.log, observer, state.slot, 4, delivery)
+      observe(state.log, observer, state.slot, CONFIG4, delivery)
         .view.blockTree.blocks.has(1);
     expect(sees(0)).toBe(true);
     expect(sees(1)).toBe(true); // sender
@@ -307,7 +311,7 @@ describe("delay / drop interventions (遅延・欠落)", () => {
     if (!state) throw new Error("missing state");
     const delivery = scenarioDelivery(dropped);
     const votesSeen = (observer: number) =>
-      observe(state.log, observer, state.slot, 4, delivery).view.votes.filter(
+      observe(state.log, observer, state.slot, CONFIG4, delivery).view.votes.filter(
         (v) => v.validator === 3 && v.slot === 1,
       ).length;
     expect(votesSeen(0)).toBe(0);
@@ -320,7 +324,7 @@ describe("scenario determinism (決定性)", () => {
     const interventions: Intervention[] = [
       { kind: "partition", fromSlot: 2, toSlot: 6, groups: [[0, 1]] },
       { kind: "stop", fromSlot: 3, toSlot: 4, validators: [2] },
-      { kind: "double-propose", slot: 5, validator: proposerForSlot(5, 4) },
+      { kind: "double-propose", slot: 5, validator: proposerForSlot(5, CONFIG4) },
       { kind: "double-vote", slot: 6, validator: 1 },
       { kind: "drop", message: { kind: "block", block: 2 }, observers: [3] },
       { kind: "offline", fromSlot: 7, toSlot: 8, validators: [0] },

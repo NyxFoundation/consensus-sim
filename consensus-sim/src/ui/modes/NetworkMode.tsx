@@ -25,6 +25,7 @@ import type {
   Delivery,
   Intervention,
   LocalObservation,
+  SimulationConfig,
   SimulationState,
   ValidatorIndex,
 } from '../../domain'
@@ -34,7 +35,8 @@ import { validatorColor } from '../validatorColor'
 
 export interface NetworkModeProps {
   readonly state: SimulationState
-  readonly validatorCount: number
+  /** The scenario's initial conditions — local views resolve under them. */
+  readonly config: SimulationConfig
   /** The scenario's delivery rule — local views are filtered through it. */
   readonly delivery?: Delivery | undefined
   /** The scenario's interventions — the cards read the operating states. */
@@ -63,14 +65,15 @@ function majorityHead(
 
 export function NetworkMode({
   state,
-  validatorCount,
+  config,
   delivery = instantDelivery,
   interventions = [],
 }: NetworkModeProps) {
+  const { validatorCount } = config
   const [inspected, setInspected] = useState<ValidatorIndex | undefined>()
 
   const observations = Array.from({ length: validatorCount }, (_, v) =>
-    observe(state.log, v, state.slot, validatorCount, delivery),
+    observe(state.log, v, state.slot, config, delivery),
   )
   const commonHead = majorityHead(observations)
 
