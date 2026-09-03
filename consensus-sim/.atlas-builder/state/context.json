@@ -30,15 +30,10 @@
     "high_risk_change_completed": false
   },
   "handoff": {
-    "written_at": "2026-09-03T17:22:00+09:00",
-    "summary": "cycle 38: T-050(UI 刷新 (2) 情報設計の再編と全表示への適用)を done(typecheck 0 / vitest 33 files 397 tests 0 / build 0)。フレーム = ヘッダーバー(表示タブ・バリデータ数・テーマ、高さ --bar-h 40px)/ 左 .stage(スロットバー + .mode-body)/ 右 aside.dock(操作盤、幅 --dock-w 336px、params/intervention/scenario の 3 区画 .dock-section、各区画は Disclosure の summary に .panel-title + .panel-count + Hint)。チェーン表示は .chain-mode(min-height 100%)→ .chain-scroll(flex 列、横スクロール共有)→ .tree-region(flex 1、ブロック木)+ .state-table-toolbar + StateTable、その下に .state-detail と .panel-row(全バリデータの状態 / 最新投票)。幾何: COL_W 96 / ROW_H 92 / BLOCK 64×40 / PAD_TOP 40。説明文は src/ui/components/Hint.tsx(ⓘ、data-hint + aria-label、ホバー/フォーカス中だけ createPortal + position: fixed の .hint-tooltip)。空状態は .empty-hint(パネル末尾)/ .empty-inline(フォーム内)の短文、フォーク数は .readout、上限超過は .form-status、一覧ボタンは size=sm の .list-actions。機械検査: tests/ui/layout.test.ts(フレーム契約と 3 視口の面積比)、tests/ui/prose.test.tsx(『。』テキストノード無し・旧 note クラス無し・ⓘ は属性のみ・ホバーで表示)、既存 designTokens / theme。scripts/verify-ui.mjs に成功条件 26 (a)〜(f) の実ブラウザ計測を追加(sandbox では未実行)。README 追随。T-051 は R-012(Human-input、requires_human_approval、A 承認 / B 修正指示 / C 方針転換)で blocked、ループはここで停止する。残る must: T-051(承認待ち)、T-042/T-043(攻撃 UI)、T-044(総点検)。フェーズは must のまま。",
-    "next_actions": [
-      "R-012 の人間判断を読む(recommendations.json の resolution と reflection.jsonl の human_resume)。A 承認なら T-051 を done(evidence = resume 記録の要約と日時)にする。B 修正指示なら指示内容を T-050 の追補 Todo(または T-051 の notes)として実装し、再度 Human-input Recommendation で承認を求める。C 方針転換なら必須 6・7・8 との整合を確認して再設計し、同様に承認を求める。",
-      "承認後 T-042/T-043(攻撃 UI)を刷新後の基盤の上に構築する: 攻撃の選択・既定実行構成の提案は dock の新区画(.dock-section + Disclosure + .panel-title/.panel-count/Hint)、攻撃一覧ページは表示タブに追加(Segmented の MODE_LABELS、stage 内、説明は Hint に退避して『。』を残さない — prose.test.tsx が全表示を走査する)。前提列は premise.preset + overrides + maxDelay(d)、既定実行構成は defaultInstance(entry) / defaultParams(entry)、必要な能力は entry.capabilities、2 基底の説明は attack.ts の PublishBase / DeliverBase の doc コメントに揃える。判定推移のスロット軸表示は状態表の列(COL_W)に揃える。",
-      "T-044(総点検): notes の点検項目 (1)〜(10)。(8) には layout.test.ts / prose.test.tsx / designTokens.test.ts / theme.test.tsx と verify-ui.mjs の計測、R-012 の承認記録を含める。R-011 の 3 点(能力範囲の是正・証拠の正規化・スラッシング後の閾値縮小)も点検記録に含める。docs/INSPECTION.md に追記。",
-      "運用: atlas-builder state の呼び出しは CONTROL_ROOT で ATLAS_BUILDER_LOCK_TOKEN=$(cat .agent/tmp/loop.lock/token) を前置する(Bash の cwd は直前のコマンドの cd を引き継ぐので、CONTROL_ROOT へ戻ってから呼ぶ)。Bash のガードは ESSENCE.md / .atlas-builder/state のパスを含むコマンド文字列や heredoc を拒むので、投影・診断スクリプトは Write ツールで PROJECT_STATE_ROOT/tmp/ に置いて python3 で実行する(stage-projection → 編集 → apply-projection)。挙動診断・UI 検査の手筋は lessons.jsonl 参照。"
-    ],
+    "written_at": "2026-09-03T18:03:14+09:00",
+    "summary": "Human resume: R-012 を承認: 刷新後の UI（ヘッダーバー / 左ステージ（スロットバー + ブロック木 + 状態表）/ 右の操作盤 336px、ⓘ ホバー説明、デザイントークン、OS 追従テーマ）を人間が実ブラウザで確認し、必須対応事項 30・成功条件 26 の刷新完了として承認する。次サイクルは T-051 をこの resume 記録を evidence として done にし、T-042/T-043（攻撃 UI）→ T-044（総点検）へ進む。フェーズは must のまま（approve-should / close-at-must のいずれも選ばない）。\nR-011（能力範囲の是正 2 点・証拠のスロット横断正規化・スラッシング後の閾値縮小の帰結）は現状のまま了承する。ループ側で閉じ、総点検 T-044 の点検項目として記録すること。",
+    "next_actions": [],
     "open_questions": [],
-    "pending_cycle": false
+    "pending_cycle": true
   }
 }
