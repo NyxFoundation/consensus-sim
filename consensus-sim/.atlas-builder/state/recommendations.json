@@ -298,7 +298,7 @@
     {
       "id": "R-014",
       "type": "Human-input Recommendation",
-      "status": "proposed",
+      "status": "resolved",
       "title": "型一覧ページと本質的仕様の日本語コメントの人間レビュー承認(必須対応事項 8・32、成功条件 2・10): 再レイアウト後の型一覧を実ブラウザで確認し、承認または修正指示を resume で記録してほしい",
       "detail": "T-057(型一覧の独自レイアウト)と T-059(本質的仕様モジュール src/domain/model のコメント日本語化)が完了し、機械検査は vitest で通過した(typecheck 0 / vitest 34 files 400 tests 0 / build 0)。必須対応事項 8 は型一覧ページの完了条件を『人間が実ブラウザで確認して承認したこと』と定め(成功条件 2 も同じ)、承認前に完了扱いにしないため、T-058 はこの承認を待って停止する。\n\n【確認手順】\n1. `npm run build && node scripts/verify-ui.mjs` — 実 Chromium で 3 視口(1280×720 / 1440×900 / 1920×1080)を計測: 型一覧ページにスロットバー・操作盤・バリデータ数の設定が無いこと、依存グラフ側の幅比が 0.75〜0.85・フォーカス側が 0.15〜0.25(概ね 8:2)、ページがヘッダーバー直下の高さを満たすこと、開いた直後に最上段の先頭の型がフォーカスされていること、フォーカス中の宣言が /** の日本語コメントで始まること。全 check が ok なら exit 0。sandbox の Bash からは Playwright Chromium が起動できない(Mach port rendezvous: Permission denied)ため、この計測は人間の手元で実行してほしい。\n2. `npm run dev` で目視: ヘッダーバーの『型一覧』タブ → ヘッダーバーだけが残り、左に依存グラフ(最上段 = 他のどの型にも依存しない ValidatorIndex / SlotIndex / BlockIndex …)、右にフォーカス中の型(宣言をコメント込みで、続いて『依存する型』『この型に依存する型』のリンク)。ノードやリンクを選ぶとフォーカスが移り、フォーカスが空になることはない。各型の宣言の直前に日本語の /** */ コメントが表示され(識別子は英語のまま)、英語だけのコメントが無い。ライト/ダーク両テーマ、グラフ側・フォーカス側それぞれの独立スクロールも確認対象。\n3. 参考: `npx vitest run tests/domain/modelComments.test.ts tests/ui/typesPage.test.tsx tests/ui/layout.test.ts` が、全コメントの日本語・全型のコメント付き・独自レイアウトの契約を機械検査している。\n\n【翻訳の方針(自律で決めた点)】\n- 用語節のユビキタス言語で統一(バリデータ・枝・錨ブロック・証拠・取り込み・神視点・2 基底 …)。Essence が英語のまま使う語(committee / proposer boost / fork choice / justified / finalized / head / source / target / View / ChainState / inactivity leak / unrealized justification / Ethereum / Casper FFG)は英語のまま。\n- 情報量は英語原文と同一(数値・スロット・条件・成立/未達の理由を落とさない)。attackLibrary.ts は analyst の照合で 7 件の意味ずれを検出して修正済み。\n- 型一覧の宣言(<pre>)は引用された実装であって常駐説明文ではないため、prose.test の『。』走査から除外した(必須 32 により日本語コメントは『。』を含む)。\n\n【判断してほしいこと】\nA) 承認: 型一覧ページ(必須 8・成功条件 2)と日本語コメントの表示(成功条件 10)を承認する — resume の注記に『R-014 を承認』と記し R-014 を解決。次サイクルは T-058 をその resume 記録を evidence として done にし、遂行順序 2 の攻撃 UI(T-042 → T-043 → T-060)へ進む。\nB) 修正指示: 直したい点(レイアウト比・初期フォーカス・宣言の表示・コメントの文体や用語など)を resume の注記に列挙して R-014 を解決 — 次サイクルは指示を T-057/T-059 の追補として実装し、再度 R-0xx で承認を求める。\n\n残る must(T-042 / T-043 / T-060 / T-044)はこの承認に依存しないので、判断と同時に続行を指示してよい(フェーズは must のまま、approve-should / close-at-must は不要)。",
       "requires_human_approval": true,
@@ -310,7 +310,10 @@
         "T-059"
       ],
       "raised_by": "atlas-builder",
-      "created_at": "2026-09-03T20:40:00+09:00"
+      "created_at": "2026-09-03T20:40:00+09:00",
+      "resolved_at": "2026-09-03T20:42:43+09:00",
+      "resolved_by": "human",
+      "resolution": "R-014 を承認: 型一覧ページの再レイアウト(ヘッダーバーのみ・幅の概ね 8:2 に依存グラフとフォーカス中の型・初期フォーカスは最上段先頭・宣言をコメント込みで表示)と本質的仕様モジュール src/domain/model の日本語コメント表示を人間が実ブラウザで確認し、必須対応事項 8・32、成功条件 2・10 の完了として承認する。次サイクルは T-058 をこの resume 記録を evidence として done にし、遂行順序 2 の攻撃 UI(T-042 → T-043 → T-060)→ T-044 総点検へ進む。\nR-013(Non-blocking)の読み — 必須 6 の『2 ページ』はネットワーク表示・全体表示の撤去の宣言と読み、攻撃一覧をチェーン表示・型一覧に加えた第 3 のページとしてヘッダーバーのタブで切り替える — は現状のまま了承する。ESSENCE の改訂は不要。ループ側で閉じること。\nフェーズは must のまま(approve-should / close-at-must のいずれも選ばない)。"
     }
   ]
 }
