@@ -1,0 +1,129 @@
+/*
+ * Design tokens — the single source of every colour, spacing, type and
+ * radius value the UI uses. styles.css and the unified form components
+ * (src/ui/components/**) reference these custom properties only; no other
+ * file defines a colour/space/text/font custom property.
+ */
+
+:root,
+:root[data-theme='light'] {
+  color-scheme: light;
+
+  /* ---- surface / ink (light) ---- */
+  --surface: #fbfbfb;
+  --plane: #f1f1f1;
+  --ink-primary: #131313;
+  --ink-secondary: #4f4f4f;
+  --ink-muted: #8a8a8a;
+  --gridline: #dedede;
+  --baseline: #bfbfbf;
+  --neutral-cell: #e7e7e7;
+  --accent: #2a78d6;
+  --status-warning: #fab219;
+  --status-good: #0ca30c;
+  --control-bg: #ffffff;
+  --block-fill: #efefef;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+
+    /* ---- surface / ink (dark, OS-driven) ---- */
+    --surface: #161616;
+    --plane: #0d0d0d;
+    --ink-primary: #f4f4f4;
+    --ink-secondary: #c2c2c2;
+    --ink-muted: #8a8a8a;
+    --gridline: #2b2b2b;
+    --baseline: #3a3a3a;
+    --neutral-cell: #2f2f2f;
+    --accent: #3987e5;
+    --status-warning: #fab219;
+    --status-good: #0ca30c;
+    --control-bg: #202020;
+    --block-fill: #262626;
+  }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  /* ---- surface / ink (dark, explicit toggle) ---- */
+  --surface: #161616;
+  --plane: #0d0d0d;
+  --ink-primary: #f4f4f4;
+  --ink-secondary: #c2c2c2;
+  --ink-muted: #8a8a8a;
+  --gridline: #2b2b2b;
+  --baseline: #3a3a3a;
+  --neutral-cell: #2f2f2f;
+  --accent: #3987e5;
+  --status-warning: #fab219;
+  --status-good: #0ca30c;
+  --control-bg: #202020;
+  --block-fill: #262626;
+}
+
+:root {
+  /* ---- text-on-fill: constant regardless of theme, chosen per fill ---- */
+  /* White reads on both the light and dark --accent / --status-good hues
+     and on every validator hue below. */
+  --ink-on-accent: #ffffff;
+  /* --status-warning itself does not change between themes, so its own
+     dark ink stays legible on it in both themes too. */
+  --ink-on-warning: #131313;
+
+  /* ---- validator identification palette (theme-invariant) ----
+     10 distinguishable hues, chosen to read on both the light and dark
+     surface; colour is always paired with the validator's name/initial, so
+     the ramp only helps the eye group marks quickly. */
+  --validator-0: #2a78d6;
+  --validator-1: #eb6834;
+  --validator-2: #1baf7a;
+  --validator-3: #9256d9;
+  --validator-4: #c8a012;
+  --validator-5: #d0489c;
+  --validator-6: #188fa3;
+  --validator-7: #8a6b45;
+  --validator-8: #5b64d6;
+  --validator-9: #6d7a12;
+  /* Fallback for an out-of-range index (validatorColor still mods into
+     0..9, so this is defensive rather than reachable in practice). */
+  --validator-fallback: #898781;
+
+  /* ---- spacing scale (multiples of 4/8) ---- */
+  --space-0-5: 2px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  /* ---- type scale (4 steps) ---- */
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-md: 13px;
+  --text-lg: 16px;
+  --leading-tight: 1.25;
+  --leading-normal: 1.5;
+
+  /* ---- typefaces ----
+     One deliberate set for three uses, no external font service: the
+     English face carries Latin glyphs, the Japanese face carries Japanese
+     glyphs, and the composed --font-text lets one declaration cover prose
+     mixing both scripts. --font-mono is reserved for numbers, IDs, slots
+     and code-shaped information. */
+  --font-en: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-ja: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic UI',
+    'Noto Sans JP', 'Meiryo', sans-serif;
+  --font-mono: 'SF Mono', Menlo, 'Roboto Mono', Consolas, ui-monospace,
+    monospace;
+  --font-text: var(--font-en), var(--font-ja);
+
+  /* ---- radii / borders ---- */
+  --radius: 3px;
+  --border: 1px solid var(--gridline);
+  --border-strong: 1px solid var(--baseline);
+}

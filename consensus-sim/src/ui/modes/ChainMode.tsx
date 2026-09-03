@@ -21,6 +21,8 @@ import {
 import type { Delivery, SimulationConfig, SimulationState } from '../../domain'
 import { BlockTreeView } from '../BlockTreeView'
 import { BlockBodyView, ChainStateTable } from '../ChainStateDetail'
+import { Button } from '../components/Button'
+import { Segmented } from '../components/Segmented'
 import { blockName } from '../format'
 import { StateTable, STATE_CELL_ITEMS } from '../StateTable'
 import type { ExpandedCell, StateCellItem } from '../StateTable'
@@ -109,18 +111,12 @@ export function ChainMode({
         </div>
         <div className="state-table-toolbar">
           <span className="state-table-caption">状態表の表示項目</span>
-          <div className="segmented" role="group" aria-label="状態表の表示項目">
-            {STATE_CELL_ITEMS.map(({ key, label }) => (
-              <button
-                type="button"
-                key={key}
-                className={item === key ? 'active' : ''}
-                onClick={() => setItem(key)}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
+          <Segmented
+            label="状態表の表示項目"
+            value={item}
+            options={STATE_CELL_ITEMS}
+            onChange={(i) => setItem(i)}
+          />
         </div>
         <StateTable
           observations={observations}
@@ -139,13 +135,9 @@ export function ChainMode({
               style={{ background: validatorColor(detail.validator) }}
             />
             {validatorName(detail.validator)} の視点 — スロット {detail.slot}
-            <button
-              type="button"
-              className="detail-close"
-              onClick={() => setExpanded(undefined)}
-            >
+            <Button className="detail-close" onClick={() => setExpanded(undefined)}>
               閉じる
-            </button>
+            </Button>
           </h3>
           <dl className="status-list">
             <dt>head</dt>

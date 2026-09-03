@@ -27,8 +27,14 @@ npm run dev        # http://localhost:5173
 
 Open the page, press **＋1 スロット進める** to advance a slot, and watch the
 proposal, the votes and each validator's head update. The header also holds
-the validator count (4–10) and a light/dark toggle (light is the default).
-The header tabs switch between three displays and the type catalog:
+the validator count (4–10) and the theme control (自動 / ライト / ダーク:
+自動 follows the OS colour scheme and is the default; a manual choice is
+remembered in the browser). Every colour, spacing, type size and typeface
+comes from one token sheet (`src/ui/tokens.css`), the typefaces are a
+deliberately chosen system set for Japanese, English and monospaced
+(numbers, IDs, slots) text with no external font service, and every form
+control is one of the app's own unified components. The header tabs
+switch between three displays and the type catalog:
 
 - **チェーン表示** — the block tree with every validator's information
   overlaid (heads, latest votes, J/F checkpoint badges). Below it, the

@@ -1640,8 +1640,8 @@
     },
     {
       "id": "T-047",
-      "title": "攻撃ライブラリ(A05 バウンシング: 競合 justified 間の跳ね; 前提 merge + 切替 off + committee = エポック分割; 活性停止)の定義と、既定構成で達成・committee = エポック分割の上書きを保ったまま切替の上書きだけを外した merge(window)/ current(unrealized)で未達のテスト",
-      "status": "blocked",
+      "title": "攻撃ライブラリ(A05 バウンシング: 競合 justified 間の跳ね; 前提 merge + 切替 off + committee = エポック分割; 活性停止)の定義と、既定構成で達成・committee = エポック分割の上書きを保ったまま切替の上書きだけを外した merge(window)で正直者の target が収束し finalized が前進して跳ねが止まる・current(unrealized)では切替 off と同一の推移となる観測のテスト",
+      "status": "done",
       "priority": "must",
       "spec": [
         "S-043",
@@ -1655,8 +1655,8 @@
       "batch_group": "e3-library",
       "context_cost": 4,
       "risk_level": "normal",
-      "notes": "T-045 から分離(R-006 選択肢 D の再挑戦で A03/A04/A06 は成立、A05 のみ不成立)。R-008 は A'(エポック分割 committee の追加)で解決し、T-048 の完了後に本 Todo で A05 を実装した。【機構】4 体・攻撃者 V1(提案は slot 4k+1)・seed 0・d = 5。攻撃者の slot 1 ブロック B1 を枝 Y の根(index 最小 → 同点は Y 側)とし、正直者には B1 を slot 4 まで隠して錨上に X(B2 → B3 → B4 …)を作らせる。開幕(エポック 1〜3)は直近ブロックの遅延で票の重みを 0 にする誘導(隠したブロックとその子孫を head とする票は重み 0)で、エポック 1 に V3 を、エポック 3 にV2・V0 を Y へ移す(V0 のエポック 3 境界ブロック B12 が Y に建ち、V2 は boost 付きの B12 を見てY に投票)。以後毎エポック k、攻撃者は自分の提案 B_{4k+1} を「もう一方の枝」に建てて前エポックの保留票(committee スロットで投じ、次の自提案まで保留 ≤ 5)を取り込ませ、正直 2 票と合わせて古い枝のチェックポイントを justify する。ブロックは先に投票する正直 2 名には投票後まで隠し、3 人目は跳ねた後に投票する。エポックに 1 回しか投票できないので、justify のリンクは常に 2 エポック離れ(B8@13 → B12@17 → B16@21 → B20@25 …)finalize が起きず、活性停止(L = 12)を slot 12 で達成。生成行動の破棄 0。既定実行構成に seed(0)を追加した(AttackDefaultRun.seed。他の攻撃はcommittee = 全員のため seed 非依存)。【緩和策との関係(R-009)】unrealized(current)は本モデル(R-004)では起点を変えず候補を刈るだけなので off と同一の実行になり未達にならない(構造的)。window は起点切替をエポック先頭に限るが、エポック末スロットの正直票は境界ブロック(切替後の枝)にしか取り込まれず、正直者の枝は自力で justify を実現できないまま攻撃者が 1 エポック遅れで完成させて跳ねが境界ごとに続く(seed 0: 最初の finalized は slot 48)。1 票 = 1/4 の粒度で最後の 1 票が 2/3 を左右するため。window / current の未達テストは人間の判断後に追加する。",
-      "blocked_reason": "A05 は前提(merge + 切替 off + committee = エポック分割)で成立し実装・テスト済だが、人間が了承済みの緩和策意味論(R-004)のもとでは window / unrealized が跳ねを止められず、成功条件 19・必須 23 の「window / current で未達」のテストが書けない。緩和策の忠実度・既定実行構成・要件のいずれを動かすかは人間判断(R-009)。",
+      "notes": "T-045 から分離(R-006 選択肢 D の再挑戦で A03/A04/A06 は成立、A05 のみ不成立)。R-008 は A'(エポック分割 committee の追加)で解決し、T-048 の完了後に本 Todo で A05 を実装した。【機構】4 体・攻撃者 V1(提案は slot 4k+1)・seed 0・d = 5。攻撃者の slot 1 ブロック B1 を枝 Y の根(index 最小 → 同点は Y 側)とし、正直者には B1 を slot 4 まで隠して錨上に X(B2 → B3 → B4 …)を作らせる。開幕(エポック 1〜3)は直近ブロックの遅延で票の重みを 0 にする誘導(隠したブロックとその子孫を head とする票は重み 0)で、エポック 1 に V3 を、エポック 3 にV2・V0 を Y へ移す(V0 のエポック 3 境界ブロック B12 が Y に建ち、V2 は boost 付きの B12 を見てY に投票)。以後毎エポック k、攻撃者は自分の提案 B_{4k+1} を「もう一方の枝」に建てて前エポックの保留票(committee スロットで投じ、次の自提案まで保留 ≤ 5)を取り込ませ、正直 2 票と合わせて古い枝のチェックポイントを justify する。ブロックは先に投票する正直 2 名には投票後まで隠し、3 人目は跳ねた後に投票する。エポックに 1 回しか投票できないので、justify のリンクは常に 2 エポック離れ(B8@13 → B12@17 → B16@21 → B20@25 …)finalize が起きず、活性停止(L = 12)を slot 12 で達成。生成行動の破棄 0。既定実行構成に seed(0)を追加した(AttackDefaultRun.seed。他の攻撃はcommittee = 全員のため seed 非依存)。【緩和策との関係(R-009)】unrealized(current)は本モデル(R-004)では起点を変えず候補を刈るだけなので off と同一の実行になり未達にならない(構造的)。window は起点切替をエポック先頭に限るが、エポック末スロットの正直票は境界ブロック(切替後の枝)にしか取り込まれず、正直者の枝は自力で justify を実現できないまま攻撃者が 1 エポック遅れで完成させて跳ねが境界ごとに続く(seed 0: 最初の finalized は slot 48)。1 票 = 1/4 の粒度で最後の 1 票が 2/3 を左右するため。window / current の未達テストは人間の判断後に追加する。【R-009 の解決(選択肢 C)】人間が ESSENCE(成功条件 19・必須 23)を観測可能な事実に改訂し attest。S-043 を新 Essence から再投影し、window / unrealized の推移テストを追加して done。seed 0 の観測: window = 開幕(エポック 1〜3)は正直 target が割れるがエポック 4〜14 は各エポックで単一、finalized は slot 48 に初めて錨から前進し slot 60 まで前進を続ける、活性停止は緩和が効く前の slot 12 で達成。unrealized = 生成行動・各スロットの heads・finalized が off と完全一致(錨のまま)。",
+      "blocked_reason": null,
       "evidence": [
         {
           "type": "diff",
@@ -1685,6 +1685,34 @@
           "command": "npm run build",
           "exit_code": 0,
           "summary": "vite build emits the static dist/ bundle (408.4 kB js) with exit 0."
+        },
+        {
+          "type": "command",
+          "command": "npx vitest run tests/domain/probe.test.ts --silent=false --disableConsoleIntercept",
+          "exit_code": 0,
+          "summary": "一時 probe(撤去済)で 60 スロット走行: off = finalized 錨のまま・正直 target は毎エポック割れる(例 [16,16,12])・goal 12; window = 正直 target がエポック 4 以降 [16,16,16] のように単一・finalized は slot 48 で 40、以後 44/48/52 と前進・goal 12; unrealized = heads・finalized・generated が off と完全一致・goal 12。"
+        },
+        {
+          "type": "diff",
+          "summary": "tests/domain/attackLibrary.test.ts: bouncingUnder(off | window | unrealized) と honestTargetsByEpoch を追加し、2 テストを追加 — (1) window: 破棄 0、エポック 1〜3 は正直 target が複数、エポック 4〜14 は各エポック 1 種類、finalized の初前進 = slot 48、slot 60 の finalized > slot 48 の finalized、goal @12; (2) unrealized: generated / 各スロットの heads / latestFinalized が off と一致し、finalized は全スロット錨。ファイル冒頭コメントを更新。docs/INSPECTION.md「残る既知の制約」の A05 項を、判断待ちから『3 通りの推移をテストに固定(要件は R-009 で改訂済)』へ書き換え。git diff --stat: 2 files changed, 63 insertions(+), 18 deletions(-)。"
+        },
+        {
+          "type": "command",
+          "command": "npm run typecheck",
+          "exit_code": 0,
+          "summary": "tsc --noEmit exits 0 after the test additions."
+        },
+        {
+          "type": "command",
+          "command": "npx vitest run",
+          "exit_code": 0,
+          "summary": "28 files / 346 tests pass (344 → 346: +2 A05 mitigation observations). 受け入れ確認(成功条件 19 の A05 節): window で正直者全員が各エポック同じ target・finalized が前進して跳ねが止まる(既定 L では活性停止 @12 に達する)、current(unrealized)は off と同一の推移。"
+        },
+        {
+          "type": "command",
+          "command": "npm run build",
+          "exit_code": 0,
+          "summary": "vite build emits the static dist/ bundle (408.41 kB js) with exit 0."
         }
       ]
     },
@@ -1778,7 +1806,7 @@
     {
       "id": "T-049",
       "title": "UI 刷新 (1) デザイン基盤: デザイントークン(色・余白・文字サイズ・書体の単一定義、4/8px 尺度と 3〜4 段の文字階層)、意図して選定した書体 1 組の日本語・英語・等幅の 3 用途への割当(外部フォントサービス非依存)、アプリ統一のフォーム部品(ボタン・セグメント・数値入力・チェック・セレクト・折り畳み)、OS テーマ追従(prefers-color-scheme)+手動切替、スタイル定義の直書き(色・余白・文字サイズ・書体)を検出する機械検査テスト",
-      "status": "pending",
+      "status": "done",
       "priority": "must",
       "spec": [
         "S-044",
@@ -1791,7 +1819,31 @@
       "batch_group": "e4-ui-refresh",
       "context_cost": 4,
       "risk_level": "normal",
-      "notes": "遂行順序 7。前提事項の「計器」方針が許す範囲の再編は自律可(思想 (b) の但し書き)。無彩色の地に意味色(justified/finalized・攻撃者・バリデータ識別・差分強調)のみ。"
+      "notes": "遂行順序 7。前提事項の「計器」方針が許す範囲の再編は自律可(思想 (b) の但し書き)。無彩色の地に意味色(justified/finalized・攻撃者・バリデータ識別・差分強調)のみ。【実装】src/ui/tokens.css を唯一のトークン定義とし(色 light/dark を :root / [data-theme] / prefers-color-scheme で三重定義、意味色 --ink-on-accent/--ink-on-warning、バリデータ識別 --validator-0..9、余白 --space-1..8 = 4/8/12/16/24/32px、文字 --text-xs/sm/md/lg = 11/12/13/16px の 4 段、書体 --font-en / --font-ja / --font-mono と合成 --font-text、--radius/--border)、styles.css の色・font-family・余白/文字サイズの px 直書きを全廃。統一部品 src/ui/components/(Button[variant/size]・Segmented・NumberField・Checkbox・Select・Disclosure)は native 要素を直接描画し data-ui 属性 + appearance:none で restyle するため、既存 DOM テストのセレクタ・aria-label は無変更で通る。useTheme は system|light|dark(既定 system: data-theme を書かず CSS の prefers-color-scheme に追従、手動上書きは localStorage 'consensus-sim.theme')。validatorColor は var(--validator-n) を返しinline style からリテラル色が消えた。builder 委任で実装し、ゲートと差分は自分で再検証。情報設計の再編(主役の面積・操作盤・説明文の退避)は T-050 で行う。",
+      "evidence": [
+        {
+          "type": "diff",
+          "summary": "新規: src/ui/tokens.css (129 行)、src/ui/components/{Button,Segmented,NumberField,Checkbox,Select,Disclosure}.tsx + index.ts (210 行)、tests/ui/designTokens.test.ts (202 行、node 環境のソース検査 9 件)、tests/ui/theme.test.tsx (6 件)。変更: src/ui/styles.css(@import './tokens.css'、全リテラルをトークン参照へ、[data-ui=…] の基底スタイル)、useTheme.ts(3 モード+永続化)、validatorColor.ts(var(--validator-n))、App.tsx / InterventionPanel.tsx / ParamsPanel.tsx / ScenarioPanel.tsx / StateTable.tsx / modes/{ChainMode,NetworkMode,TypesPage}.tsx(native 部品を統一部品へ置換、モードタブとテーマ切替は Segmented)、README.md(Usage にテーマ制御とトークン/書体/統一部品の記述)。git diff --stat(src/tests/docs/README): 13 files changed, 650 insertions(+), 538 deletions(-) + 未追跡 4 件。既存テストの変更なし。"
+        },
+        {
+          "type": "command",
+          "command": "npm run typecheck",
+          "exit_code": 0,
+          "summary": "tsc --noEmit exits 0 with the new components, tokens and theme hook."
+        },
+        {
+          "type": "command",
+          "command": "npx vitest run",
+          "exit_code": 0,
+          "summary": "30 files / 361 tests pass (28/346 → 30/361: +9 designTokens (styles.css に色リテラル/非トークン font-family/余白・文字サイズの px 直書きなし、tokens.css 以外にトークン定義なし、components/ 外に bare な select/input/button/details/textarea なし、inline style に色・fontFamily/fontSize なし、--font-mono が slot/number/id 系セレクタに・--font-text が body に適用) +6 theme (既定 system で data-theme 未設定、ライト/ダーク選択で data-theme 設定+localStorage 永続、再読込で復元、matchMedia dark モックで resolved=dark))。受け入れ確認: 成功条件 26 (b)(d)(f) の機械検査がテストとして残り、(e) の OS 追従+手動上書きが DOM テストで確認できる。既存 UI テスト(appShell/stateTable/params/interventions/scenario/steering/typesPage/polish)は無変更で通過。"
+        },
+        {
+          "type": "command",
+          "command": "npm run build",
+          "exit_code": 0,
+          "summary": "tsc --noEmit && vite build: dist/ (css 16.74 kB, js 408.94 kB) with exit 0."
+        }
+      ]
     },
     {
       "id": "T-050",

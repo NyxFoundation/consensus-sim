@@ -34,6 +34,12 @@ import type {
   ValidatorIndex,
 } from '../domain'
 import { evidenceLabel } from './ChainStateDetail'
+import { Button } from './components/Button'
+import { Checkbox } from './components/Checkbox'
+import { Disclosure } from './components/Disclosure'
+import { NumberField } from './components/NumberField'
+import { Segmented } from './components/Segmented'
+import { Select } from './components/Select'
 import { blockName } from './format'
 import type { SimulationSession } from './useSimulation'
 import { validatorColor } from './validatorColor'
@@ -329,8 +335,8 @@ export function InterventionPanel({ session }: InterventionPanelProps) {
 
   return (
     <section className="intervention-panel" aria-label="介入">
-      <details open>
-        <summary className="panel-summary">
+      <Disclosure
+        summary={
           <h2 className="intervention-title">
             介入
             {interventions.length > 0 && `（${interventions.length} 件指定中）`}{' '}
@@ -338,16 +344,15 @@ export function InterventionPanel({ session }: InterventionPanelProps) {
               新規指定は次のスロット s{nextSlot} の境界から適用
             </span>
           </h2>
-        </summary>
-
+        }
+      >
       <div className="intervention-forms">
         <fieldset className="intervention-group">
           <legend>分断</legend>
           <div className="validator-checks">
             {validators.map((v) => (
               <label key={v} className="check-inline">
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked={groupA.includes(v)}
                   onChange={() => setGroupA(toggleIn(groupA, v))}
                 />
@@ -359,8 +364,7 @@ export function InterventionPanel({ session }: InterventionPanelProps) {
               </label>
             ))}
           </div>
-          <button
-            type="button"
+          <Button
             disabled={groupA.length === 0 || groupA.length === validators.length}
             onClick={() => {
               add({ kind: 'partition', fromSlot: nextSlot, groups: [groupA] })
@@ -368,7 +372,7 @@ export function InterventionPanel({ session }: InterventionPanelProps) {
             }}
           >
             選択集合を残りから分断
-          </button>
+          </Button>
         </fieldset>
 
         <fieldset className="intervention-group">
@@ -390,23 +394,15 @@ export function InterventionPanel({ session }: InterventionPanelProps) {
                   />
                   {validatorLabel(v)}
                 </span>
-                <div
-                  className="segmented"
-                  role="group"
-                  aria-label={`${validatorLabel(v)} の稼働状態`}
-                >
-                  {(Object.keys(OP_STATE_LABELS) as OperatingState[]).map((s) => (
-                    <button
-                      type="button"
-                      key={s}
-                      className={opState === s ? 'active' : ''}
-                      aria-pressed={opState === s}
-                      onClick={() => setOpState(v, s)}
-                    >
-                      {OP_STATE_LABELS[s]}
-                    </button>
-                  ))}
-                </div>
+                <Segmented
+                  label={`${validatorLabel(v)} の稼働状態`}
+                  value={opState}
+                  options={(Object.keys(OP_STATE_LABELS) as OperatingState[]).map((s) => ({
+                    key: s,
+                    label: OP_STATE_LABELS[s],
+                  }))}
+                  onChange={(s) => setOpState(v, s)}
+                />
               </div>
             )
           })}
@@ -416,7 +412,7 @@ export function InterventionPanel({ session }: InterventionPanelProps) {
           <legend>フォーク作成（提案 parent の指定）</legend>
           <div className="form-line">
             s{nextSlot} の提案者 {validatorLabel(nextProposer)} が
-            <select
+            <Select
               aria-label="提案の parent ブロック"
               value={forkParent}
               onChange={(e) => setForkParent(e.target.value)}
@@ -427,11 +423,10 @@ export function InterventionPanel({ session }: InterventionPanelProps) {
                   B{b.index}（s{b.slot}）
                 </option>
               ))}
-            </select>
+            </Select>
             の上に提案
           </div>
-          <button
-            type="button"
+          <Button
             disabled={forkParent === '' || forkScheduled || forkRefused}
             onClick={() => {
               add({
@@ -445,7 +440,7 @@ export function InterventionPanel({ session }: InterventionPanelProps) {
             {forkScheduled
               ? `フォーク作成を予約済み（s${nextSlot}）`
               : 'フォークを作成'}
-          </button>
+          </Button>
           <span className="intervention-note">
             フォーク数 {forkCountNow}
             {forkCountPending !== forkCountNow &&
@@ -461,8 +456,7 @@ export function InterventionPanel({ session }: InterventionPanelProps) {
 
         <fieldset className="intervention-group">
           <legend>equivocation（二重提案・二重投票）</legend>
-          <button
-            type="button"
+          <Button
             disabled={doubleProposeScheduled}
             onClick={() =>
               add({ kind: 'double-propose', slot: nextSlot, validator: nextProposer })
@@ -471,9 +465,9 @@ export function InterventionPanel({ session }: InterventionPanelProps) {
             {doubleProposeScheduled
               ? `二重提案を予約済み（s${nextSlot}）`
               : `次スロットで二重提案（提案者 ${validatorName(nextProposer)}）`}
-          </button>
+          </Button>
           <div className="form-line">
-            <select
+            <Select
               aria-label="二重投票するバリデータ"
               value={dvValidator}
               onChange={(e) => setDvValidator(Number(e.target.value))}
@@ -483,23 +477,22 @@ export function InterventionPanel({ session }: InterventionPanelProps) {
                   {validatorLabel(v)}
                 </option>
               ))}
-            </select>
-            <button
-              type="button"
+            </Select>
+            <Button
               disabled={doubleVoteScheduled}
               onClick={() =>
                 add({ kind: 'double-vote', slot: nextSlot, validator: dvValidator })
               }
             >
               {doubleVoteScheduled ? '二重投票を予約済み' : '次スロットで二重投票'}
-            </button>
+            </Button>
           </div>
         </fieldset>
 
         <fieldset className="intervention-group">
           <legend>メッセージの遅延・欠落</legend>
           <div className="form-line">
-            <select
+            <Select
               aria-label="対象メッセージ"
               value={msgKey}
               disabled={optionGroups.length === 0}
@@ -515,7 +508,7 @@ export function InterventionPanel({ session }: InterventionPanelProps) {
                   ))}
                 </optgroup>
               ))}
-            </select>
+            </Select>
             {optionGroups.length === 0 && (
               <span className="intervention-note">
                 メッセージはまだありません。スロットを進めると提案・投票を選べます。
@@ -523,29 +516,21 @@ export function InterventionPanel({ session }: InterventionPanelProps) {
             )}
           </div>
           <div className="form-line">
-            <label className="check-inline">
-              <input
-                type="radio"
-                name="msg-action"
-                checked={msgAction === 'drop'}
-                onChange={() => setMsgAction('drop')}
-              />
-              欠落（届かない）
-            </label>
-            <label className="check-inline">
-              <input
-                type="radio"
-                name="msg-action"
-                checked={msgAction === 'delay'}
-                onChange={() => setMsgAction('delay')}
-              />
-              遅延
-            </label>
+            <Segmented
+              label="欠落・遅延の別"
+              value={msgAction}
+              options={
+                [
+                  { key: 'drop', label: '欠落（届かない）' },
+                  { key: 'delay', label: '遅延' },
+                ] as const
+              }
+              onChange={(a) => setMsgAction(a)}
+            />
             {msgAction === 'delay' && (
               <label className="check-inline">
                 s
-                <input
-                  type="number"
+                <NumberField
                   className="slot-input"
                   aria-label="遅延の到達スロット"
                   min={cursor + 1}
@@ -560,8 +545,7 @@ export function InterventionPanel({ session }: InterventionPanelProps) {
             対象:
             {validators.map((v) => (
               <label key={v} className="check-inline">
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked={msgTargets.includes(v)}
                   onChange={() => setMsgTargets(toggleIn(msgTargets, v))}
                 />
@@ -570,8 +554,7 @@ export function InterventionPanel({ session }: InterventionPanelProps) {
             ))}
             <span className="intervention-note">（未選択 = 送信者以外の全員）</span>
           </div>
-          <button
-            type="button"
+          <Button
             disabled={
               !selectedMessage ||
               (msgAction === 'delay' &&
@@ -581,13 +564,13 @@ export function InterventionPanel({ session }: InterventionPanelProps) {
             onClick={applyMessageIntervention}
           >
             適用
-          </button>
+          </Button>
         </fieldset>
 
         <fieldset className="intervention-group">
           <legend>投票先指定（head / source / target）</legend>
           <div className="form-line">
-            <select
+            <Select
               aria-label="投票先を指定するバリデータ"
               value={vtValidator}
               onChange={(e) => {
@@ -600,14 +583,14 @@ export function InterventionPanel({ session }: InterventionPanelProps) {
                   {validatorLabel(v)}
                 </option>
               ))}
-            </select>
+            </Select>
             の s{nextSlot} の投票
           </div>
           <div className="form-line">
             {(['head', 'source', 'target'] as const).map((k) => (
               <label key={k} className="check-inline">
                 {k}
-                <select
+                <Select
                   aria-label={`投票の ${k}`}
                   value={vtBlocks[k]}
                   onChange={(e) => setVtBlocks({ ...vtBlocks, [k]: e.target.value })}
@@ -618,19 +601,18 @@ export function InterventionPanel({ session }: InterventionPanelProps) {
                       {blockName(b.index)}（s{b.slot}）
                     </option>
                   ))}
-                </select>
+                </Select>
               </label>
             ))}
           </div>
-          <button
-            type="button"
+          <Button
             disabled={voteTargetEmpty || voteTargetScheduled}
             onClick={designateVote}
           >
             {voteTargetScheduled
               ? `投票先を指定済み（${validatorLabel(vtValidator)} s${nextSlot}）`
               : '投票先を指定'}
-          </button>
+          </Button>
           <span className="intervention-note">
             候補はそのバリデータのビュー内のブロック。未指定の成分は fork choice と FFG
             の規則どおり（head 指定時はその枝で計算）
@@ -653,8 +635,7 @@ export function InterventionPanel({ session }: InterventionPanelProps) {
                 const label = `${validatorName(v.validator)} の投票（s${v.slot}, head ${blockName(v.head)}）`
                 return (
                   <label key={key} className="check-inline">
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       aria-label={`省略候補: ${label}`}
                       checked={omitVotes.includes(key)}
                       onChange={() => setOmitVotes(toggleKey(omitVotes, key))}
@@ -668,8 +649,7 @@ export function InterventionPanel({ session }: InterventionPanelProps) {
                 const label = evidenceLabel(e)
                 return (
                   <label key={key} className="check-inline">
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       aria-label={`省略候補: ${label}`}
                       checked={omitEvidence.includes(key)}
                       onChange={() => setOmitEvidence(toggleKey(omitEvidence, key))}
@@ -680,9 +660,9 @@ export function InterventionPanel({ session }: InterventionPanelProps) {
               })}
             </div>
           )}
-          <button type="button" disabled={!omitSelected} onClick={scheduleOmission}>
+          <Button disabled={!omitSelected} onClick={scheduleOmission}>
             次の提案で省略
-          </button>
+          </Button>
           <span className="intervention-note">
             省いた項目は後のブロックが取り込める（未指定時は規則どおりすべて取り込む）
           </span>
@@ -697,8 +677,7 @@ export function InterventionPanel({ session }: InterventionPanelProps) {
                 {describe(i, config)}
               </span>
               {openPartition(i) && (
-                <button
-                  type="button"
+                <Button
                   onClick={() => {
                     const closed = closeSpanAt(i, cursor)
                     if (closed) replaceAt(index, closed)
@@ -706,11 +685,9 @@ export function InterventionPanel({ session }: InterventionPanelProps) {
                   }}
                 >
                   解消（次スロットから）
-                </button>
+                </Button>
               )}
-              <button type="button" onClick={() => removeAt(index)}>
-                削除
-              </button>
+              <Button onClick={() => removeAt(index)}>削除</Button>
             </li>
           ))}
         </ul>
@@ -720,7 +697,7 @@ export function InterventionPanel({ session }: InterventionPanelProps) {
           解消・削除で表示中の履歴が決定的に再計算されます。
         </p>
       )}
-      </details>
+      </Disclosure>
     </section>
   )
 }

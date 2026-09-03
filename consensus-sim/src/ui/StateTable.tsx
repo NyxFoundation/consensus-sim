@@ -9,6 +9,7 @@
 
 import { latestVotes, validatorName } from '../domain'
 import type { LocalObservation, ValidatorIndex } from '../domain'
+import { Button } from './components/Button'
 import { blockName, stakeLabel } from './format'
 import { COL_W, LABEL_W, TABLE_OFFSET } from './treeGeometry'
 import { validatorColor } from './validatorColor'
@@ -145,8 +146,7 @@ export function StateTable({
                 expanded?.validator === v && expanded.slot === s
               return (
                 <td key={s}>
-                  <button
-                    type="button"
+                  <Button
                     className={[
                       'state-cell',
                       column.diffs[v] ? 'state-cell-diff' : '',
@@ -159,7 +159,7 @@ export function StateTable({
                     onClick={() => onToggleCell({ validator: v, slot: s })}
                   >
                     {column.values[v]}
-                  </button>
+                  </Button>
                 </td>
               )
             })}

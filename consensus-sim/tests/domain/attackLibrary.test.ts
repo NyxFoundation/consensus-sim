@@ -1,9 +1,9 @@
 // Attack library (攻撃ライブラリ) — every library attack reaches its goal under
 // its declared premise and default run (成功条件 19), the mitigation-sensitive
 // attacks (A01, A03, A04, A07) miss under the merge preset with the overrides
-// removed, and a saved attack round-trips through the codec and replays
-// identically (成功条件 20). A05's behaviour under the switching mitigations
-// (window / unrealized) is not pinned here: see the inspection record.
+// removed, the bouncing (A05) is stopped by the switching window and runs
+// identically to `off` under `unrealized`, and a saved attack round-trips
+// through the codec and replays identically (成功条件 20).
 
 import { describe, expect, it } from "vitest";
 import {
@@ -152,6 +152,63 @@ describe("attack library", () => {
     // Every state keeps the anchor as the latest finalized block.
     for (const s of run.states) expect(latestFinalized(s.tree, s.chainStates)).toBe(0);
     expect(goalAchievedAt(run.goal!)).toBe(12);
+  });
+
+  // The A05 mitigation observations of 成功条件 19: the switching window stops
+  // the bounce, unrealized justification does not act on it.
+  const bouncingUnder = (checkpointSwitch: ProtocolParams["checkpointSwitch"], throughSlot: number) => {
+    const a05 = ATTACK_LIBRARY.find((a) => a.id === "A05")!;
+    const premise = premiseParams(a05.premise);
+    // `off` is the premise itself; `window` / `unrealized` keep the committee
+    // override (epoch split) and drop only the switching one.
+    const params =
+      checkpointSwitch === "off"
+        ? premise
+        : { ...(checkpointSwitch === "unrealized" ? PRESETS.current : PRESETS.merge), committee: premise.committee };
+    expect(params.checkpointSwitch).toBe(checkpointSwitch);
+    return runScenario(scenarioFor(a05, params), throughSlot);
+  };
+  const honestTargetsByEpoch = (run: ReturnType<typeof runScenario>) => {
+    const last = run.states[run.states.length - 1]!;
+    const targets = new Map<number, Set<number>>();
+    for (const v of last.votes) {
+      if (v.validator === 1) continue;
+      const epoch = Math.floor(v.slot / 4);
+      targets.set(epoch, (targets.get(epoch) ?? new Set()).add(v.target));
+    }
+    return targets;
+  };
+
+  it("the bouncing (A05) is stopped by the switching window: honest targets converge and finalized advances", () => {
+    const run = bouncingUnder("window", 60);
+    expect(run.generated.every((g) => g.discarded === undefined)).toBe(true);
+    // The opening bounces (epochs 1–3) still split the honest targets, but
+    // from epoch 4 on the root only switches at the epoch's first slot, so
+    // every honest validator votes the same target in each epoch…
+    const targets = honestTargetsByEpoch(run);
+    expect([1, 2, 3].every((e) => targets.get(e)!.size > 1)).toBe(true);
+    for (let epoch = 4; epoch <= 14; epoch++) expect(targets.get(epoch)!.size, `epoch ${epoch}`).toBe(1);
+    // …and finalized, stuck at the anchor under `off`, moves forward.
+    const finalized = run.states.map((s) => latestFinalized(s.tree, s.chainStates));
+    expect(finalized.findIndex((f) => f !== 0)).toBe(48);
+    expect(finalized[60]).toBeGreaterThan(finalized[48]!);
+    // The default L = 12 is still reached before the mitigation bites.
+    expect(goalAchievedAt(run.goal!)).toBe(12);
+  });
+
+  it("the bouncing (A05) under unrealized justification (current) runs identically to `off`", () => {
+    const off = bouncingUnder("off", 60);
+    const unrealized = bouncingUnder("unrealized", 60);
+    expect(unrealized.generated).toEqual(off.generated);
+    expect(goalAchievedAt(unrealized.goal!)).toBe(goalAchievedAt(off.goal!));
+    off.states.forEach((s, slot) => {
+      const u = unrealized.states[slot]!;
+      expect([...u.heads.entries()]).toEqual([...s.heads.entries()]);
+      expect(latestFinalized(u.tree, u.chainStates)).toBe(latestFinalized(s.tree, s.chainStates));
+    });
+    // Unrealized only prunes candidates below the root; it never moves the
+    // root, so the anchor stays finalized through the whole run.
+    for (const s of unrealized.states) expect(latestFinalized(s.tree, s.chainStates)).toBe(0);
   });
 
   it("the safety violations (A10, A12) finalize two conflicting checkpoints", () => {

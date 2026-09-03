@@ -114,18 +114,17 @@
 
 - A05 バウンシングと justified チェックポイント切替の緩和策: A05 は前提
   (merge + 切替 off + committee = エポック分割、4 体・攻撃者 1・seed 0)で
-  成立し、justified が 2 枝の間を跳ね続けて finalized が錨から進まない
-  (`tests/domain/attackLibrary.test.ts`)。一方、切替の上書きを外した merge
-  (window)と current(unrealized)では、本モデルの緩和策の意味論のもとで
-  跳ねが止まらない: unrealized は起点(view 内の最高 justified)を変えず候補を
-  刈るだけなので off と同一の実行になり、window は起点の切替をエポック先頭に
-  限るものの、エポック最後のスロットの正直票は境界ブロック(切替後の枝に
-  建つ)にしか取り込まれず、正直者の枝は自力で justify を実現できないまま
-  攻撃者のブロックが 1 エポック遅れでそれを完成させ、跳ねが境界ごとに続く
-  (seed 0 では最初の finalized が slot 48)。1 票 = ステークの 1/4 という
-  粒度が Ethereum(最終スロットの committee は 1/32)と異なることが原因で、
-  成功条件 19 の「window / current で未達」はこの意味論では観測できない。
-  扱いは人間の判断待ち(Recommendation R-009)。
+  成立し、justified が 2 枝の間を跳ね続けて finalized が錨から進まない。
+  切替の上書きだけを外した merge(window)では、起点の切替がエポック先頭
+  スロットに限られるため、開幕(エポック 1〜3)の跳ねの後、エポック 4 以降は
+  正直者全員が各エポックで同じ target に投票し、finalized が slot 48 から
+  前進して跳ねが止まる(既定の L = 12 の活性停止は緩和が効く前の slot 12 で
+  達成される)。current(unrealized)は起点(view 内の最高 justified)を変えず
+  候補を刈るだけなので起点の跳ねに作用せず、off と全スロット同一の推移になる。
+  1 票 = ステークの 1/4 という粒度が Ethereum(最終スロットの committee は
+  1/32)と異なるため、window の効きが Ethereum より遅い(最初の finalized が
+  slot 48)。この 3 通りの推移は `tests/domain/attackLibrary.test.ts` に固定した
+  (要件は R-009 の判断でこの観測可能な事実に改訂済み)。
 - 新しいビジュアル(モノクロ基調・フラット・高密度)の見た目の最終確認は、
   実ブラウザでの目視(`npm run dev`、または `npm run build && node
   scripts/verify-ui.mjs`)による。自動テストは DOM 構造・文言・介入挙動を

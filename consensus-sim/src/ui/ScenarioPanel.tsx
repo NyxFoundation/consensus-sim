@@ -8,6 +8,8 @@
 
 import { useState } from 'react'
 import { presetOf } from '../domain'
+import { Button } from './components/Button'
+import { Disclosure } from './components/Disclosure'
 import {
   listScenarios,
   loadStored,
@@ -67,8 +69,8 @@ export function ScenarioPanel({ session }: ScenarioPanelProps) {
 
   return (
     <section className="scenario-panel" aria-label="シナリオ">
-      <details open>
-        <summary className="panel-summary">
+      <Disclosure
+        summary={
           <h2 className="intervention-title">
             シナリオ
             {entries.length > 0 && `（保存 ${entries.length} 件）`}{' '}
@@ -76,12 +78,10 @@ export function ScenarioPanel({ session }: ScenarioPanelProps) {
               保存 = 初期条件（プロトコルパラメータ・シード・初期ステーク）+ 介入列。再読込は決定的リプレイ
             </span>
           </h2>
-        </summary>
-
+        }
+      >
       <div className="form-line">
-        <button type="button" onClick={save}>
-          現在のシナリオを保存
-        </button>
+        <Button onClick={save}>現在のシナリオを保存</Button>
         {status && (
           <span className="scenario-status" role="status">
             {status}
@@ -94,12 +94,8 @@ export function ScenarioPanel({ session }: ScenarioPanelProps) {
           {entries.map((e) => (
             <li key={e.id}>
               <span className="intervention-desc">{entryLabel(e)}</span>
-              <button type="button" onClick={() => load(e)}>
-                読込・再実行
-              </button>
-              <button type="button" onClick={() => remove(e.id)}>
-                削除
-              </button>
+              <Button onClick={() => load(e)}>読込・再実行</Button>
+              <Button onClick={() => remove(e.id)}>削除</Button>
             </li>
           ))}
         </ul>
@@ -109,7 +105,7 @@ export function ScenarioPanel({ session }: ScenarioPanelProps) {
           いまの実行（シード + 介入列 + 進行スロット）をこのブラウザの一覧に残せます。
         </p>
       )}
-      </details>
+      </Disclosure>
     </section>
   )
 }

@@ -6,11 +6,11 @@
     "stop_after_infra_fails": 2
   },
   "progress": {
-    "last_signature": "d53c532cc5dc8513d7eddf90e5ab43661eb900960365382f482ea1b62fe75552",
+    "last_signature": "aa0ad86d8e0c87f819e465051375d958f40a1d8d51a17beb7403656b5f6dc308",
     "idle_cycles_since_progress": 0,
     "infra_fails_since_ok": 0,
-    "last_progress_at": "2026-09-03T11:17:49+09:00",
-    "last_checked_at": "2026-09-03T11:17:49+09:00",
+    "last_progress_at": "2026-09-03T12:14:33+09:00",
+    "last_checked_at": "2026-09-03T12:14:33+09:00",
     "usage_limited_since_ok": 0
   },
   "reset_policy": {
@@ -21,19 +21,24 @@
     "reset_after_decisions": 5
   },
   "counters": {
-    "context_usage_estimate": 0.65,
+    "context_usage_estimate": 0.45,
     "failed_attempts_since_reset": 0,
-    "changed_files_since_reset": 4,
-    "completed_todos_since_reset": 0,
-    "important_decisions_since_reset": 1,
+    "changed_files_since_reset": 21,
+    "completed_todos_since_reset": 2,
+    "important_decisions_since_reset": 2,
     "major_spec_rewrite_since_reset": false,
     "high_risk_change_completed": false
   },
   "handoff": {
-    "written_at": "2026-09-03T11:40:15+09:00",
-    "summary": "Human resume: ESSENCE.md の改訂(成功条件 19・必須対応事項 23 の A05 バウンシングの緩和観測を、「window では起点の切替がエポック先頭スロットに限られて正直者全員が各エポックで同じ target に投票し、finalized が前進して跳ねが止まる(既定の L では活性停止に達してよい)」「current では本モデルの unrealized は起点の跳ねに作用せず切替 off と同一の推移になる」という観測可能な事実へ置換)は人間自身の編集であり、レビュー済みとして attest する。essences/deep-research-report.md は無変更。\nR-009 は選択肢 C で解決する: モデル・緩和策の意味論(R-004 で了承済み)と既定実行構成(4 体・攻撃者 V1・seed 0)は変えず、次サイクルは新 Essence から Spec(S-043)を再投影して T-047 を再開し、window / current の観測テスト(seed 0 では最初の finalized が slot 48 前後なので長走行でよい)を追加して done にする。\nその後は T-049〜T-051(UI 刷新)→ T-042/T-043(攻撃 UI)→ T-044(総点検)へ進み、フェーズは must のまま(approve-should / close-at-must のいずれも選ばない)。",
-    "next_actions": [],
+    "written_at": "2026-09-03T12:20:00+09:00",
+    "summary": "R-009 の人間判断(C: 要件を観測可能な事実に改訂)を受け、attest 済の新 ESSENCE から S-043 を再投影し T-047(A05 バウンシング)を done にした: window では開幕(エポック 1〜3)の跳ねの後エポック 4 以降は正直者全員が各エポック同じ target に投票し finalized が slot 48 から前進(活性停止 L=12 は緩和が効く前の slot 12 で達成)、unrealized(current)は off と全スロット同一。2 テストを tests/domain/attackLibrary.test.ts に固定し docs/INSPECTION.md の既知の制約を解決済へ更新。続けて T-049(UI 刷新 (1) デザイン基盤)を builder 委任で実装し done: src/ui/tokens.css(唯一のトークン定義: 色 light/dark・意味色・--validator-0..9・--space-1..8・--text-xs..lg 4 段・--font-en/--font-ja/--font-mono + --font-text・radius/border)、styles.css の全リテラル撤廃、src/ui/components/(Button/Segmented/NumberField/Checkbox/Select/Disclosure: native 要素+data-ui+appearance:none)で全パネルの native 部品を置換、useTheme は system|light|dark(既定 system、localStorage 'consensus-sim.theme')、validatorColor は var(--validator-n)。機械検査 tests/ui/designTokens.test.ts(9)+ tests/ui/theme.test.tsx(6)。ゲート: typecheck 0 / vitest 30 files 361 tests / build 0。README Usage を更新。残る must: T-050(情報設計の再編)、T-051(人間の実ブラウザ承認で停止)、T-042/T-043(攻撃 UI)、T-044(総点検)。フェーズは must のまま。",
+    "next_actions": [
+      "T-050(UI 刷新 (2) 情報設計の再編): 主役(チェーン表示+状態表)が標準 PC 幅(例 1440×900)の初期表示でスクロールなしに過半を占めるレイアウト(操作盤 ParamsPanel / InterventionPanel / ScenarioPanel を主役より小さい面積へ集約 — 例: 右または下の折り畳み操作盤)、ブロック木は分岐・J/F・head 移動が読める大きさ、パネル常駐の説明文(intervention-note・空リストの説明文等)をホバー/ⓘ(title または data-ui='hint')へ退避、ネットワーク/全体/型一覧に基盤を適用。必須 6・7・8 の制約(3 表示、状態表は下半分で slotIndex 整列・約 10 スロット幅・横スクロール、ネットワークのホバー)と既存 DOM テストの操作系列(aria-label・ボタン文言)を維持。成功条件 26 (a)(c) の機械検査: DOM テストで主役要素の class/構造と『説明文 class が無いこと』、scripts/verify-ui.mjs に 1440×900 での主役の面積比の計測を追加(実ブラウザは人間側で実行)。",
+      "T-050 完了後、T-051 を Human-input Recommendation(requires_human_approval: true、確認手段 npm run dev / npm run build && node scripts/verify-ui.mjs、確認観点 = 成功条件 26 (a)〜(f))で起票して停止。",
+      "承認後: T-042 → T-043(攻撃 UI、刷新後の基盤と統一部品の上に構築)→ T-044(総点検: notes の点検項目 (1)〜(9) を含む)。",
+      "atlas-builder state の呼び出しは ATLAS_BUILDER_LOCK_TOKEN=$(cat .agent/tmp/loop.lock/token) を前置する(lessons 参照)。"
+    ],
     "open_questions": [],
-    "pending_cycle": true
+    "pending_cycle": false
   }
 }

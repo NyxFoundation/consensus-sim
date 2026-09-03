@@ -24,6 +24,10 @@ import type {
   ProtocolParams,
   SimulationConfig,
 } from '../domain'
+import { Button } from './components/Button'
+import { Disclosure } from './components/Disclosure'
+import { NumberField as NumberFieldControl } from './components/NumberField'
+import { Segmented } from './components/Segmented'
 import type { SimulationSession } from './useSimulation'
 import { validatorColor } from './validatorColor'
 
@@ -35,36 +39,6 @@ const PRESET_NOTES: Readonly<Record<PresetName, string>> = {
 
 const FORK_CHOICE_RULES: readonly ForkChoiceRule[] = ['GHOST', 'LMD-GHOST']
 const CHECKPOINT_SWITCHES: readonly CheckpointSwitch[] = ['window', 'unrealized', 'off']
-
-interface SegmentedProps<T extends string> {
-  readonly label: string
-  readonly value: T
-  readonly options: readonly { readonly key: T; readonly label: string }[]
-  onChange(value: T): void
-}
-
-function Segmented<T extends string>({
-  label,
-  value,
-  options,
-  onChange,
-}: SegmentedProps<T>) {
-  return (
-    <div className="segmented" role="group" aria-label={label}>
-      {options.map((o) => (
-        <button
-          type="button"
-          key={o.key}
-          className={value === o.key ? 'active' : ''}
-          aria-pressed={value === o.key}
-          onClick={() => onChange(o.key)}
-        >
-          {o.label}
-        </button>
-      ))}
-    </div>
-  )
-}
 
 const ON_OFF = [
   { key: 'on', label: 'on' },
@@ -132,8 +106,7 @@ function NumberField({
     setText((t) => (parse(t) === value ? t : String(value)))
   }, [value])
   return (
-    <input
-      type="number"
+    <NumberFieldControl
       className={className}
       aria-label={label}
       min={min}
@@ -177,8 +150,8 @@ export function ParamsPanel({ session }: ParamsPanelProps) {
 
   return (
     <section className="params-panel" aria-label="プロトコルパラメータ">
-      <details open>
-        <summary className="panel-summary">
+      <Disclosure
+        summary={
           <h2 className="intervention-title">
             プロトコルパラメータ
             {`（${preset ?? 'カスタム'} / シード ${config.seed}）`}{' '}
@@ -186,8 +159,8 @@ export function ParamsPanel({ session }: ParamsPanelProps) {
               シナリオの初期条件。変更すると表示中の実行を最初から再計算（介入は維持）
             </span>
           </h2>
-        </summary>
-
+        }
+      >
         <div className="intervention-forms">
           <fieldset className="intervention-group">
             <legend>プリセット</legend>
@@ -362,17 +335,16 @@ export function ParamsPanel({ session }: ParamsPanelProps) {
                   />
                 </label>
               ))}
-              <button
-                type="button"
+              <Button
                 disabled={config.initialStakes.every((s) => s === DEFAULT_STAKE)}
                 onClick={() => setConfig({ initialStakes: equalStakes(config.validatorCount) })}
               >
                 全員等しく（{DEFAULT_STAKE}）
-              </button>
+              </Button>
             </div>
           </fieldset>
         </div>
-      </details>
+      </Disclosure>
     </section>
   )
 }

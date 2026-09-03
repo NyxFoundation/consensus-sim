@@ -29,6 +29,7 @@ import type {
   ValidatorIndex,
 } from '../../domain'
 import { BlockTreeView } from '../BlockTreeView'
+import { Button } from '../components/Button'
 import { blockName } from '../format'
 import { validatorColor } from '../validatorColor'
 
@@ -86,8 +87,7 @@ export function NetworkMode({
           const diverged = commonHead !== undefined && o.head !== commonHead
           const opState = operatingStateAt(interventions, v, state.slot)
           return (
-            <button
-              type="button"
+            <Button
               role="listitem"
               key={v}
               className={[
@@ -129,7 +129,7 @@ export function NetworkMode({
                     : 'なし'}
                 </dd>
               </dl>
-            </button>
+            </Button>
           )
         })}
       </div>

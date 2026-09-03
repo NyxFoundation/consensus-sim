@@ -13,6 +13,9 @@ import {
   proposerForSlot,
   validatorName,
 } from '../domain'
+import { Button } from './components/Button'
+import { Segmented } from './components/Segmented'
+import { Select } from './components/Select'
 import { ChainMode } from './modes/ChainMode'
 import { GlobalMode } from './modes/GlobalMode'
 import { NetworkMode } from './modes/NetworkMode'
@@ -22,6 +25,7 @@ import { ParamsPanel } from './ParamsPanel'
 import { ScenarioPanel } from './ScenarioPanel'
 import { useSimulation } from './useSimulation'
 import { useThemeMode } from './useTheme'
+import type { ThemeMode } from './useTheme'
 
 type Mode = 'chain' | 'network' | 'global' | 'types'
 
@@ -32,6 +36,17 @@ const MODE_LABELS: Readonly<Record<Mode, string>> = {
   types: '型一覧',
 }
 
+const THEME_LABELS: Readonly<Record<ThemeMode, string>> = {
+  system: '自動',
+  light: 'ライト',
+  dark: 'ダーク',
+}
+
+const THEME_OPTIONS = (Object.keys(THEME_LABELS) as ThemeMode[]).map((key) => ({
+  key,
+  label: THEME_LABELS[key],
+}))
+
 const VALIDATOR_COUNTS = Array.from(
   { length: MAX_VALIDATOR_COUNT - MIN_VALIDATOR_COUNT + 1 },
   (_, i) => MIN_VALIDATOR_COUNT + i,
@@ -39,7 +54,7 @@ const VALIDATOR_COUNTS = Array.from(
 
 export function App() {
   const session = useSimulation()
-  const { mode: themeMode, toggle: toggleTheme } = useThemeMode()
+  const theme = useThemeMode()
   const [mode, setMode] = useState<Mode>('chain')
 
   const { current, config, delivery, cursor, runSlot } = session
@@ -54,23 +69,23 @@ export function App() {
           <span className="app-subtitle">最抽象モデル・シミュレータ</span>
         </div>
 
-        <nav className="mode-tabs" aria-label="表示切替">
-          {(Object.keys(MODE_LABELS) as Mode[]).map((m) => (
-            <button
-              type="button"
-              key={m}
-              className={mode === m ? 'active' : ''}
-              onClick={() => setMode(m)}
-            >
-              {MODE_LABELS[m]}
-            </button>
-          ))}
+        <nav className="mode-tabs">
+          <Segmented
+            label="表示切替"
+            className="mode-tabs-segmented"
+            value={mode}
+            options={(Object.keys(MODE_LABELS) as Mode[]).map((key) => ({
+              key,
+              label: MODE_LABELS[key],
+            }))}
+            onChange={(m) => setMode(m)}
+          />
         </nav>
 
         <div className="header-controls">
           <label className="field-inline">
             バリデータ数
-            <select
+            <Select
               value={config.validatorCount}
               onChange={(e) => session.setValidatorCount(Number(e.target.value))}
             >
@@ -79,59 +94,53 @@ export function App() {
                   {n} 体
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
-          <button
-            type="button"
+          <Segmented
+            label="テーマ"
             className="theme-toggle"
-            onClick={toggleTheme}
-            aria-label="テーマ切替"
-          >
-            {themeMode === 'dark' ? 'ライト表示' : 'ダーク表示'}
-          </button>
+            size="sm"
+            value={theme.mode}
+            options={THEME_OPTIONS}
+            onChange={theme.setMode}
+          />
         </div>
       </header>
 
       <div className="slot-bar">
         <div className="slot-cursor" role="group" aria-label="スロット巻き戻し">
-          <button
-            type="button"
+          <Button
             className="cursor-step"
             aria-label="1 スロット戻る"
             disabled={cursor === 0}
             onClick={() => session.setCursor(cursor - 1)}
           >
             ◀
-          </button>
+          </Button>
           <span className="slot-current">
             スロット <strong>{cursor}</strong>
             {inPast && <span className="slot-run"> / 最新 {runSlot}</span>}
           </span>
-          <button
-            type="button"
+          <Button
             className="cursor-step"
             aria-label="1 スロット先へ"
             disabled={!inPast}
             onClick={() => session.setCursor(cursor + 1)}
           >
             ▶
-          </button>
+          </Button>
           {inPast && (
-            <button
-              type="button"
-              className="cursor-latest"
-              onClick={() => session.setCursor(runSlot)}
-            >
+            <Button className="cursor-latest" onClick={() => session.setCursor(runSlot)}>
               最新へ
-            </button>
+            </Button>
           )}
         </div>
         <span className="slot-next">
           次スロットの提案者: {validatorName(nextProposer)}
         </span>
-        <button type="button" className="advance" onClick={() => session.advance()}>
+        <Button variant="primary" className="advance" onClick={() => session.advance()}>
           {inPast ? 'ここから進める（以降の履歴を破棄）' : '＋1 スロット進める'}
-        </button>
+        </Button>
       </div>
 
       <ParamsPanel session={session} />

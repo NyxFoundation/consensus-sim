@@ -9,6 +9,7 @@
  */
 
 import { useState } from 'react'
+import { Button } from '../components/Button'
 import { DOMAIN_SOURCES } from '../domainSources'
 import { extractTypeGraph, layoutTypeGraph } from '../typeGraph'
 
@@ -98,8 +99,7 @@ export function TypesPage() {
               .filter(Boolean)
               .join(' ')
             return (
-              <button
-                type="button"
+              <Button
                 key={node.name}
                 className={classes}
                 style={{ left: pos.x, top: pos.y, width: NODE_W, height: NODE_H }}
@@ -110,7 +110,7 @@ export function TypesPage() {
               >
                 <span className="type-node-name">{node.name}</span>
                 <span className="type-node-module">{node.module}.ts</span>
-              </button>
+              </Button>
             )
           })}
         </div>
@@ -130,14 +130,9 @@ export function TypesPage() {
             <dd>
               {detail.dependsOn.length > 0
                 ? detail.dependsOn.map((d) => (
-                    <button
-                      type="button"
-                      key={d}
-                      className="type-link"
-                      onClick={() => setSelected(d)}
-                    >
+                    <Button key={d} className="type-link" onClick={() => setSelected(d)}>
                       {d}
-                    </button>
+                    </Button>
                   ))
                 : 'なし（最上段）'}
             </dd>
@@ -145,14 +140,9 @@ export function TypesPage() {
             <dd>
               {dependents.length > 0
                 ? dependents.map((d) => (
-                    <button
-                      type="button"
-                      key={d}
-                      className="type-link"
-                      onClick={() => setSelected(d)}
-                    >
+                    <Button key={d} className="type-link" onClick={() => setSelected(d)}>
                       {d}
-                    </button>
+                    </Button>
                   ))
                 : 'なし'}
             </dd>

@@ -2,22 +2,15 @@
  * Stable colour per validator index (0..9). Colour is always accompanied by
  * the validator's name or its initial kana (chips carry the initial), so
  * identity never rides on colour alone; the ramp only helps the eye group
- * marks quickly.
+ * marks quickly. The actual hues live once in src/ui/tokens.css
+ * (--validator-0 … --validator-9); this only picks the token by index, so
+ * every inline `style={{ background: validatorColor(v) }}` resolves through
+ * the same design tokens as the rest of the UI.
  */
 
-const VALIDATOR_COLORS: readonly string[] = [
-  '#2a78d6',
-  '#eb6834',
-  '#1baf7a',
-  '#9256d9',
-  '#c8a012',
-  '#d0489c',
-  '#188fa3',
-  '#8a6b45',
-  '#5b64d6',
-  '#6d7a12',
-]
+const VALIDATOR_COUNT = 10
 
 export function validatorColor(validator: number): string {
-  return VALIDATOR_COLORS[validator % VALIDATOR_COLORS.length] ?? '#898781'
+  const index = ((validator % VALIDATOR_COUNT) + VALIDATOR_COUNT) % VALIDATOR_COUNT
+  return `var(--validator-${index}, var(--validator-fallback))`
 }
