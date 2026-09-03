@@ -47,6 +47,8 @@ export interface StateTableProps {
   readonly validatorCount: number
   readonly item: StateCellItem
   readonly expanded: ExpandedCell | undefined
+  /** The scenario's attackers — their rows carry the attacker mark. */
+  readonly attackers?: ReadonlySet<ValidatorIndex>
   onToggleCell(cell: ExpandedCell): void
 }
 
@@ -98,6 +100,7 @@ export function StateTable({
   validatorCount,
   item,
   expanded,
+  attackers,
   onToggleCell,
 }: StateTableProps) {
   const slotCount = observations.length
@@ -133,13 +136,14 @@ export function StateTable({
       </thead>
       <tbody>
         {Array.from({ length: validatorCount }, (_, v) => (
-          <tr key={v}>
+          <tr key={v} className={attackers?.has(v) ? 'attacker-row' : undefined}>
             <th scope="row">
               <span
                 className="validator-dot"
                 style={{ background: validatorColor(v) }}
               />
               {validatorName(v)}
+              {attackers?.has(v) && <span className="attacker-mark">攻撃者</span>}
             </th>
             {columns.map((column, s) => {
               const isExpanded =

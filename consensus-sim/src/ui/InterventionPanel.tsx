@@ -19,6 +19,7 @@ import {
   checkpointFor,
   checkpointKey,
   closeSpanAt,
+  effectSlot,
   epochOf,
   evidenceRef,
   forkCountAfter,
@@ -35,6 +36,7 @@ import {
 } from '../domain'
 import type {
   Checkpoint,
+  DiscardReason,
   EvidenceRef,
   InitialConditions,
   Intervention,
@@ -129,6 +131,28 @@ function describe(i: Intervention, config: InitialConditions): string {
   }
 }
 
+const DISCARD_LABELS: Readonly<Record<DiscardReason, string>> = {
+  'not-causal': '計算済みスロットへの行動',
+  'outside-capability': '能力範囲外',
+  'conflicts-with-manual': '手動介入と矛盾',
+  'fork-limit': 'フォーク上限',
+}
+
+/** One row of the intervention list: a manual intervention (editable) or
+ * an action the attack's strategy generated (marked, never edited). */
+interface ListEntry {
+  readonly intervention: Intervention
+  readonly origin: 'manual' | 'attacker'
+  /** Index in the manual list (manual entries only). */
+  readonly index?: number
+  readonly generatedAt?: number
+  readonly discarded?: DiscardReason
+}
+
+/** The slot an entry first acts in — the list's order. */
+const entrySlot = (i: Intervention): number =>
+  i.kind === 'offline' ? i.fromSlot : effectSlot(i)
+
 const messageKey = (r: MessageRef) =>
   r.kind === 'proposal'
     ? `proposal:${r.sender}:${r.slot}:${r.block ?? ''}`
@@ -177,8 +201,23 @@ export interface InterventionPanelProps {
 }
 
 export function InterventionPanel({ session }: InterventionPanelProps) {
-  const { current, config, interventions, cursor, delivery } = session
+  const { current, config, interventions, generated, cursor, delivery } = session
   const validators = Array.from({ length: config.validatorCount }, (_, v) => v)
+  const discards = generated.filter((g) => g.discarded !== undefined).length
+  // The list: manual interventions and generated actions together, in the
+  // order they first act (a manual entry before a generated one of the same
+  // slot, as the manual one wins a conflict).
+  const entries: ListEntry[] = [
+    ...interventions.map((i, index): ListEntry => ({ intervention: i, origin: 'manual', index })),
+    ...generated.map(
+      (g): ListEntry => ({
+        intervention: g.action,
+        origin: 'attacker',
+        generatedAt: g.generatedAt,
+        ...(g.discarded === undefined ? {} : { discarded: g.discarded }),
+      }),
+    ),
+  ].sort((a, b) => entrySlot(a.intervention) - entrySlot(b.intervention))
   const nextSlot = cursor + 1
   const nextProposer = proposerForSlot(nextSlot, config)
 
@@ -371,8 +410,13 @@ export function InterventionPanel({ session }: InterventionPanelProps) {
             {interventions.length > 0 && (
               <span className="panel-count">{interventions.length} 件指定中</span>
             )}
+            {generated.length > 0 && (
+              <span className="panel-count">
+                生成 {generated.length} 件{discards > 0 && `（破棄 ${discards}）`}
+              </span>
+            )}
             <span className="panel-count">次は s{nextSlot}</span>
-            <Hint text="介入はスロット境界で指定し、新規指定は次のスロットの境界から適用。指定した介入は一覧に残り、解消・削除すると表示中の履歴を決定的に再計算" />
+            <Hint text="介入はスロット境界で指定し、新規指定は次のスロットの境界から適用。指定した介入は一覧に残り、解消・削除すると表示中の履歴を決定的に再計算。攻撃の戦略が生成した行動も同じ一覧に攻撃者の印付きで並び（手動編集はしない）、同一スロット・同一バリデータで手動介入と矛盾する行動や能力範囲外・フォーク上限超過の行動は破棄の印付きで残る" />
           </h2>
         }
       >
@@ -722,32 +766,55 @@ export function InterventionPanel({ session }: InterventionPanelProps) {
       </div>
 
       <h3 className="list-title">指定中の介入</h3>
-      {interventions.length > 0 ? (
+      {entries.length > 0 ? (
         <ul className="intervention-list">
-          {interventions.map((i, index) => (
-            <li key={index}>
-              <span className="intervention-desc">
-                {describe(i, config)}
-              </span>
-              <span className="list-actions">
-                {openPartition(i) && (
-                  <Button
-                    size="sm"
-                    onClick={() => {
-                      const closed = closeSpanAt(i, cursor)
-                      if (closed) replaceAt(index, closed)
-                      else removeAt(index)
-                    }}
-                  >
-                    解消（次スロットから）
+          {entries.map((entry, k) => {
+            const i = entry.intervention
+            if (entry.origin === 'attacker') {
+              return (
+                <li
+                  key={`g-${k}`}
+                  className={
+                    entry.discarded === undefined
+                      ? 'attacker-action'
+                      : 'attacker-action discarded'
+                  }
+                >
+                  <span className="attacker-mark">攻撃者</span>
+                  <span className="intervention-desc">{describe(i, config)}</span>
+                  <span className="readout">生成 @s{entry.generatedAt}</span>
+                  {entry.discarded !== undefined && (
+                    <span className="discard-mark">
+                      破棄: {DISCARD_LABELS[entry.discarded]}
+                    </span>
+                  )}
+                </li>
+              )
+            }
+            const index = entry.index!
+            return (
+              <li key={`m-${index}`}>
+                <span className="intervention-desc">{describe(i, config)}</span>
+                <span className="list-actions">
+                  {openPartition(i) && (
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        const closed = closeSpanAt(i, cursor)
+                        if (closed) replaceAt(index, closed)
+                        else removeAt(index)
+                      }}
+                    >
+                      解消（次スロットから）
+                    </Button>
+                  )}
+                  <Button size="sm" onClick={() => removeAt(index)}>
+                    削除
                   </Button>
-                )}
-                <Button size="sm" onClick={() => removeAt(index)}>
-                  削除
-                </Button>
-              </span>
-            </li>
-          ))}
+                </span>
+              </li>
+            )
+          })}
         </ul>
       ) : (
         <p className="empty-hint">介入はまだありません</p>

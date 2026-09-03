@@ -21,6 +21,7 @@
   --accent: #2a78d6;
   --status-warning: #fab219;
   --status-good: #0ca30c;
+  --status-attacker: #d23b3b;
   --control-bg: #ffffff;
   --block-fill: #efefef;
 }
@@ -41,6 +42,7 @@
     --accent: #3987e5;
     --status-warning: #fab219;
     --status-good: #0ca30c;
+    --status-attacker: #e3524f;
     --control-bg: #202020;
     --block-fill: #262626;
   }
@@ -61,6 +63,7 @@
   --accent: #3987e5;
   --status-warning: #fab219;
   --status-good: #0ca30c;
+  --status-attacker: #e3524f;
   --control-bg: #202020;
   --block-fill: #262626;
 }

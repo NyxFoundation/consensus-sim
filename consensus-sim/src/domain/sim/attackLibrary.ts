@@ -31,7 +31,7 @@ import type { AttackerCondition, AttackParams, Capability } from "../model/attac
 import type { AttackInstance } from "./attackRun";
 import type { AttackRegistry } from "./scenarioCodec";
 import { PRESETS, type ProtocolParams } from "../model/protocolParams";
-import { equalStakes } from "../model/initialConditions";
+import { equalStakes, type InitialConditions } from "../model/initialConditions";
 import type { SlotIndex, Stake, ValidatorIndex } from "../model/types";
 
 /** The ProtocolParams a premise resolves to. */
@@ -74,6 +74,17 @@ export interface LibraryAttack {
 /** The parameters the default run binds: the premise's d plus the run's own. */
 export function defaultParams(entry: LibraryAttack): AttackParams {
   return { ...entry.defaultRun.params, maxDelay: entry.premise.maxDelay };
+}
+
+/** The initial conditions the default run proposes: its validator count,
+ * stakes and seed under the premise's parameters. */
+export function defaultConditions(entry: LibraryAttack): InitialConditions {
+  return {
+    validatorCount: entry.defaultRun.validatorCount,
+    seed: entry.defaultRun.seed,
+    params: premiseParams(entry.premise),
+    initialStakes: entry.defaultRun.initialStakes,
+  };
 }
 
 /** The attack bound into a scenario as its default run proposes. */
@@ -369,6 +380,11 @@ export const ATTACK_LIBRARY: readonly LibraryAttack[] = [
     },
   },
 ];
+
+/** The library row of an attack id (a saved scenario's, a UI selection's). */
+export function findLibraryAttack(id: string): LibraryAttack | undefined {
+  return ATTACK_LIBRARY.find((entry) => entry.id === id);
+}
 
 /** The library keyed by attack id, as the codec resolves a saved attack. */
 export const ATTACK_REGISTRY: AttackRegistry = new Map(

@@ -35,7 +35,8 @@ function entryLabel(e: StoredScenario): string {
   } catch {
     // An entry the store could not parse is labelled without its preset.
   }
-  return `${stamp} — ${e.data.config.validatorCount} 体${preset} / 介入 ${e.data.interventions.length} 件 / スロット ${e.data.runSlot}`
+  const attack = e.data.attack === undefined ? '' : ` / 攻撃 ${e.data.attack.id}`
+  return `${stamp} — ${e.data.config.validatorCount} 体${preset} / 介入 ${e.data.interventions.length} 件${attack} / スロット ${e.data.runSlot}`
 }
 
 export function ScenarioPanel({ session }: ScenarioPanelProps) {
@@ -45,6 +46,7 @@ export function ScenarioPanel({ session }: ScenarioPanelProps) {
   const currentScenario = {
     config: session.config,
     interventions: session.interventions,
+    ...(session.attack === undefined ? {} : { attack: session.attack }),
   }
 
   const save = () => {
@@ -77,7 +79,7 @@ export function ScenarioPanel({ session }: ScenarioPanelProps) {
             {entries.length > 0 && (
               <span className="panel-count">保存 {entries.length} 件</span>
             )}
-            <Hint text="保存 = 初期条件（プロトコルパラメータ・シード・初期ステーク）+ 介入列 + 進行スロットを、このブラウザの一覧に残す。再読込は決定的リプレイで同一の実行を再現" />
+            <Hint text="保存 = 初期条件（プロトコルパラメータ・シード・初期ステーク）+ 手動介入の列 + 高々 1 つの攻撃（攻撃 ID・攻撃者集合・パラメータ。生成行動は保存せず再実行で再生成）+ 進行スロットを、このブラウザの一覧に残す。再読込は決定的リプレイで同一の実行・同一の生成行動・同一の判定推移を再現" />
           </h2>
         }
       >

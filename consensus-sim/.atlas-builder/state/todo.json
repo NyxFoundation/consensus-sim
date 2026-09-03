@@ -8,10 +8,7 @@
     "avoid_mixing_high_risk_items": true,
     "avoid_mixing_executors": true
   },
-  "active_batch": [
-    "T-059",
-    "T-058"
-  ],
+  "active_batch": [],
   "items": [
     {
       "id": "T-001",
@@ -1770,7 +1767,7 @@
     {
       "id": "T-042",
       "title": "攻撃 UI: シナリオへの攻撃の組込(選択・攻撃者集合・パラメータ・プリセット+上書き・既定実行構成(終了スロットを含む)の提案と変更・条件未満表示)、生成行動の攻撃者印付き表示(介入一覧・状態表・チェーン表示、破棄印含む)、攻撃者バリデータのチェーン表示・状態表での識別、攻撃目標判定の段階ごとの推移と根拠のスロット軸表示、攻撃+手動介入シナリオの保存・再読込・再実行+DOM テスト",
-      "status": "pending",
+      "status": "done",
       "priority": "must",
       "spec": [
         "S-041",
@@ -1785,7 +1782,26 @@
       "batch_group": "e3-attack-ui",
       "context_cost": 5,
       "risk_level": "normal",
-      "notes": "遂行順序 2(遂行順序 1 の T-056/T-057/T-059 の後、刷新後のデザイン基盤(dock の区画・Hint・panel-title/panel-count・readout/form-status)の上に構築)。既定実行構成の提案は前提(プリセット+上書き・遅延上限 d)と自動再生の終了スロットを含む。実行開始→自動再生は T-060。成功条件 17・18・20・24 の受け入れ確認を DOM テストで残す。UI の見た目・情報設計の大きな方針転換は人間に戻す。"
+      "notes": "遂行順序 2(遂行順序 1 の T-056/T-057/T-059 の後、刷新後のデザイン基盤(dock の区画・Hint・panel-title/panel-count・readout/form-status)の上に構築)。既定実行構成の提案は前提(プリセット+上書き・遅延上限 d)と自動再生の終了スロットを含む。実行開始→自動再生は T-060。成功条件 17・18・20・24 の受け入れ確認を DOM テストで残す。UI の見た目・情報設計の大きな方針転換は人間に戻す。 → cycle 41: 実装完了。攻撃の選択(ライブラリ Select)は攻撃区画に置き、T-043 の攻撃一覧ページの行選択は同じ session.proposeAttack を呼んでチェーン表示ページへ遷移する。実行開始→自動再生(終了スロット = session.throughSlot、既定実行構成から提案)は T-060。",
+      "updated_at": "2026-09-03T22:34:00+09:00",
+      "evidence": [
+        {
+          "type": "diff",
+          "summary": "Attack UI on the refreshed design foundation. src/ui/useSimulation.ts reworked around runScenario: the session holds the attack (高々 1 つ), the run's end slot (throughSlot, from the default run), the generated actions, the effective interventions (manual + accepted actions, compiled into the delivery rule) and the goal trace; proposeAttack(entry) proposes the default run as the initial conditions (validator count, stakes, seed, premise params, attacker set, params, end slot; fresh run from slot 0), setAttack / setThroughSlot edit it, a validator-count change clamps the attacker set. New src/ui/AttackPanel.tsx (dock section 攻撃, first in the dock): library select → default run; attacker checkboxes with the condition readout and a 条件未満 status while unmet (still runnable, last attacker cannot be unchecked); premise readout, 前提どおり / 前提と異なる（現在 …）+ 前提に戻す; d and strategy params and 終了スロット fields; goal stage list with 待機 / 判定中 / 達成 @s; generated/discard counts; 攻撃を外す. New src/ui/GoalTraceTable.tsx: one row per stage, one cell per slot aligned with treeGeometry (between the tree and the state table), the predicate's indicator (停止 n / n 回 / ratio % / 違反 Bx/By), goal-holds and goal-achieved-at classes, 達成 prefix at the achieved slot, full grounds in the cell title. New src/ui/attackFormat.ts (condition / premise / capability / stage / evidence labels, shared with the coming attack list page) and src/ui/CommitNumberField.tsx (extracted from ParamsPanel). InterventionPanel: one list of manual entries (editable) and generated actions (攻撃者 badge, 生成 @s, 破棄: reason, struck through), sorted by effect slot; summary reads 生成 n 件（破棄 k）. StateTable rows and BlockTreeView blocks/chips of attackers carry the mark (攻撃者 badge, 攻 prefix + dashed outline, dashed ring; tokens.css --status-attacker). ChainMode wires the trace and the attacker set. scenarioStore / ScenarioPanel save the attack and resolve it through ATTACK_REGISTRY on load; the list shows 攻撃 A09. Domain: sim/attackRun.ts exports effectSlot; sim/attackLibrary.ts adds defaultConditions / findLibraryAttack. README: 攻撃 section and the scenario paragraph. Information design within the autonomy the premise grants (a fourth dock section; no change to the protagonists' share)."
+        },
+        {
+          "type": "command",
+          "command": "npx vitest run tests/ui/attack.test.tsx",
+          "exit_code": 0,
+          "summary": "7 DOM tests (jsdom): 成功条件 17 — choosing A11 proposes 4 validators / merge / attackers V0-V2 / end slot 8 at slot 0 and reads the premise; after 4 slots the 7 generated actions are listed with the 攻撃者 mark (フォーク作成 parent B0 @ s4), attacker rows carry 攻撃者, attacker blocks 攻 + tree-block-attacker, chips chip-attacker; 条件未満 shown for V0 alone (25% < 1/2) while advancing still works; a boost change reads 前提と異なる（現在 カスタム） and 前提に戻す restores merge; 攻撃を外す clears actions, trace and marks. 成功条件 18 — the trace row 第 1 段 リオーグ（k = 1） reads 判定中 then 達成 @s4, the s4 cell is 達成 1 回 with goal-achieved-at and a title carrying リオーグ累計 1 回 / デイブ s4 B3 → B4, later cells hold, and rewinding truncates the trace to the cursor. 成功条件 24 — A14 through 40 slots: stage 1 攻撃者ステーク比率（θ = 1/3） 25% → 達成 35.2% @s32, stage 2 安全性違反 pending before s32, active after, 達成 違反 Bx/By @s40. 成功条件 20 — A09 with a manual 停止 of キャロル: the strategy's stop is discarded (破棄: 手動介入と矛盾, 生成 1 件（破棄 1）); saving, removing the attack and the stop, advancing, then reloading reproduces the identical intervention list, goal trace and state table at slot 6 with 攻撃 A09 listed."
+        },
+        {
+          "type": "command",
+          "command": "npm run typecheck && npx vitest run && npm run build",
+          "exit_code": 0,
+          "summary": "tsc --noEmit 0; vitest 35 files / 407 tests 0 (the design-contract checks prose.test.tsx / designTokens.test.ts / layout.test.ts stay green with the new dock section, the goal trace and the attacker marks); vite build 0."
+        }
+      ]
     },
     {
       "id": "T-043",
@@ -2212,7 +2228,7 @@
     {
       "id": "T-058",
       "title": "型一覧ページの人間の実ブラウザ確認と承認(必須 8・成功条件 2): 再レイアウト後の型一覧を人間が手元の実ブラウザで確認して承認する(Human-input Recommendation で承認を求めて停止し、承認の resume 記録を evidence とする。承認前に完了扱いにしない)",
-      "status": "in_progress",
+      "status": "done",
       "priority": "must",
       "spec": [
         "S-046"
@@ -2223,8 +2239,20 @@
       "batch_group": "e6-pages",
       "context_cost": 1,
       "risk_level": "normal",
-      "notes": "遂行順序 1。T-057・T-059 完了後の cycle 40 で R-014(Human-input Recommendation、requires_human_approval)を起票して停止中。人間が実ブラウザで型一覧ページ(必須 8・成功条件 2)と日本語コメントの表示(成功条件 10)を確認し、承認(resume の注記『R-014 を承認』で R-014 を解決)したら、次サイクルはその resume 記録を evidence に done とする。修正指示があれば T-057/T-059 の追補として実装し再度承認を求める。確認手段: npm run build && node scripts/verify-ui.mjs(sandbox では Chromium が起動できないため人間が実行)、npm run dev の目視。",
-      "updated_at": "2026-09-03T20:40:00+09:00"
+      "notes": "遂行順序 1。T-057・T-059 完了後の cycle 40 で R-014(Human-input Recommendation、requires_human_approval)を起票して停止中。人間が実ブラウザで型一覧ページ(必須 8・成功条件 2)と日本語コメントの表示(成功条件 10)を確認し、承認(resume の注記『R-014 を承認』で R-014 を解決)したら、次サイクルはその resume 記録を evidence に done とする。修正指示があれば T-057/T-059 の追補として実装し再度承認を求める。確認手段: npm run build && node scripts/verify-ui.mjs(sandbox では Chromium が起動できないため人間が実行)、npm run dev の目視。 → cycle 41: R-014 を人間が承認(2026-09-03 20:42 resume)したため、その記録を evidence として done。",
+      "updated_at": "2026-09-03T22:21:00+09:00",
+      "evidence": [
+        {
+          "type": "diff",
+          "summary": "Human review record (resume 2026-09-03T20:42:43+09:00, gate_release of R-014; reflection.jsonl human_resume entry; recommendations.json R-014.resolution): the human verified the re-laid-out type catalog page (header bar only, dependency graph : focus pane ≈ 8:2, initial focus on the first type of the top layer, declarations shown with their Japanese doc comments) in a real browser and approved it as the completion of 必須対応事項 8・32 and 成功条件 2・10. No implementation diff in this Todo; the approval is the evidence 必須 8 requires (承認前に完了扱いにしない)."
+        },
+        {
+          "type": "command",
+          "command": "npm test",
+          "exit_code": 0,
+          "summary": "Cycle 40 machine checks for the type catalog contract (tests/ui/typesPage.test.tsx, tests/ui/layout.test.ts, tests/domain/modelComments.test.ts) were green at the time of the human review (34 files / 400 tests)."
+        }
+      ]
     },
     {
       "id": "T-059",
@@ -2288,6 +2316,50 @@
       "context_cost": 4,
       "risk_level": "normal",
       "notes": "遂行順序 2(T-042/T-043 の後)。既定実行構成の終了スロットは AttackDefaultRun.throughSlot(既存)。送りの間隔の既定値は裁量(例 600ms)、速度調整は任意(S-019)。自動再生は UI 層のタイマー+既存 advance() で組み、ドメインの決定性を崩さない(生成行動は保存しない)。"
+    },
+    {
+      "id": "T-061",
+      "title": "デプロイ契約の機械検査(前提事項のデプロイ契約・成功条件 29): clean install(node_modules を持たない一時複製)で npm ci && npm test && npm run build が exit 0 で終わり、dist/index.html のアセット参照がすべて相対パス(./)で自己完結することを検証し、README の Deploying 節を人間管理の deploy.yml 契約(main push → npm ci → npm test → npm run build → dist/ 公開)に合わせる",
+      "status": "done",
+      "priority": "must",
+      "spec": [
+        "S-049",
+        "S-015",
+        "S-014"
+      ],
+      "executor": {
+        "mode": "atlas-builder"
+      },
+      "batch_group": "e7-deploy",
+      "context_cost": 1,
+      "risk_level": "normal",
+      "notes": "人間の steering resume(2026-09-03 22:16)で追加された前提事項のデプロイ契約と成功条件 29 の投影。deploy.yml は PROJECT_ROOT の外で人間が管理し Atlas Builder は編集しない。GitHub 上の観測(workflow の成否・公開内容)は人間が行い、完了の承認条件としない。clean install は sandbox 内の $TMPDIR への複製で実施し、live の node_modules は触らない。",
+      "created_at": "2026-09-03T22:21:00+09:00",
+      "evidence": [
+        {
+          "type": "command",
+          "command": "npm ci --cache \"$TMPDIR/npm-cache\"  (in a fresh copy of package.json / package-lock.json / tsconfig.json / vite.config.ts / index.html / src / tests / scripts / docs under $TMPDIR, no node_modules)",
+          "exit_code": 0,
+          "summary": "Clean install from the lockfile succeeds (registry reachable from the sandbox; npm cache redirected to $TMPDIR)."
+        },
+        {
+          "type": "command",
+          "command": "npm test  (in the clean copy)",
+          "exit_code": 0,
+          "summary": "vitest 34 files / 400 tests pass on the clean install (the tree as of cycle 40; the cycle-41 tree passes 35 / 407 in the live checkout)."
+        },
+        {
+          "type": "command",
+          "command": "npm run build  (in the clean copy)",
+          "exit_code": 0,
+          "summary": "tsc + vite build succeed; dist/ = index.html + assets/index-*.js + assets/index-*.css; index.html references only ./assets/… (0 absolute src/href), so the bundle is self-contained under the Pages subpath."
+        },
+        {
+          "type": "diff",
+          "summary": "README.md 'Deploying to GitHub Pages' rewritten to the human-managed contract: the root .github/workflows/deploy.yml runs npm ci → npm test → npm run build in consensus-sim/ on every push to main and publishes dist/ only when all three succeed; the directory's obligation (clean install passes test and build with exit 0, dist/ relative-referenced) and how to check it locally. deploy.yml itself is outside PROJECT_ROOT and untouched; the GitHub-side observation (成功条件 29) is the human's and not a completion condition."
+        }
+      ],
+      "updated_at": "2026-09-03T22:34:00+09:00"
     }
   ]
 }

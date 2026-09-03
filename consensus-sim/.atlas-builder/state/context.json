@@ -6,11 +6,11 @@
     "stop_after_infra_fails": 2
   },
   "progress": {
-    "last_signature": "3363432cc77cfebadc395dd432d4827e27d07721c33da9a983ac6be2d031a1e9",
+    "last_signature": "c5af5ffc4df7644b76151e16fba0cb32d567a648a788ccf8ed266d230f0f5ca7",
     "idle_cycles_since_progress": 0,
     "infra_fails_since_ok": 0,
-    "last_progress_at": "2026-09-03T20:38:24+09:00",
-    "last_checked_at": "2026-09-03T20:38:24+09:00",
+    "last_progress_at": "2026-09-03T22:36:01+09:00",
+    "last_checked_at": "2026-09-03T22:36:01+09:00",
     "usage_limited_since_ok": 0
   },
   "reset_policy": {
@@ -21,19 +21,23 @@
     "reset_after_decisions": 5
   },
   "counters": {
-    "context_usage_estimate": 0.45,
+    "context_usage_estimate": 0.55,
     "failed_attempts_since_reset": 0,
-    "changed_files_since_reset": 20,
-    "completed_todos_since_reset": 1,
-    "important_decisions_since_reset": 2,
+    "changed_files_since_reset": 44,
+    "completed_todos_since_reset": 4,
+    "important_decisions_since_reset": 3,
     "major_spec_rewrite_since_reset": false,
     "high_risk_change_completed": false
   },
   "handoff": {
-    "written_at": "2026-09-03T20:42:43+09:00",
-    "summary": "Human resume: R-014 を承認: 型一覧ページの再レイアウト(ヘッダーバーのみ・幅の概ね 8:2 に依存グラフとフォーカス中の型・初期フォーカスは最上段先頭・宣言をコメント込みで表示)と本質的仕様モジュール src/domain/model の日本語コメント表示を人間が実ブラウザで確認し、必須対応事項 8・32、成功条件 2・10 の完了として承認する。次サイクルは T-058 をこの resume 記録を evidence として done にし、遂行順序 2 の攻撃 UI(T-042 → T-043 → T-060)→ T-044 総点検へ進む。\nR-013(Non-blocking)の読み — 必須 6 の『2 ページ』はネットワーク表示・全体表示の撤去の宣言と読み、攻撃一覧をチェーン表示・型一覧に加えた第 3 のページとしてヘッダーバーのタブで切り替える — は現状のまま了承する。ESSENCE の改訂は不要。ループ側で閉じること。\nフェーズは must のまま(approve-should / close-at-must のいずれも選ばない)。",
-    "next_actions": [],
+    "written_at": "2026-09-03T22:36:00+09:00",
+    "summary": "cycle 41: Spec を新 ESSENCE(e4c7a993…)へ再投影し S-049(GitHub Pages デプロイ契約・成功条件 29)を新設。T-058 を R-014 承認記録で done、R-013 を人間の了承どおり閉じた。T-061(デプロイ契約の機械検査)を新設・done: $TMPDIR の clean copy で npm ci / npm test / npm run build が exit 0、dist/index.html は ./assets/ 参照のみ、README の Deploying 節を人間管理の deploy.yml 契約に書き換え。T-042(攻撃 UI)を done: useSimulation は runScenario ベース(attack / throughSlot / generated / effective / goal を保持、proposeAttack が既定実行構成を初期条件として提案、setAttack / setThroughSlot)、操作盤の最上段に攻撃区画(src/ui/AttackPanel.tsx: ライブラリ Select・攻撃者チェック+条件/条件未満・前提読み出し+前提に戻す・d/パラメータ/終了スロット・攻撃目標の段の状態・攻撃を外す)、ブロック木と状態表の間に判定推移(src/ui/GoalTraceTable.tsx、段 × スロット、根拠は title)、介入一覧に生成行動(攻撃者印・破棄理由)、状態表の行・ブロック・チップに攻撃者印(tokens --status-attacker)、シナリオ保存/再読込は ATTACK_REGISTRY で攻撃を解決。ラベル関数は src/ui/attackFormat.ts(条件・前提・能力・段・根拠)に集約し T-043 で再利用する。DOM テスト tests/ui/attack.test.tsx 7 件(成功条件 17・18・20・24)。ゲート: typecheck 0 / vitest 35 files 407 tests 0 / build 0。残る must は T-043(攻撃一覧ページ)→ T-060(自動再生)→ T-044(総点検)。フェーズは must のまま。",
+    "next_actions": [
+      "T-043 攻撃一覧ページを第 3 ページ(App.tsx の Page に 'attacks' を追加、ヘッダーバーのタブ、独自レイアウト: ヘッダーバーのみ)として実装: 冒頭に形式体系の定義(3 つ組・能力範囲の 2 基底・4 述語 — Hint ではなく定義そのものを表として置く。prose.test の『。』走査に注意して文末の『。』を使わない)、続いて ATTACK_LIBRARY から導出する表(攻撃名/出典(source)/前提(premiseLabel)/攻撃者集合の条件(conditionLabel)/必要な能力(capabilityLabel)/攻撃目標(stageLabel の列)/戦略の要約(strategySummary)/既定実行構成(バリデータ数・初期ステーク・攻撃者名・params・seed・終了スロット))。行選択 → session.proposeAttack(entry) してチェーン表示ページへ切り替え(setPage は App にあるので AttackPage に onSelect を渡す)。DOM テストで成功条件 16(表の内容が ATTACK_LIBRARY と一致、行選択で既定実行構成が提案される)。README にページを追記。",
+      "T-060 自動再生: 攻撃一覧の行選択後に『実行開始』(攻撃区画にも同じボタン)でタイマー(既定 600ms 程度、裁量)により session.advance() を繰り返し、goalAchievedAt(session.goal) が定まったスロット、または session.throughSlot で停止。一時停止・再開ボタン、停止後は巻き戻し・介入・パラメータ変更が従来どおり可能。jsdom では vi.useFakeTimers で進める。成功条件 19 の 12 攻撃の達成スロット停止と A01/A03/A04/A07 の merge 未達→終了スロット停止、A05 の window/current 観測はドメインテスト(tests/domain/attackLibrary.test.ts)が既に固定しているので、DOM テストは代表 2〜3 件(A11 達成停止、A01 を merge にして終了スロット停止)でよい。",
+      "T-044 総点検の再実施: 点検項目 (1)〜(13) に S-049(デプロイ契約: clean install の 3 コマンドと dist/ の相対参照、README の Deploying 節)を追加し、docs/INSPECTION.md に追記、README 更新、ゲート全通し。"
+    ],
     "open_questions": [],
-    "pending_cycle": true
+    "pending_cycle": false
   }
 }

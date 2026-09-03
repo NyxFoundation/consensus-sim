@@ -109,11 +109,32 @@ the whole displayed history deterministically. The ◀ / ▶ cursor rewinds to
 any past slot and reproduces that state exactly; advancing from a past slot
 truncates the discarded future.
 
+The 攻撃 section of the dock binds one attack of the library into the
+scenario. Choosing an attack proposes its **default run** (既定実行構成) as
+the scenario's initial conditions — validator count, initial stakes, seed,
+the premise's protocol parameters (preset plus overrides), the attacker
+set, the attack parameters (`d` and the strategy's own) and the end slot —
+each of which can then be changed: the attacker set from the validators
+(the declared condition is read out and an unmet one is marked 条件未満
+while the attack stays runnable), the parameters, the end slot, and the
+protocol parameters in their own section (a departure from the premise is
+read out with a way back, so a mitigation can be switched on to watch the
+attack miss). From then on every slot boundary runs the strategy: its
+actions join the intervention list marked 攻撃者 (a discarded one stays
+listed, struck through, with its reason), the attackers' rows in the state
+table and their blocks and chips in the tree carry the attacker mark, and
+a **goal trace** between the tree and the state table shows every stage of
+the attack goal per slot — the predicate's indicator (stalled slots, reorg
+count, stake ratio, conflicting checkpoints), whether it holds, and the
+slot the stage was achieved at, with the full grounds on hover.
+
 The シナリオ section of the dock saves the current run — initial conditions plus the
-intervention list and how far it advanced — to a browser-local list, and
-reloading replays it deterministically to the identical states. The
-protocol parameters, the seed and the initial stakes are part of the saved
-identity, and the list shows each entry's preset.
+manual intervention list, the attack (by id, attacker set and parameters;
+generated actions are never saved) and how far it advanced — to a
+browser-local list, and reloading replays it deterministically to the
+identical states, generated actions and verdicts. The protocol parameters,
+the seed and the initial stakes are part of the saved identity, and the
+list shows each entry's preset and attack.
 
 Sanity check:
 
@@ -331,15 +352,23 @@ interactions headlessly and runs in `npm test`.
 
 ### Deploying to GitHub Pages
 
-`npm run build` emits a fully static `dist/` whose asset references are
-relative (`base: './'` in `vite.config.ts`), so the bundle works from any
-subpath — including `https://<user>.github.io/<repo>/`. To publish:
+The site is published at `https://nyxfoundation.github.io/consensus-sim/`
+by a GitHub Actions workflow kept at the repository root
+(`.github/workflows/deploy.yml`, outside this directory). On every push to
+`main` it runs, inside `consensus-sim/`:
 
-1. `npm run build`
-2. Serve the `dist/` directory as the Pages site — either point Pages at a
-   branch containing `dist/`'s contents (e.g. a `gh-pages` branch), or use
-   the "GitHub Actions" source with the standard static-site workflow
-   uploading `dist/` as the artifact.
+```bash
+npm ci
+npm test
+npm run build
+```
 
-No server-side configuration is involved; the app is a plain static SPA
-with browser-local persistence only.
+and publishes `dist/` only when all three succeed — a commit whose tests or
+build fail leaves the previously published version in place. The contract
+this directory keeps is therefore: a clean install passes `npm test` and
+`npm run build` with exit 0, and `npm run build` emits a fully static
+`dist/` whose asset references are relative (`base: './'` in
+`vite.config.ts`), so the bundle works from the project subpath (or any
+other). To check the contract locally, run the three commands above in a
+fresh clone. No server-side configuration is involved; the app is a plain
+static SPA with browser-local persistence only.

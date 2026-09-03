@@ -40,6 +40,9 @@ export interface BlockTreeViewProps {
   readonly checkpoints: CheckpointStatus
   /** Slot columns are drawn through this slot even past the last block. */
   readonly throughSlot: number
+  /** The scenario's attackers: their blocks and chips carry the attacker
+   * mark (a dashed outline plus the 攻 glyph, never colour alone). */
+  readonly attackers?: ReadonlySet<ValidatorIndex>
 }
 
 interface Point {
@@ -60,8 +63,12 @@ export function BlockTreeView({
   heads,
   checkpoints,
   throughSlot,
+  attackers,
 }: BlockTreeViewProps) {
   const layout = layoutTree(tree)
+  const isAttacker = (validator: ValidatorIndex): boolean => attackers?.has(validator) ?? false
+  const chipClass = (base: string, validator: ValidatorIndex): string =>
+    isAttacker(validator) ? `${base} chip-attacker` : base
   const slotCount = Math.max(layout.maxSlot, throughSlot) + 1
   const width = PAD_X * 2 + slotCount * COL_W
   const height = PAD_TOP + layout.rowCount * ROW_H + PAD_BOTTOM
@@ -150,11 +157,13 @@ export function BlockTreeView({
         const finalized = checkpoints.finalized.has(block.index)
         const headChips = headsOf.get(block.index) ?? []
         const voteChips = supportersOf.get(block.index) ?? []
+        const byAttacker = block.kind === 'proposed' && isAttacker(block.proposer)
         const classes = [
           'tree-block',
           onHeadPath.has(block.index) ? 'tree-block-active' : '',
           justified ? 'tree-block-justified' : '',
           finalized ? 'tree-block-finalized' : '',
+          byAttacker ? 'tree-block-attacker' : '',
         ]
           .filter(Boolean)
           .join(' ')
@@ -172,7 +181,9 @@ export function BlockTreeView({
               B{block.index}
             </text>
             <text className="block-sublabel" x={x} y={y + 11} textAnchor="middle">
-              {block.kind === 'anchor' ? '錨' : validatorName(block.proposer)}
+              {block.kind === 'anchor'
+                ? '錨'
+                : `${byAttacker ? '攻 ' : ''}${validatorName(block.proposer)}`}
             </text>
 
             {(finalized || justified) && (
@@ -199,7 +210,7 @@ export function BlockTreeView({
             {headChips.map((validator, i) => (
               <g key={`head-${validator}`}>
                 <circle
-                  className="validator-chip"
+                  className={chipClass('validator-chip', validator)}
                   cx={x - BLOCK_W / 2 + 8 + i * 18}
                   cy={y - BLOCK_H / 2 - 12}
                   r={8}
@@ -219,7 +230,7 @@ export function BlockTreeView({
             {voteChips.map((validator, i) => (
               <g key={`vote-${validator}`}>
                 <rect
-                  className="vote-chip"
+                  className={chipClass('vote-chip', validator)}
                   x={x - BLOCK_W / 2 + i * 18}
                   y={y + BLOCK_H / 2 + 4}
                   width={16}

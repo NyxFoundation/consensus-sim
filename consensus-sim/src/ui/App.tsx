@@ -3,8 +3,8 @@
  * validator count, theme) above the page. The chain display page is a stage
  * on the left and the operation dock (操作盤) on the right: the stage
  * carries the slot bar (cursor, rewind, advance) and the chain display, the
- * dock gathers every other control — protocol parameters, interventions,
- * scenarios — in a fixed narrow column, so the protagonists (the chain
+ * dock gathers every other control — the attack, protocol parameters,
+ * interventions, scenarios — in a fixed narrow column, so the protagonists (the chain
  * display and the state table) own most of the viewport from the first
  * paint (tokens.css --bar-h / --dock-w). The type catalog page has its own
  * layout (必須 8): only the header bar frames it — no slot bar, no dock, no
@@ -24,6 +24,7 @@ import { Segmented } from './components/Segmented'
 import { Select } from './components/Select'
 import { ChainMode } from './modes/ChainMode'
 import { TypesPage } from './modes/TypesPage'
+import { AttackPanel } from './AttackPanel'
 import { InterventionPanel } from './InterventionPanel'
 import { ParamsPanel } from './ParamsPanel'
 import { ScenarioPanel } from './ScenarioPanel'
@@ -153,11 +154,19 @@ export function App() {
             </div>
 
             <main className="mode-body">
-              <ChainMode state={current} config={config} delivery={delivery} />
+              <ChainMode
+                state={current}
+                config={config}
+                delivery={delivery}
+                attackers={session.attack?.attackers}
+                goalStages={session.attack?.attack.goal}
+                goal={session.goal}
+              />
             </main>
           </div>
 
           <aside className="dock" aria-label="操作盤">
+            <AttackPanel session={session} />
             <ParamsPanel session={session} />
             <InterventionPanel key={config.validatorCount} session={session} />
             <ScenarioPanel session={session} />

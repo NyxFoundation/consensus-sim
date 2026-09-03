@@ -22,13 +22,21 @@ import {
   observe,
   validatorName,
 } from '../../domain'
-import type { Delivery, InitialConditions, SimulationState } from '../../domain'
+import type {
+  AttackGoal,
+  Delivery,
+  GoalTrace,
+  InitialConditions,
+  SimulationState,
+  ValidatorIndex,
+} from '../../domain'
 import { BlockTreeView } from '../BlockTreeView'
 import { BlockBodyView, ChainStateTable } from '../ChainStateDetail'
 import { Button } from '../components/Button'
 import { Hint } from '../components/Hint'
 import { Segmented } from '../components/Segmented'
 import { blockName, checkpointName } from '../format'
+import { GoalTraceTable } from '../GoalTraceTable'
 import { StateTable, STATE_CELL_ITEMS } from '../StateTable'
 import type { ExpandedCell, StateCellItem } from '../StateTable'
 import { LABEL_W } from '../treeGeometry'
@@ -41,16 +49,31 @@ export interface ChainModeProps {
   readonly config: InitialConditions
   /** The scenario's delivery rule — local views are filtered through it. */
   readonly delivery?: Delivery | undefined
+  /** The scenario's attackers, identified in the tree and the state table. */
+  readonly attackers?: readonly ValidatorIndex[] | undefined
+  /** The attack goal's stages and their verdicts through the displayed
+   * slot (攻撃目標の判定推移), shown between the tree and the state table. */
+  readonly goalStages?: readonly AttackGoal[] | undefined
+  readonly goal?: GoalTrace | undefined
 }
 
 export function ChainMode({
   state,
   config,
   delivery = instantDelivery,
+  attackers,
+  goalStages,
+  goal,
 }: ChainModeProps) {
   const { validatorCount } = config
   const [item, setItem] = useState<StateCellItem>('head')
   const [expanded, setExpanded] = useState<ExpandedCell | undefined>()
+  const attackerSet = useMemo(() => new Set(attackers ?? []), [attackers])
+  // The trace through the displayed slot: the run may extend past the cursor.
+  const trace = useMemo(
+    () => (goal === undefined ? undefined : goal.slice(0, state.slot + 1)),
+    [goal, state.slot],
+  )
 
   // observations[slot][validator]: each validator's local observation at the
   // end of each slot up to the cursor. The log is append-only along a run and
@@ -115,8 +138,12 @@ export function ChainMode({
             heads={state.heads}
             checkpoints={checkpoints}
             throughSlot={state.slot}
+            attackers={attackerSet}
           />
         </div>
+        {goalStages !== undefined && trace !== undefined && (
+          <GoalTraceTable stages={goalStages} trace={trace} />
+        )}
         <div className="state-table-toolbar">
           <span className="state-table-caption">状態表の表示項目</span>
           <Segmented
@@ -133,6 +160,7 @@ export function ChainMode({
           validatorCount={validatorCount}
           item={item}
           expanded={detail}
+          attackers={attackerSet}
           onToggleCell={toggleCell}
         />
       </div>
@@ -191,6 +219,7 @@ export function ChainMode({
               heads={new Map([[detail.validator, detail.obs.head]])}
               checkpoints={checkpointStatus(detail.obs.view.blockTree, config)}
               throughSlot={detail.slot}
+              attackers={attackerSet}
             />
           </div>
           <h4 className="pane-title">

@@ -8,7 +8,6 @@
  * read directly off the same run.
  */
 
-import { useEffect, useState } from 'react'
 import {
   DEFAULT_INACTIVITY_LEAK,
   DEFAULT_STAKE,
@@ -25,10 +24,10 @@ import type {
   ProtocolParams,
   InitialConditions,
 } from '../domain'
+import { CommitNumberField as NumberField } from './CommitNumberField'
 import { Button } from './components/Button'
 import { Disclosure } from './components/Disclosure'
 import { Hint } from './components/Hint'
-import { NumberField as NumberFieldControl } from './components/NumberField'
 import { Segmented } from './components/Segmented'
 import type { SimulationSession } from './useSimulation'
 import { validatorColor } from './validatorColor'
@@ -65,64 +64,6 @@ function OnOff({
       value={value ? 'on' : 'off'}
       options={ON_OFF}
       onChange={(v) => onChange(v === 'on')}
-    />
-  )
-}
-
-interface NumberFieldProps {
-  readonly label: string
-  readonly value: number
-  readonly min?: number
-  readonly max?: number
-  readonly step?: number
-  readonly integer?: boolean
-  readonly className?: string
-  onCommit(value: number): void
-}
-
-/**
- * A number input that commits every valid value as it is typed and keeps
- * the raw text while it is invalid (empty, out of range), so a field can be
- * cleared and retyped without snapping back.
- */
-function NumberField({
-  label,
-  value,
-  min,
-  max,
-  step,
-  integer = false,
-  className = 'slot-input',
-  onCommit,
-}: NumberFieldProps) {
-  const parse = (t: string): number | undefined => {
-    if (t.trim() === '') return undefined
-    const n = Number(t)
-    if (!Number.isFinite(n)) return undefined
-    if (integer && !Number.isInteger(n)) return undefined
-    if (min !== undefined && n < min) return undefined
-    if (max !== undefined && n > max) return undefined
-    return n
-  }
-  const [text, setText] = useState(String(value))
-  // Follow an external change of the value (preset switch, scenario reload)
-  // unless the text already parses to it.
-  useEffect(() => {
-    setText((t) => (parse(t) === value ? t : String(value)))
-  }, [value])
-  return (
-    <NumberFieldControl
-      className={className}
-      aria-label={label}
-      min={min}
-      max={max}
-      step={step}
-      value={text}
-      onChange={(e) => {
-        setText(e.target.value)
-        const n = parse(e.target.value)
-        if (n !== undefined && n !== value) onCommit(n)
-      }}
     />
   )
 }

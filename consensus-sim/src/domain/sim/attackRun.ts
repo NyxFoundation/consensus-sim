@@ -72,8 +72,9 @@ export function attackerObservation(
   return observeAsAttackers(instance.attackers, views, state.slot, config, scheduleOf(config));
 }
 
-/** The first slot an action takes effect in. */
-function effectSlot(action: Action): SlotIndex {
+/** The first slot an action takes effect in — what the intervention list
+ * orders a generated action by. */
+export function effectSlot(action: Action): SlotIndex {
   switch (action.kind) {
     case "partition":
     case "stop":

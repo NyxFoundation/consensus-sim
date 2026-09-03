@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
-  "projected_from_essence_sha256": "51c92047a9f20e1f5efa9a77bca8447e4ee4bff8f19008f0911bbb7a670cd2fa",
-  "projected_at": "2026-09-03T20:20:00+09:00",
+  "projected_from_essence_sha256": "e4c7a9938314dfb41d202a68865cceec544b386d501f585b255d52caa89cfcbe",
+  "projected_at": "2026-09-03T22:21:00+09:00",
   "items": [
     {
       "id": "S-001",
@@ -872,6 +872,26 @@
         "攻撃を選んで数クリックで成立の全過程が自動で展開され、そこから巻き戻し・介入・",
         "パラメータ変更で「なぜ成立するか/どう防げるか」を探索できること — 理解が",
         "「見る」から始まり「いじる」へ進む導線 — を目指す。"
+      ]
+    },
+    {
+      "id": "S-049",
+      "title": "GitHub Pages デプロイ契約: 公開は人間が管理する <リポジトリ根>/.github/workflows/deploy.yml(PROJECT_ROOT の外、Atlas Builder は編集しない)による GitHub Actions 経由で、main への push ごとに consensus-sim/ で npm ci → npm test → npm run build を実行し、すべて成功したときだけ dist/ を公開する。Atlas Builder はこの契約(clean install で test・build が exit 0、dist/ が相対パス参照で自己完結)を壊さない。成功条件 29 の GitHub 上の観測は人間が行い完了の承認条件とはせず、Atlas Builder 側の裏づけは clean install での npm ci && npm test && npm run build の exit 0 と dist/ の相対参照の機械検査",
+      "status": "active",
+      "priority": "must",
+      "essence_refs": [
+        "公開は `<リポジトリ根>/.github/workflows/deploy.yml`(人間が管理する。PROJECT_ROOT",
+        "の外にあり、Atlas Builder は編集しない)による GitHub Actions 経由の GitHub Pages",
+        "デプロイで、main への push ごとに `consensus-sim/` で `npm ci` → `npm test` →",
+        "`npm run build` を実行し、すべて成功したときだけ `dist/` を公開する。Atlas Builder は",
+        "この契約 — clean install で test・build が exit 0 で終わり、`dist/` が相対パス参照で",
+        "自己完結する — を壊さない。",
+        "main に push すると deploy workflow が成功で終わり、",
+        "`https://nyxfoundation.github.io/consensus-sim/` を開くとその push の内容が表示される。",
+        "テストまたはビルドが失敗する commit では workflow が失敗で終わり、公開中の内容は",
+        "直前の成功版のまま変わらない。この観測は人間が GitHub 上で行い、完了の承認条件とは",
+        "しない。Atlas Builder 側の裏づけは前提事項のデプロイ契約の機械検査(clean install での",
+        "`npm ci && npm test && npm run build` の exit 0 と `dist/` の相対参照)とする。"
       ]
     }
   ]
