@@ -38,7 +38,7 @@ interface Definition {
   readonly meaning: string
 }
 
-/** 攻撃 = (攻撃者集合の条件, 攻撃目標, 戦略) — 必須 17. */
+/** The attack triple (攻撃 = (攻撃者集合の条件, 攻撃目標, 戦略), 必須 17). */
 const TRIPLE: readonly Definition[] = [
   {
     term: '攻撃者集合の条件',
@@ -57,7 +57,7 @@ const TRIPLE: readonly Definition[] = [
   },
 ]
 
-/** 攻撃者の能力範囲の 2 基底 — 必須 18. */
+/** The two bases of the attacker's capability range (必須 18). */
 const BASES: readonly Definition[] = [
   {
     term: '公開 (i)',
@@ -71,7 +71,7 @@ const BASES: readonly Definition[] = [
   },
 ]
 
-/** 攻撃目標述語 — 必須 19. One row per predicate kind. */
+/** The goal predicates (攻撃目標述語, 必須 19), one row per predicate kind. */
 const PREDICATES: readonly (Definition & { readonly kind: AttackGoal['kind'] })[] = [
   {
     kind: 'safety-violation',

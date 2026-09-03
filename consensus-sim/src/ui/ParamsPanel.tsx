@@ -29,8 +29,8 @@ import { Button } from './components/Button'
 import { Disclosure } from './components/Disclosure'
 import { Hint } from './components/Hint'
 import { Segmented } from './components/Segmented'
+import { ValidatorDot } from './components/ValidatorDot'
 import type { SimulationSession } from './useSimulation'
-import { validatorColor } from './validatorColor'
 
 const PRESET_NOTES: Readonly<Record<PresetName, string>> = {
   phase0: 'Beacon chain genesis（2020-12）',
@@ -281,10 +281,7 @@ export function ParamsPanel({ session }: ParamsPanelProps) {
             <div className="validator-checks">
               {validators.map((v) => (
                 <label key={v} className="check-inline">
-                  <span
-                    className="validator-dot"
-                    style={{ background: validatorColor(v) }}
-                  />
+                  <ValidatorDot validator={v} />
                   {validatorName(v)}
                   <NumberField
                     label={`${validatorName(v)} の初期ステーク`}

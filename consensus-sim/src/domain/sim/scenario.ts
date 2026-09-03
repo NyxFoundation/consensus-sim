@@ -17,7 +17,7 @@ export interface Scenario {
   readonly config: InitialConditions;
   /** The manual interventions (手動介入の列). */
   readonly interventions: readonly Intervention[];
-  /** 高々 1 つの攻撃. */
+  /** At most one attack (高々 1 つの攻撃). */
   readonly attack?: AttackInstance;
 }
 

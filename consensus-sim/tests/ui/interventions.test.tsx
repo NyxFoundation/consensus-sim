@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /**
  * Interventions and rewind, driven through the real DOM:
- * partitions diverge the network cards, stops silence validators, double
+ * partitions diverge the state table, stops silence validators, double
  * proposals fork the tree, drops rewrite the displayed history, and the
  * slot cursor rewinds and truncates — the same operations a user performs.
  */

@@ -15,7 +15,6 @@ export type ThemeMode = 'system' | 'light' | 'dark'
 export type ResolvedTheme = 'light' | 'dark'
 
 const STORAGE_KEY = 'consensus-sim.theme'
-const CYCLE: readonly ThemeMode[] = ['system', 'light', 'dark']
 
 function isThemeMode(value: unknown): value is ThemeMode {
   return value === 'system' || value === 'light' || value === 'dark'
@@ -53,7 +52,6 @@ export interface ThemeControl {
   readonly mode: ThemeMode
   readonly resolved: ResolvedTheme
   setMode(mode: ThemeMode): void
-  cycle(): void
 }
 
 export function useThemeMode(): ThemeControl {
@@ -88,13 +86,8 @@ export function useThemeMode(): ThemeControl {
     writeStoredMode(next)
   }
 
-  const cycle = () => {
-    const next = CYCLE[(CYCLE.indexOf(mode) + 1) % CYCLE.length]!
-    setMode(next)
-  }
-
   const resolved: ResolvedTheme =
     mode === 'system' ? (systemDark ? 'dark' : 'light') : mode
 
-  return { mode, resolved, setMode, cycle }
+  return { mode, resolved, setMode }
 }

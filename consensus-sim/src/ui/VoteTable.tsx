@@ -7,8 +7,8 @@
 
 import { latestVotes, validatorName } from '../domain'
 import type { Vote } from '../domain'
+import { ValidatorDot } from './components/ValidatorDot'
 import { blockName, checkpointName } from './format'
-import { validatorColor } from './validatorColor'
 
 export function VoteTable({
   votes,
@@ -41,10 +41,7 @@ export function VoteTable({
         {rows.map((vote, i) => (
           <tr key={all ? i : vote.validator}>
             <td>
-              <span
-                className="validator-dot"
-                style={{ background: validatorColor(vote.validator) }}
-              />
+              <ValidatorDot validator={vote.validator} />
               {validatorName(vote.validator)}
             </td>
             <td>{vote.slot}</td>

@@ -192,6 +192,10 @@ function deriveBranch(
         links.set(key, link);
       }
       link.voters.add(vote.validator);
+      // inactivity leak の「そのエポックの target 投票が取り込まれている」は、
+      // この枝の正当な FFG リンク(source・target ともにこの枝のチェック
+      // ポイント)として数えられた投票を指す — Ethereum の timely target
+      // (source が一致して初めて target が一致する)に対応する。
       const epoch = vote.target.epoch;
       let active = participation.get(epoch);
       if (!active) {

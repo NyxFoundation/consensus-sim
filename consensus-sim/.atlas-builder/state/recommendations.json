@@ -317,6 +317,39 @@
       "resolved_at": "2026-09-03T20:42:43+09:00",
       "resolved_by": "human",
       "resolution": "R-014 を承認: 型一覧ページの再レイアウト(ヘッダーバーのみ・幅の概ね 8:2 に依存グラフとフォーカス中の型・初期フォーカスは最上段先頭・宣言をコメント込みで表示)と本質的仕様モジュール src/domain/model の日本語コメント表示を人間が実ブラウザで確認し、必須対応事項 8・32、成功条件 2・10 の完了として承認する。次サイクルは T-058 をこの resume 記録を evidence として done にし、遂行順序 2 の攻撃 UI(T-042 → T-043 → T-060)→ T-044 総点検へ進む。\nR-013(Non-blocking)の読み — 必須 6 の『2 ページ』はネットワーク表示・全体表示の撤去の宣言と読み、攻撃一覧をチェーン表示・型一覧に加えた第 3 のページとしてヘッダーバーのタブで切り替える — は現状のまま了承する。ESSENCE の改訂は不要。ループ側で閉じること。\nフェーズは must のまま(approve-should / close-at-must のいずれも選ばない)。"
+    },
+    {
+      "id": "R-LG-20260903T231408+0900-3860",
+      "type": "Human-input Recommendation",
+      "status": "proposed",
+      "raised_by": "atlas-builder-loop",
+      "gate": "must_complete_awaiting_phase_approval",
+      "target": "todo.json",
+      "reason": "All must-priority Todos are done (a reviewable checkpoint, not the terminus, §19.3). Advancing to the should phase is a human budget / priority decision: `just resume` approves it (sets phase = extended_approved and makes should Todos runnable); not re-running the loop ends the project here. Editing ESSENCE.md is needed only to change the requirements themselves.",
+      "details": {
+        "must_done": 57,
+        "must_total": 57,
+        "pending_shoulds": [
+          {
+            "id": "T-014",
+            "status": "pending",
+            "title": "スロット送りの自動再生(速度調整付き)と一時停止"
+          },
+          {
+            "id": "T-015",
+            "status": "pending",
+            "title": "介入・シナリオ操作のキーボードショートカット"
+          },
+          {
+            "id": "T-017",
+            "status": "pending",
+            "title": "シナリオへのメモ・命名"
+          }
+        ]
+      },
+      "requires_human_approval": true,
+      "agent_action": "stop_until_human_review",
+      "created_at": "2026-09-03T23:14:08+09:00"
     }
   ]
 }

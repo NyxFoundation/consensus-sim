@@ -300,4 +300,23 @@ describe('attack with manual interventions (成功条件 20)', () => {
     expect(text('.goal-table')).toBe(traceBefore)
     expect(text('.state-table')).toBe(tableBefore)
   })
+
+  it('does not persist the end slot: a reloaded attack proposes the library default again', async () => {
+    await selectAttack('A11')
+    const through = container.querySelector('[aria-label="終了スロット"]')
+    if (!(through instanceof HTMLInputElement)) throw new Error('end slot field not found')
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set
+    await act(async () => {
+      setter?.call(through, '5')
+      through.dispatchEvent(new Event('input', { bubbles: true }))
+      through.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+      through.dispatchEvent(new Event('blur', { bubbles: true }))
+    })
+    expect((container.querySelector('[aria-label="終了スロット"]') as HTMLInputElement).value).toBe('5')
+    await click(buttonByText('現在のシナリオを保存'))
+    await click(buttonByText('攻撃を外す'))
+    await click(buttonByText('読込・再実行'))
+    expect(text('.attack-panel .panel-count')).toBe('A11')
+    expect((container.querySelector('[aria-label="終了スロット"]') as HTMLInputElement).value).toBe('8')
+  })
 })

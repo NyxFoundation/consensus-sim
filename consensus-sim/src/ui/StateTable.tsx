@@ -10,9 +10,9 @@
 import { latestVotes, validatorName } from '../domain'
 import type { LocalObservation, ValidatorIndex } from '../domain'
 import { Button } from './components/Button'
+import { ValidatorDot } from './components/ValidatorDot'
 import { blockName, checkpointName, stakeLabel } from './format'
 import { COL_W, LABEL_W, TABLE_OFFSET } from './treeGeometry'
-import { validatorColor } from './validatorColor'
 
 export type StateCellItem =
   | 'head'
@@ -138,10 +138,7 @@ export function StateTable({
         {Array.from({ length: validatorCount }, (_, v) => (
           <tr key={v} className={attackers?.has(v) ? 'attacker-row' : undefined}>
             <th scope="row">
-              <span
-                className="validator-dot"
-                style={{ background: validatorColor(v) }}
-              />
+              <ValidatorDot validator={v} />
               {validatorName(v)}
               {attackers?.has(v) && <span className="attacker-mark">攻撃者</span>}
             </th>

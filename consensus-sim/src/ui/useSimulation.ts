@@ -88,10 +88,11 @@ export interface SimulationSession {
   /** Replace the initial conditions (protocol parameters, seed, initial
    * stakes). With the validator count unchanged the interventions, the
    * attack and the run length stay and the whole history recomputes; a new
-   * validator count starts a fresh run from slot 0. */
+   * validator count starts a fresh run from slot 0 and pauses auto-play. */
   setConfig(config: InitialConditions): void
   /** Replaces the scenario (new validator count ⇒ new run from slot 0,
-   * keeping the protocol parameters, the seed and the attack). */
+   * keeping the protocol parameters, the seed and the attack); pauses
+   * auto-play. */
   setValidatorCount(count: number): void
   /** Replace (or remove) the attack; the whole history recomputes and the
    * strategy's actions regenerate. */
@@ -231,14 +232,15 @@ export function useSimulation(): SimulationSession {
   )
 
   const setConfig = useCallback((next: InitialConditions) => {
-    setCore((c) =>
-      next.validatorCount === c.config.validatorCount
-        ? { ...c, config: next }
-        : freshCore(next, c.attack, c.throughSlot),
-    )
+    setCore((c) => {
+      if (next.validatorCount === c.config.validatorCount) return { ...c, config: next }
+      setPlaying(undefined)
+      return freshCore(next, c.attack, c.throughSlot)
+    })
   }, [])
 
   const setValidatorCount = useCallback((count: number) => {
+    setPlaying(undefined)
     setCore((c) =>
       freshCore(
         {

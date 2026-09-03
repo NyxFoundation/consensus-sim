@@ -8,26 +8,14 @@
  * on-demand title.
  */
 
-import type { AttackGoal, GoalTrace, StageVerdict } from '../domain'
-import { evidenceDetail, evidenceReadout, stageLabel } from './attackFormat'
+import type { AttackGoal, GoalTrace } from '../domain'
+import { evidenceDetail, evidenceReadout, stageLabel, stageStatusLabel } from './attackFormat'
 import { COL_W, LABEL_W, TABLE_OFFSET } from './treeGeometry'
 
 export interface GoalTraceTableProps {
   readonly stages: readonly AttackGoal[]
   /** trace[slot][stage], through the displayed slot. */
   readonly trace: GoalTrace
-}
-
-function stageStatus(verdict: StageVerdict | undefined): string {
-  if (verdict === undefined) return ''
-  switch (verdict.status) {
-    case 'pending':
-      return '待機'
-    case 'active':
-      return '判定中'
-    case 'achieved':
-      return `達成 @s${verdict.achievedAt}`
-  }
 }
 
 export function GoalTraceTable({ stages, trace }: GoalTraceTableProps) {
@@ -50,7 +38,7 @@ export function GoalTraceTable({ stages, trace }: GoalTraceTableProps) {
           <tr key={i} className="goal-row">
             <th scope="row">
               第 {i + 1} 段 {stageLabel(stage)}
-              <span className="goal-stage-status">{stageStatus(last?.[i])}</span>
+              <span className="goal-stage-status">{stageStatusLabel(last?.[i])}</span>
             </th>
             {trace.map((verdicts, s) => {
               const verdict = verdicts[i]

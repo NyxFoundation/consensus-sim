@@ -16,6 +16,7 @@ import type {
   InactivityLeak,
   LibraryAttack,
   ProtocolParams,
+  StageVerdict,
 } from '../domain'
 import { blockName, checkpointName, stakeLabel } from './format'
 
@@ -142,6 +143,19 @@ export function premiseLabel(premise: AttackPremise): string {
           .map((name) => overrideLabel(name, premise.overrides!))
           .join(', ')}`
   return `${params} / d = ${premise.maxDelay}`
+}
+
+/** A stage's standing at the displayed slot: 待機 / 判定中 / 達成 @sN. */
+export function stageStatusLabel(verdict: StageVerdict | undefined): string {
+  if (verdict === undefined) return ''
+  switch (verdict.status) {
+    case 'pending':
+      return '待機'
+    case 'active':
+      return '判定中'
+    case 'achieved':
+      return `達成 @s${verdict.achievedAt}`
+  }
 }
 
 /** A goal stage's predicate with its parameter (L, k, θ). */

@@ -35,12 +35,12 @@ import { BlockBodyView, ChainStateTable } from '../ChainStateDetail'
 import { Button } from '../components/Button'
 import { Hint } from '../components/Hint'
 import { Segmented } from '../components/Segmented'
+import { ValidatorDot } from '../components/ValidatorDot'
 import { blockName, checkpointName } from '../format'
 import { GoalTraceTable } from '../GoalTraceTable'
 import { StateTable, STATE_CELL_ITEMS } from '../StateTable'
 import type { ExpandedCell, StateCellItem } from '../StateTable'
 import { LABEL_W } from '../treeGeometry'
-import { validatorColor } from '../validatorColor'
 import { VoteTable } from '../VoteTable'
 
 export interface ChainModeProps {
@@ -168,10 +168,7 @@ export function ChainMode({
       {detail && (
         <div className="panel state-detail">
           <h3>
-            <span
-              className="validator-dot"
-              style={{ background: validatorColor(detail.validator) }}
-            />
+            <ValidatorDot validator={detail.validator} />
             {validatorName(detail.validator)} の視点 — スロット {detail.slot}
             <Button className="detail-close" onClick={() => setExpanded(undefined)}>
               閉じる

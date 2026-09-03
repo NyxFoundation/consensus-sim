@@ -35,7 +35,7 @@ dock** (操作盤) on the right. The stage carries the slot bar — cursor,
 rewind, advance — and the selected display; on a standard PC width the
 chain display and the state table fill it from the first paint, with about
 ten slot columns visible before horizontal scrolling. The dock is a fixed
-narrow column holding every other control (protocol parameters,
+narrow column holding every other control (attack, protocol parameters,
 interventions, scenarios) as collapsible sections, each opening with a
 one-line summary. Panels carry no resident explanations: an **ⓘ** next to a
 title or a group shows its note on hover or keyboard focus. The theme
@@ -163,7 +163,7 @@ list shows each entry's preset and attack.
 Sanity check:
 
 ```bash
-npm test           # vitest — model, chain state, fork choice, protocol params, stakes and penalties, attack execution and goal judgment, determinism, rewind, UI shell, design contract
+npm test           # vitest — model, chain state, fork choice, protocol params, stakes and penalties, attack execution and goal judgment, determinism, rewind, UI shell, attack list and auto-play, design contract
 npm run typecheck  # tsc --noEmit
 npm run build      # static bundle in dist/ (no backend; plain static SPA)
 ```

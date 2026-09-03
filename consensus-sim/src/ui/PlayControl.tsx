@@ -1,10 +1,11 @@
 /**
  * Auto-play control (自動再生, 必須 31): one button in the slot bar, shown
- * while an attack is bound. 実行開始 starts the run from slot 0, 一時停止
- * pauses it, 再開 continues from wherever it stopped — the stop at the
- * slot the goal was achieved included, so the run can be carried on to its
- * end slot. The end slot is read out beside it. The timer and the stop
- * rules live in useSimulation; this component only names the state.
+ * while an attack is bound. 実行開始 starts the run from slot 0 (also after
+ * a rewind to slot 0, which restarts the run), 一時停止 pauses it, 再開
+ * continues from wherever it stopped — the stop at the slot the goal was
+ * achieved included, so the run can be carried on to its end slot. The end
+ * slot is read out beside it. The timer and the stop rules live in
+ * useSimulation; this component only names the state.
  */
 
 import { Button } from './components/Button'
@@ -16,10 +17,12 @@ export interface PlayControlProps {
 }
 
 export function PlayControl({ session }: PlayControlProps) {
-  const { attack, playing, cursor, runSlot, throughSlot } = session
+  const { attack, playing, cursor, throughSlot } = session
   if (attack === undefined || throughSlot === undefined) return null
   const atEnd = cursor >= throughSlot
-  const label = playing ? '一時停止' : runSlot === 0 ? '実行開始' : '再開'
+  // From slot 0 the run starts (a rewound run restarts from its anchor);
+  // from anywhere later it resumes.
+  const label = playing ? '一時停止' : cursor === 0 ? '実行開始' : '再開'
   return (
     <div className="play-control" role="group" aria-label="自動再生">
       <Button

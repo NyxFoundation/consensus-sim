@@ -1,7 +1,8 @@
 /**
  * Smoke-drives the built app in a real browser and checks the shell
- * behaviours end to end — slot advancing, the four display tabs, the state
- * table, finality badges, network cards and the type catalog — and measures
+ * behaviours end to end — slot advancing, the three page tabs, the state
+ * table, finality badges, the attack list with auto-play and the type
+ * catalog — and measures
  * the instrument's frame at standard PC viewports: the chain display and
  * the state table own more than half of the first paint without scrolling,
  * no form control keeps the browser's default look, no panel carries
@@ -167,11 +168,12 @@ try {
   const finalizedBadges = await page.$$eval('.badge-finalized', (els) => els.length)
   check('スロット9でFバッジ2個(錨+確定CP)', finalizedBadges === 2, String(finalizedBadges))
 
-  // The operation dock holds the three control panels, each summarized.
+  // The operation dock holds the four control sections (攻撃 / プロトコル
+  // パラメータ / 介入 / シナリオ), each summarized.
   const panelSummary = await page.textContent('.dock .intervention-panel summary')
   check('操作盤に介入パネル', panelSummary?.includes('介入') === true, panelSummary ?? '')
   const dockSections = await page.$$eval('.dock .dock-section', (els) => els.length)
-  check('操作盤は 3 区画', dockSections === 3, String(dockSections))
+  check('操作盤は 4 区画', dockSections === 4, String(dockSections))
 
   // Type catalog page (必須 8 / 成功条件 2): header bar only — no slot bar,
   // no dock, no validator count; graph pane ≈ 4/5 of the width, focus pane

@@ -6,11 +6,11 @@
     "stop_after_infra_fails": 2
   },
   "progress": {
-    "last_signature": "0f1327b00d721aa6ca00e710f7d79d03cad58e707d9ef481a3cf26882a6c10e4",
+    "last_signature": "d94ff7fa9eb0a67d975a93cf533e3096e68e048257b14ddb3d73bdb0b097f0d6",
     "idle_cycles_since_progress": 0,
     "infra_fails_since_ok": 0,
-    "last_progress_at": "2026-09-03T22:52:05+09:00",
-    "last_checked_at": "2026-09-03T22:52:05+09:00",
+    "last_progress_at": "2026-09-03T23:14:08+09:00",
+    "last_checked_at": "2026-09-03T23:14:08+09:00",
     "usage_limited_since_ok": 0
   },
   "reset_policy": {
@@ -21,21 +21,22 @@
     "reset_after_decisions": 5
   },
   "counters": {
-    "context_usage_estimate": 0.5,
+    "context_usage_estimate": 0.7,
     "failed_attempts_since_reset": 0,
-    "changed_files_since_reset": 13,
-    "completed_todos_since_reset": 2,
-    "important_decisions_since_reset": 3,
+    "changed_files_since_reset": 40,
+    "completed_todos_since_reset": 3,
+    "important_decisions_since_reset": 7,
     "major_spec_rewrite_since_reset": false,
     "high_risk_change_completed": false
   },
   "handoff": {
-    "written_at": "2026-09-03T22:56:00+09:00",
-    "summary": "cycle 42: T-043(攻撃一覧ページ)と T-060(攻撃の自動再生)を 1 バッチで done。攻撃一覧は第 3 ページ(タブ順 チェーン表示 / 攻撃一覧 / 型一覧、src/ui/modes/AttacksPage.tsx、ヘッダーバーのみ): 冒頭に形式体系の定義 3 表(3 つ組 / 能力範囲の 2 基底+行動語彙(attackFormat.CAPABILITIES から導出)/ 攻撃目標述語 4 種、『。』なし)、続いて ATTACK_LIBRARY から導出する 12 行の表(攻撃/出典/前提/攻撃者集合の条件/必要な能力/攻撃目標/戦略の要約(data-quoted の引用内容)/既定実行構成(attackFormat.defaultRunLines))。行の攻撃名ボタン(aria-label『攻撃 A## を選択』)→ session.proposeAttack → チェーン表示へ。自動再生は useSimulation(PLAY_INTERVAL_MS = 600、playing {from}、play/pause、useEffect で setTimeout(advance)、停止: 攻撃解除 / cursor ≥ throughSlot / goalAchievedAt === cursor かつ > from、setCursor・proposeAttack・loadScenario で一時停止)と、スロットバーの src/ui/PlayControl.tsx(実行開始 / 一時停止 / 再開、終了 s{n} 読み出し、終了スロットで disabled)。テスト: tests/ui/attacksPage.test.tsx 7 件(成功条件 16・17)、tests/ui/autoplay.test.tsx 5 件(fake timers、成功条件 28・19・17)、prose.test に攻撃一覧の走査を追加、appShell / verify-ui.mjs は 3 タブ。README(3 ページ・攻撃一覧・自動再生の段落)更新。ゲート: typecheck 0 / vitest 37 files 420 tests 0 / build 0。verify-ui.mjs(Playwright)は sandbox で起動できず未実行。残る must は T-044(総点検の再実施)のみ。フェーズは must のまま。",
+    "written_at": "2026-09-03T23:14:00+09:00",
+    "summary": "cycle 43: 最後の must T-044(総点検の再実施)を done — 全 57 must 完了、must 境界で人間の判断待ち。点検は 4 系統(ドメイン意味論 / 2 モジュール分割と型一覧 / 引き算とドキュメント / 複合条件)の read-only analyst 報告を自分で検証して是正: 自動再生 2 件(バリデータ数変更で一時停止、カーソル 0 なら『実行開始』)、leak 参加判定のコメント明示、終了スロット非保存の codec コメント+テスト、操作盤 3→4 区画(README / Disclosure / verify-ui.mjs)、旧記述(ネットワークカード・4 タブ)修正、未参照コード(components/index.ts・useTheme.cycle・.mono)削除、stageStatusLabel / paramLabel / components/ValidatorDot への一本化、コメント言語の是正、テスト 5 件追加。docs/INSPECTION.md に『再実施』節を追記。ゲート: typecheck 0 / vitest 37 files 425 tests 0 / build 0 / clean copy で npm ci・test・build 0、dist は ./assets/ 参照のみ。verify-ui.mjs(Playwright)は sandbox で起動不可のため人間の手元実行に委ねる。以下は cycle 42 の要約(構成の参照用): T-043(攻撃一覧ページ)と T-060(攻撃の自動再生)を 1 バッチで done。攻撃一覧は第 3 ページ(タブ順 チェーン表示 / 攻撃一覧 / 型一覧、src/ui/modes/AttacksPage.tsx、ヘッダーバーのみ): 冒頭に形式体系の定義 3 表(3 つ組 / 能力範囲の 2 基底+行動語彙(attackFormat.CAPABILITIES から導出)/ 攻撃目標述語 4 種、『。』なし)、続いて ATTACK_LIBRARY から導出する 12 行の表(攻撃/出典/前提/攻撃者集合の条件/必要な能力/攻撃目標/戦略の要約(data-quoted の引用内容)/既定実行構成(attackFormat.defaultRunLines))。行の攻撃名ボタン(aria-label『攻撃 A## を選択』)→ session.proposeAttack → チェーン表示へ。自動再生は useSimulation(PLAY_INTERVAL_MS = 600、playing {from}、play/pause、useEffect で setTimeout(advance)、停止: 攻撃解除 / cursor ≥ throughSlot / goalAchievedAt === cursor かつ > from、setCursor・proposeAttack・loadScenario で一時停止)と、スロットバーの src/ui/PlayControl.tsx(実行開始 / 一時停止 / 再開、終了 s{n} 読み出し、終了スロットで disabled)。テスト: tests/ui/attacksPage.test.tsx 7 件(成功条件 16・17)、tests/ui/autoplay.test.tsx 5 件(fake timers、成功条件 28・19・17)、prose.test に攻撃一覧の走査を追加、appShell / verify-ui.mjs は 3 タブ。README(3 ページ・攻撃一覧・自動再生の段落)更新。ゲート: typecheck 0 / vitest 37 files 420 tests 0 / build 0。verify-ui.mjs(Playwright)は sandbox で起動できず未実行。残る must は T-044(総点検の再実施)のみ。フェーズは must のまま。",
     "next_actions": [
-      "T-044 総点検の再実施(最後の must、他の must はすべて done): Todo の notes にある点検項目 (1)〜(13) に S-049(デプロイ契約: clean install の 3 コマンド exit 0 と dist/ の相対参照、README の Deploying 節)を (14) として加え、(13) 自動再生は cycle 42 の実装(停止規則: 達成スロット(開始より後)/終了スロット、カーソル移動・提案・再読込で一時停止、達成後の再開は終了スロットまで、生成行動は非保存で再実行同一)で点検する。3 観点(整合/引き算/複合条件バグ)で発見問題を全解消し、docs/INSPECTION.md に追記(成功条件 12)、README 更新、ゲート全通し(typecheck / vitest / build)。",
-      "T-044 の引き算観点で見る候補: AttackPanel の攻撃 Select は攻撃一覧の行選択と重複する入口(再選択・確認用として残す判断は cycle 41 の決定)— 残すなら Hint の文言で役割を明示; attackFormat.paramLabel は AttackPanel の `name === 'maxDelay' ? 'd' : name` と重複しているので AttackPanel 側を paramLabel に寄せる; README の Sanity check のテスト一覧に攻撃一覧・自動再生を加える。",
-      "T-044 完了後は must 境界(must_complete_awaiting_phase_approval)で人間の判断待ちになる。should(T-014 速度調整・非攻撃の自動再生 / T-015 ショートカット / T-017 メモ・命名)は人間の --approve-should まで着手しない。"
+      "must はすべて done(57/57)。ループが must 境界(must_complete_awaiting_phase_approval)を立てるので、人間が --approve-should か --close-at-must を選ぶまで自律作業はない。resume 後は ESSENCE を再読し、フェーズが extended_approved なら should(T-014 / T-015 / T-017)を batch_policy に従って着手する。",
+      "T-014(should、速度調整と攻撃なしの自動再生・一時停止): useSimulation の PLAY_INTERVAL_MS をセッションの値(既定 600ms、段階 300/600/1200 程度)にして PlayControl に速度セレクタ(Segmented)を追加、攻撃なしでも play を許し停止条件は手動と runSlot 上限(裁量)だけにする。autoplay.test.tsx に fake timers で追加。",
+      "T-017(should、シナリオのメモ・命名): scenarioCodec に name / note を optional で additive に追加(version は据え置き、読み込みは欠落を許容)、ScenarioPanel の保存時に入力・一覧に表示。T-015(should、キーボードショートカット): スロット送り / 巻き戻し / 再生・一時停止程度に限定し、フォーム内では無効化。",
+      "人間の手元での実ブラウザ確認: `npm run build && node scripts/verify-ui.mjs`(攻撃一覧・自動再生・操作盤 4 区画の検査を追記済み)。"
     ],
     "open_questions": [],
     "pending_cycle": false

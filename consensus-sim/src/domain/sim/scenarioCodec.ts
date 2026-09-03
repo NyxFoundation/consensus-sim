@@ -1,6 +1,9 @@
 // Scenario (de)serialization — the persistable form of a run's identity:
 // initial conditions, the manual interventions and at most one attack (by
-// id, attacker set and parameters). A serialized scenario carries a format
+// id, attacker set and parameters). The end slot of an attack's auto-play
+// is not part of that identity (the UI proposes it from the library again
+// on load), nor are the strategy's generated actions (replay regenerates
+// them). A serialized scenario carries a format
 // tag and version so future additive fields stay loadable; parsing validates
 // everything (tagged union kinds, integer fields, validator ranges) and
 // throws on anything unknown, so a loaded scenario is exactly as trustworthy

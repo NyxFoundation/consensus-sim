@@ -174,6 +174,42 @@ describe('auto-play from the attack list (成功条件 28)', () => {
     await tick(2)
     expect(slot()).toBe('1')
   })
+
+  it('offers 実行開始 again from slot 0 after a rewind, and restarts the run from there', async () => {
+    await chooseFromList('A11')
+    await click(playToggle())
+    await tick(4)
+    expect(slot()).toBe('4')
+    for (let i = 0; i < 4; i++) {
+      await click(container.querySelector('[aria-label="1 スロット戻る"]'))
+    }
+    expect(slot()).toBe('0')
+    expect(playToggle().textContent).toBe('実行開始')
+    await click(playToggle())
+    await tick(2)
+    expect(slot()).toBe('2')
+    // The discarded future is gone: the run is the replayed one.
+    expect(text('.slot-current')).not.toContain('最新')
+  })
+
+  it('pauses when the validator count changes during playback (a fresh run from slot 0)', async () => {
+    await chooseFromList('A11')
+    await click(playToggle())
+    await tick(2)
+    expect(slot()).toBe('2')
+    const count = container.querySelector('.field-inline select')
+    if (!(count instanceof HTMLSelectElement)) throw new Error('validator count select not found')
+    await act(async () => {
+      count.value = '5'
+      count.dispatchEvent(new Event('change', { bubbles: true }))
+    })
+    expect(slot()).toBe('0')
+    expect(playToggle().textContent).toBe('実行開始')
+    await tick(2)
+    expect(slot()).toBe('0')
+    // The attack stays bound (its attackers are within the new count).
+    expect(text('.attack-panel .panel-count')).toBe('A11')
+  })
 })
 
 describe('a missed goal stops at the end slot (成功条件 19, 28)', () => {

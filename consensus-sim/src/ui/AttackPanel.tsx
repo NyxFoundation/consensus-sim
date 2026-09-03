@@ -23,15 +23,22 @@ import {
   validatorName,
 } from '../domain'
 import type { ValidatorIndex } from '../domain'
-import { conditionLabel, percentLabel, premiseLabel, stageLabel } from './attackFormat'
+import {
+  conditionLabel,
+  paramLabel,
+  percentLabel,
+  premiseLabel,
+  stageLabel,
+  stageStatusLabel,
+} from './attackFormat'
 import { CommitNumberField } from './CommitNumberField'
 import { Button } from './components/Button'
 import { Checkbox } from './components/Checkbox'
 import { Disclosure } from './components/Disclosure'
 import { Hint } from './components/Hint'
 import { Select } from './components/Select'
+import { ValidatorDot } from './components/ValidatorDot'
 import type { SimulationSession } from './useSimulation'
-import { validatorColor } from './validatorColor'
 
 export interface AttackPanelProps {
   readonly session: SimulationSession
@@ -112,7 +119,7 @@ export function AttackPanel({ session }: AttackPanelProps) {
                         disabled={checked && attack.attackers.length === 1}
                         onChange={() => toggleAttacker(v)}
                       />
-                      <span className="validator-dot" style={{ background: validatorColor(v) }} />
+                      <ValidatorDot validator={v} />
                       {validatorName(v)}
                     </label>
                   )
@@ -159,7 +166,7 @@ export function AttackPanel({ session }: AttackPanelProps) {
               <div className="form-line">
                 {Object.entries(attack.params).map(([name, value]) => (
                   <label key={name} className="check-inline">
-                    {name === 'maxDelay' ? 'd' : name} =
+                    {paramLabel(name)} =
                     <CommitNumberField
                       label={`攻撃パラメータ ${name}`}
                       value={value}
@@ -190,23 +197,14 @@ export function AttackPanel({ session }: AttackPanelProps) {
                 <Hint text="述語の列を先頭から順に判定し、末尾まで達成した時点で攻撃目標の達成。各段の判定と根拠は状態表の上の推移にスロットごとに表示" />
               </legend>
               <ol className="goal-stages">
-                {attack.attack.goal.map((stage, i) => {
-                  const verdict = verdicts?.[i]
-                  const status =
-                    verdict === undefined
-                      ? ''
-                      : verdict.status === 'achieved'
-                        ? `達成 @s${verdict.achievedAt}`
-                        : verdict.status === 'active'
-                          ? '判定中'
-                          : '待機'
-                  return (
-                    <li key={i}>
-                      {stageLabel(stage)}
-                      <span className="readout goal-stage-status">{status}</span>
-                    </li>
-                  )
-                })}
+                {attack.attack.goal.map((stage, i) => (
+                  <li key={i}>
+                    {stageLabel(stage)}
+                    <span className="readout goal-stage-status">
+                      {stageStatusLabel(verdicts?.[i])}
+                    </span>
+                  </li>
+                ))}
               </ol>
               <span className="readout">
                 生成行動 {generated.length} 件

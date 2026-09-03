@@ -17,9 +17,9 @@ import type {
   Equivocation,
   ValidatorIndex,
 } from '../domain'
+import { ValidatorDot } from './components/ValidatorDot'
 import { blockName, checkpointName, stakeLabel } from './format'
 import { diffFlags } from './StateTable'
-import { validatorColor } from './validatorColor'
 
 export interface ChainStateTableProps {
   /** The expanded validator — whose head's chain state is shown. */
@@ -68,10 +68,7 @@ export function ChainStateTable({
           <th scope="col">finalized</th>
           {Array.from({ length: validatorCount }, (_, v) => (
             <th scope="col" key={v}>
-              <span
-                className="validator-dot"
-                style={{ background: validatorColor(v) }}
-              />
+              <ValidatorDot validator={v} />
               {validatorName(v)}
             </th>
           ))}

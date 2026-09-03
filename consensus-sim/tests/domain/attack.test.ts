@@ -465,4 +465,41 @@ describe("discards (破棄の印付き)", () => {
     const b6 = [...run.states[6]!.tree.blocks.values()].filter(isProposed).find((b) => b.slot === 6)!;
     expect(b6.parent).toBe(head);
   });
+
+  it("applies the fork limit to fork creation only: a generated double proposal is never fork-limited", () => {
+    // The same saturated tree as above; the attacker's double proposal at
+    // its slot 6 adds a sibling block, which 必須 10 leaves unconstrained
+    // (forks that arise from equivocation are not fork creation).
+    const manual: Intervention[] = [
+      { kind: "propose-parent", slot: 2, parent: 0 },
+      { kind: "propose-parent", slot: 3, parent: 0 },
+      { kind: "propose-parent", slot: 5, parent: 0 },
+    ];
+    const onAnchor: Action = { kind: "propose-parent", slot: 6, parent: 0 };
+    const double: Action = { kind: "double-propose", slot: 6, validator: 2 };
+    const run = runScenario(scenario(manual, instance(emitAt(4, [onAnchor, double]), [2])), 6);
+    expect(run.generated).toEqual([
+      { action: onAnchor, generatedAt: 4, discarded: "fork-limit" },
+      { action: double, generatedAt: 4 },
+    ]);
+    const at6 = [...run.states[6]!.tree.blocks.values()].filter(isProposed).filter((b) => b.slot === 6);
+    expect(at6).toHaveLength(2);
+  });
+});
+
+describe("the delay bound d = 0 (前提の遅延上限の下端)", () => {
+  const schedule = scheduleOf(CONFIG);
+  const cap = (action: Action) => capabilityOf(action, [1], schedule, 0);
+
+  it("leaves honest messages undelayable but droppable, and own messages freely withheld", () => {
+    expect(
+      cap({ kind: "delay", message: { kind: "vote", sender: 2, slot: 5 }, untilSlot: 6 }),
+    ).toBeUndefined();
+    expect(cap({ kind: "drop", message: { kind: "vote", sender: 2, slot: 5 } })).toBe("drop-honest");
+    expect(cap({ kind: "partition", fromSlot: 5, toSlot: 5, groups: [[0, 2]] })).toBeUndefined();
+    expect(cap({ kind: "partition", fromSlot: 5, groups: [[0, 2]] })).toBe("partition");
+    expect(
+      cap({ kind: "delay", message: { kind: "vote", sender: 1, slot: 5 }, untilSlot: 9 }),
+    ).toBe("withhold");
+  });
 });

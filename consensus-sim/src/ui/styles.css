@@ -44,12 +44,6 @@ body {
   overflow: hidden;
 }
 
-/* Numbers, IDs, slots and code-shaped information — never prose. */
-.mono {
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
-}
-
 /* ---- the frame ----
  * header bar / body; body = stage | dock. Only the stage and the dock
  * scroll, each on its own, so the frame never moves. */

@@ -54,9 +54,9 @@ import { Hint } from './components/Hint'
 import { NumberField } from './components/NumberField'
 import { Segmented } from './components/Segmented'
 import { Select } from './components/Select'
+import { ValidatorDot } from './components/ValidatorDot'
 import { blockName, checkpointName } from './format'
 import type { SimulationSession } from './useSimulation'
-import { validatorColor } from './validatorColor'
 
 const OP_STATE_LABELS: Readonly<Record<OperatingState, string>> = {
   active: '稼働',
@@ -433,10 +433,7 @@ export function InterventionPanel({ session }: InterventionPanelProps) {
                   checked={groupA.includes(v)}
                   onChange={() => setGroupA(toggleIn(groupA, v))}
                 />
-                <span
-                  className="validator-dot"
-                  style={{ background: validatorColor(v) }}
-                />
+                <ValidatorDot validator={v} />
                 {validatorLabel(v)}
               </label>
             ))}
@@ -462,10 +459,7 @@ export function InterventionPanel({ session }: InterventionPanelProps) {
             return (
               <div className="form-line op-state-line" key={v}>
                 <span className="op-state-name">
-                  <span
-                    className="validator-dot"
-                    style={{ background: validatorColor(v) }}
-                  />
+                  <ValidatorDot validator={v} />
                   {validatorLabel(v)}
                 </span>
                 <Segmented

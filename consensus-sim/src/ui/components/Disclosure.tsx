@@ -1,6 +1,6 @@
 /**
  * Unified disclosure. Wraps the native <details>/<summary> — every panel
- * (プロトコルパラメータ / 介入 / シナリオ) opens by default and stays a
+ * (攻撃 / プロトコルパラメータ / 介入 / シナリオ) opens by default and stays a
  * plain, keyboard-operable disclosure; this only supplies the app's summary
  * styling and the data-ui hook.
  */

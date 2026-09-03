@@ -261,3 +261,146 @@
 - **シナリオ保存形式** version 3(旧形式は読み込まず破棄)。
 - 検証: `npm run typecheck` / `npm test`(31 files, 382 tests)/ `npm run build`
   すべて exit 0。
+
+## 再実施: 改訂で追加された必須対応事項の総点検(2026-09-03)
+
+要求文書の改訂で追加・改訂された必須対応事項 3・6・8・9・17〜32 と成功条件
+2・10・14〜29 について、3 観点の総点検を再実施した。点検の方法は初回と同じ
+(要求 → 実装 → テストの全数トレース、引き算の全走査、複合条件のテストによる
+固定)で、ドメイン意味論・2 モジュール分割と型一覧・引き算とドキュメント・
+複合条件の 4 系統に分けて読み、発見をすべて解消した。
+
+### 観点 (1) 要求・仕様・実装の整合
+
+点検項目と結果(すべて一致を確認。根拠は括弧内):
+
+1. fork choice の投票重みは投票 head のチェーン状態のステーク(了承済み簡約。
+   `protocol.ts` の weightOf が `states.get(vote.head)` を読む)。
+2. justified の即時集計(取り込みのたびに集計、常に unrealized — 非対応事項
+   「realized justification のエポック境界での更新」として明文化済み)と、切替窓が
+   ブロックの slot を到着時刻の代理にする純関数化(`chainState.ts` forkChoiceRoot)。
+3. チェックポイント: 境界スロットが空なら同一ブロックが連続エポックのチェック
+   ポイント、そのリンクも正当、隣接はエポック番号で判定(`finality.ts`
+   checkpointFor / isCheckpointOn、`chainState.ts` の `target.epoch ===
+   source.epoch + 1`、`tests/domain/checkpoint.test.ts` の空境界ケース)。
+4. Equivocation の 3 形とスラッシング(`inclusion.ts` equivocationsIn:
+   同一スロットの相反はスロット内の対ごと、スロット横断は相異なる FFG 部分の
+   代表どうし; `chainState.ts` は証拠を取り込んだブロック以降の自枝でのみ 0 に
+   する)。A10 / A12 の可罰性(`tests/domain/attackLibrary.test.ts`)。
+5. 行動の 2 基底: DoubleVoteAction の split は Publish(content) + Publish(receivers)
+   に展開され、自票の保留・選択配送は d に縛られず、手動の二重投票 UI・型
+   カタログ・codec・介入一覧は追随(`attack.ts` basesOf / withinRange)。
+6. A03 / A04 の swing 票が枝の根を head にする理由(証拠を含まないチェーン状態から
+   重みを読む)と A06 の L = 10(正直基準 9 の 1 上)は、FFG のエポック単位決定後も
+   `tests/domain/attackLibrary.test.ts` が固定。
+7. committee 第 3 方式「エポック分割」は View / Vote / Block を変えず、boost の基準
+   (スロット committee 総重み)と codec・UI・型カタログが追随(`schedule.ts`、
+   `protocolParams.test.ts`)。A05 の成立が seed 0 の committee 順序に依存する
+   ことは前節「残る既知の制約」と `sim/attackLibrary.ts` の `AttackDefaultRun.seed`
+   のコメントに記録済み。
+8. UI 刷新後の成功条件 26 (a)〜(f) の機械検査は `tests/ui/layout.test.ts` /
+   `prose.test.tsx` / `designTokens.test.ts` / `theme.test.tsx` として残り、
+   人間の実ブラウザ承認(2026-09-03 18:03)が記録されている。
+9. A05 バウンシングと切替の緩和策の 3 通りの推移(off / window / current)は
+   要求の観測可能な事実と `tests/domain/attackLibrary.test.ts` が一致。
+10. 2 モジュールの振り分け: 本質的仕様(`src/domain/model`)は識別子のソート /
+    Checkpoint / Instant と View / InitialConditions と Schedule / MessageRef /
+    ネットワークモデル / fork choice・finality・取り込み / 攻撃の 3 つ組・行動の
+    2 基底と語彙・述語・**戦略**を持ち、シミュレーション上の制約(`src/domain/sim`)は
+    シードから予定表を導く順列・シナリオ・介入キュー・**既定実行構成**・codec・
+    人名・4〜10 体・フォーク上限を持つ。戦略(`model/attackLibrary.ts` の 12 攻撃)は
+    既定実行構成に合わせて調整された具体値を含むが、要求が「戦略」を本質的仕様に、
+    「既定実行構成」を制約に置く区分そのものであり、柱 2 が「この戦略がこの前提で
+    目標を達成する」という定理を述べる対象として model に置く判断を再確認した。
+    番兵値は残っていない(`types.ts`)。型一覧は model のみ、全型が日本語コメントを
+    持つ(`tests/domain/modelComments.test.ts`、`tests/ui/typeGraph.test.ts`)。
+11. 能力範囲の是正 2 点(自メッセージの保留は d に縛られない / 閉じた分断は
+    長さ ≤ d のときだけ範囲内)、証拠のスロット横断正規化、スラッシング後の
+    閾値縮小は、要求・実装・テスト・本書で一致。
+12. ネットワーク表示・全体表示の残骸: コード・CSS・テストに無し。
+    `scripts/verify-ui.mjs` と `tests/ui/interventions.test.tsx` の説明文に
+    「ネットワークカード」「4 タブ」の旧記述が残っていた → 現行(3 ページ・状態表)に
+    改めた。型一覧ページの独自レイアウトと人間承認(2026-09-03 20:42)を確認。
+13. 自動再生: 達成スロット(再生開始より後)または終了スロットでの停止、一時停止・
+    再開、達成後の再開は終了スロットまで、停止後の巻き戻し・介入・パラメータ変更、
+    生成行動の非保存と再実行同一性は `tests/ui/autoplay.test.tsx` /
+    `attack.test.tsx` が固定。点検で 2 点を是正: バリデータ数の変更中も再生が
+    続いていた(新しい実行が 0 から勝手に進む)→ 数の変更は再生を止める;
+    スロット 0 へ巻き戻した後のボタンが「再開」だった → カーソルが 0 なら
+    「実行開始」(その位置から実行し直す)。
+14. デプロイ契約(前提事項・成功条件 29): `$TMPDIR` の clean copy で
+    `npm ci` → `npm test` → `npm run build` がすべて exit 0、`dist/index.html` の
+    参照は `./assets/` のみ(`vite.config.ts` の `base: './'`)。README の
+    Deploying 節は人間管理の `deploy.yml` の契約を記述している。
+
+発見した問題と対処(上記以外):
+
+- inactivity leak の「そのエポックの target 投票が取り込まれている」の判定が、
+  枝の正当な FFG リンク(source・target ともにその枝のチェックポイント)として
+  数えられた投票に限ることが、コードから読み取りにくかった。Ethereum の
+  timely target(source が一致して初めて target が一致する)に対応する意図的な
+  読みであり、`chainState.ts` の該当箇所にコメントで明示した。
+- 攻撃の終了スロットはシナリオの保存対象ではなく、再読込時にライブラリの既定に
+  戻る。UI の説明にはあったが codec のコメントに無かった → `scenarioCodec.ts` の
+  冒頭に明記し、`tests/ui/attack.test.tsx` に保存 → 再読込で既定に戻ることを固定。
+- README の操作盤の要約が 3 区画(攻撃区画が抜けていた)、`Disclosure.tsx` の
+  コメントも同様、`scripts/verify-ui.mjs` が「操作盤は 3 区画」を検査していた
+  (実ブラウザで必ず失敗する状態)→ いずれも 4 区画に改めた。
+
+### 観点 (2) 引き算の美学
+
+発見した問題と対処:
+
+1. **参照ゼロの公開コード**: `src/ui/components/index.ts`(再輸出だけの barrel。
+   全消費側が個別ファイルを import)、`useTheme.cycle()`(テーマは Segmented が
+   setMode を直接呼ぶ)→ 削除。
+2. **未使用 CSS `.mono`**(等幅が要る要素は各セレクタが `--font-mono` を直接参照)
+   → 削除。
+3. **同一定義の重複**: 攻撃目標の段の状態ラベル(待機 / 判定中 / 達成 @sN)が
+   `GoalTraceTable.tsx` と `AttackPanel.tsx` に二重にあった → `attackFormat.ts` の
+   `stageStatusLabel` に一本化。攻撃パラメータ名の表示(`maxDelay` → d)も
+   `attackFormat.ts` の `paramLabel` に一本化。バリデータの色ドット
+   `<span className="validator-dot" style={{ background: validatorColor(v) }} />`
+   が 7 ファイル 8 箇所に複製されていた → `components/ValidatorDot.tsx` に一本化。
+4. **コメントの言語**: `sim/scenario.ts` に日本語だけのコメント、`AttacksPage.tsx` に
+   日本語だけの定義コメントがあった(制約モジュール・UI は英語)→ 英語(日本語は
+   括弧の補足)に改めた。
+
+対処せず記録に留める判断:
+
+- 対応する CSS 規則を持たない className(`.goal-row` / `.goal-cell` /
+  `.attack-name` / `.block-tree` / `.block-body` / `.segmented` / `.field-select` /
+  `.mode-tabs-segmented`)は、テストと読み手のための構造の名前として存置。
+- 操作盤の攻撃 Select は攻撃一覧の行選択と同じ `proposeAttack` を呼ぶ第 2 の入口。
+  攻撃一覧が主経路、操作盤の Select は現在の攻撃の確認と付け替えのための部品として
+  残す(区画の要約に攻撃 ID を出す役割も担う)。
+- 自動再生中のフォーム操作は禁止しない: 介入・パラメータ・終了スロットの変更は
+  決定的な再計算で履歴に反映され、停止規則は変更のたびに再評価される(終了
+  スロットを現在位置より前にすれば次の刻みで止まる)。停止後の操作を要求する
+  必須対応事項 31 は満たしており、再生中の操作を塞ぐ部品は増やさない。
+
+### 観点 (3) 複雑な条件の組み合わせ
+
+- 自動再生 × 巻き戻し・一時停止・再開・達成後の再開・バリデータ数変更・
+  カーソル移動・前提から外れたプリセット(A01 を merge で終了スロットまで未達)は
+  `tests/ui/autoplay.test.tsx` に固定(fake timers)。
+- 生成行動の破棄 4 種(非因果 / 能力範囲外 / 手動介入と矛盾 / フォーク上限)は
+  `tests/domain/attack.test.ts` に固定。点検で範囲を 2 点固定した: 生成された
+  二重提案はフォーク作成ではないためフォーク上限の対象外(必須対応事項 10 の
+  「他の介入で自然に生じるフォークは制約しない」); 遅延上限 d = 0 では正直
+  メッセージの遅延と閉じた分断は範囲外、欠落と開いた分断は範囲内、自票の保留は
+  自由。
+- シナリオ codec: 未知の攻撃 ID は読み込み時に破棄、攻撃者集合は保存時の
+  バリデータ数で検証、終了スロットは非保存(上記)。
+- 12 攻撃の既定実行構成での達成、A01/A03/A04/A07 の merge 未達、A05 の window /
+  current、A10/A12 の可罰性、A14 の 2 段判定はドメインテストが固定。
+
+複合テストからの新規バグ検出はゼロ。UI 層の自動再生で 2 件(観点 (1) の 13)を
+点検により発見・修正した。
+
+検証: `npm run typecheck` / `npm test`(37 files, 425 tests)/ `npm run build`
+すべて exit 0。`$TMPDIR` の clean copy でも `npm ci` / `npm test` /
+`npm run build` が exit 0、`dist/index.html` の参照は `./assets/` のみ。
+実ブラウザの `scripts/verify-ui.mjs`(3 ページ・
+攻撃一覧・自動再生・操作盤 4 区画の検査を追記)は、本点検の環境では Chromium を
+起動できないため人間の手元での実行に委ねる。
