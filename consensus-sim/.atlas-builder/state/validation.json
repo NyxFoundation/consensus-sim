@@ -1,7 +1,9 @@
 {
   "schema_version": "1.0.0",
-  "last_validated_at": "2026-09-03T09:44:06+09:00",
-  "status": "ok",
+  "last_validated_at": "2026-09-03T11:40:15+09:00",
+  "status": "warning",
   "errors": [],
-  "warnings": []
+  "warnings": [
+    "ESSENCE.md changed since the last Spec projection; re-project Spec once the change is human-attested (the loop gates an unreviewed change as essence_unreviewed_change, §13.1-10). 1 Spec(s) (S-043) hold essence_refs that no longer match the edited ESSENCE.md; they are reported here in aggregate, not as per-Spec errors, until Spec is re-projected (§20.2-7)."
+  ]
 }
