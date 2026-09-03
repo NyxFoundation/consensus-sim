@@ -160,6 +160,7 @@ function committeeOf(
 ): CommitteeAssignment {
   if (!isRecord(x)) throw new ParseError(`${what} must be an object`);
   if (x.kind === "all") return { kind: "all" };
+  if (x.kind === "epoch-split") return { kind: "epoch-split" };
   if (x.kind === "sized") {
     const size = integer(x.size, `${what}.size`);
     if (size < 1 || size > validatorCount) {
@@ -167,7 +168,7 @@ function committeeOf(
     }
     return { kind: "sized", size };
   }
-  throw new ParseError(`${what}.kind must be "all" or "sized"`);
+  throw new ParseError(`${what}.kind must be "all", "sized" or "epoch-split"`);
 }
 
 const FORK_CHOICE_RULES: readonly ForkChoiceRule[] = ["GHOST", "LMD-GHOST"];

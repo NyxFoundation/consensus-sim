@@ -127,6 +127,54 @@ describe("schedule (プロポーザー予定表・committee)", () => {
     // Same seed ⇒ same run; the committees are part of the scenario identity.
     expect(stateAtSlot(config, 8)).toEqual(state);
   });
+
+  describe("epoch split (エポック分割)", () => {
+    const split = { ...DEFAULT_PARAMS, committee: { kind: "epoch-split" } as const };
+
+    it("assigns every validator to exactly one slot per epoch, balanced over the slots", () => {
+      for (const n of [4, 7, 10]) {
+        const config = withParams(split, n, 5);
+        for (let epoch = 0; epoch < 3; epoch++) {
+          const slots = [0, 1, 2, 3].map((i) => committeeForSlot(epoch * 4 + i, config));
+          const sizes = slots.map((c) => c.size);
+          expect(Math.max(...sizes) - Math.min(...sizes)).toBeLessThanOrEqual(1);
+          expect(sizes.reduce((a, b) => a + b, 0)).toBe(n);
+          const members = slots.flatMap((c) => [...c]).sort((a, b) => a - b);
+          expect(members).toEqual(Array.from({ length: n }, (_, v) => v));
+        }
+      }
+    });
+
+    it("varies the assignment with the epoch and the seed, deterministically", () => {
+      const a = withParams(split, 8, 1);
+      const b = withParams(split, 8, 2);
+      const row = (config: SimulationConfig, epoch: number) =>
+        [0, 1, 2, 3].map((i) => [...committeeForSlot(epoch * 4 + i, config)].join()).join("/");
+      expect(row(a, 1)).toBe(row(withParams(split, 8, 1), 1));
+      expect(new Set([row(a, 0), row(a, 1), row(a, 2)]).size).toBeGreaterThan(1);
+      expect(row(a, 1)).not.toBe(row(b, 1));
+    });
+
+    it("lets each validator vote once per epoch in the simulation, and keeps the presets intact", () => {
+      const config = withParams(split, 6, 9);
+      const state = stateAtSlot(config, 12);
+      for (let epoch = 0; epoch < 3; epoch++) {
+        const perValidator = new Map<number, number[]>();
+        for (const v of state.votes) {
+          if (Math.floor(v.slot / 4) !== epoch) continue;
+          perValidator.set(v.validator, [...(perValidator.get(v.validator) ?? []), v.slot]);
+        }
+        for (const [validator, slots] of perValidator) {
+          expect(slots).toHaveLength(1);
+          expect(committeeForSlot(slots[0]!, config).has(validator)).toBe(true);
+        }
+        // Epoch 0 has no attestation in the anchor slot; every other epoch is complete.
+        if (epoch > 0) expect(perValidator.size).toBe(6);
+      }
+      expect(presetOf(split)).toBeUndefined();
+      expect(stateAtSlot(config, 12)).toEqual(state);
+    });
+  });
 });
 
 describe("proposer boost in fork choice", () => {

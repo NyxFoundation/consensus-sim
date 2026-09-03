@@ -196,6 +196,33 @@ describe('committee size and seed', () => {
     expect(text('.params-panel .panel-summary')).toContain('シード 7')
     await expectVoters(7)
   })
+
+  it('lets each validator vote in its one assigned slot per epoch under エポック分割', async () => {
+    await press('committee 割当', 'エポック分割')
+    expect(pressed('committee 割当')).toBe('エポック分割')
+    expect(pressed('プロトコルプリセット')).toBe('')
+    await advance(8)
+    const config = {
+      validatorCount: 4,
+      seed: 0,
+      params: { ...PRESETS.merge, committee: { kind: 'epoch-split' } as const },
+      initialStakes: equalStakes(4),
+    }
+    // The vote table lists each validator's latest vote: cast at slot 8 if its
+    // epoch-2 slot has come, else at its one assigned slot of epoch 1.
+    const latest = new Map(
+      all('.vote-table tbody tr').map((r) => [
+        r.querySelectorAll('td')[0]?.textContent?.trim(),
+        r.querySelectorAll('td')[1]?.textContent,
+      ]),
+    )
+    const assignedSlot = (v: number, epoch: number) =>
+      [0, 1, 2, 3].map((i) => epoch * 4 + i).find((s) => committeeForSlot(s, config).has(v))
+    for (const v of [0, 1, 2, 3]) {
+      const expected = assignedSlot(v, 2) === 8 ? 8 : assignedSlot(v, 1)
+      expect(latest.get(validatorName(v))).toBe(String(expected))
+    }
+  })
 })
 
 describe('proposer boost changes fork choice on the same run', () => {

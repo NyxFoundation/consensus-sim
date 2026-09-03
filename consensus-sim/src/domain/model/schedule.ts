@@ -4,6 +4,7 @@
 // same schedule from the same inputs.
 
 import { validatorIndices, type SimulationConfig } from "./config";
+import { SLOTS_PER_EPOCH, epochOf, slotsSinceEpochStart } from "./finality";
 import type { SlotIndex, ValidatorIndex } from "./types";
 
 /** Round-robin proposer schedule: slot s is proposed by validator s mod n.
@@ -37,10 +38,26 @@ function generator(seed: number): () => number {
   };
 }
 
+/** Fisher–Yates shuffle of `items` driven by `seed`. */
+function shuffled(items: readonly ValidatorIndex[], seed: number): ValidatorIndex[] {
+  const next = generator(seed);
+  const pool = [...items];
+  for (let i = 0; i < pool.length - 1; i++) {
+    const j = i + Math.floor(next() * (pool.length - i));
+    [pool[i], pool[j]] = [pool[j]!, pool[i]!];
+  }
+  return pool;
+}
+
 /**
- * The committee of `slot`: everyone, or `size` distinct validators drawn by
- * a partial Fisher–Yates shuffle seeded from (seed, slot). Returned in
- * ascending index order.
+ * The committee of `slot`, in ascending index order:
+ * - `all`: everyone;
+ * - `sized`: `size` distinct validators drawn by a shuffle seeded from
+ *   (seed, slot);
+ * - `epoch-split`: the validators are shuffled once per epoch, seeded from
+ *   (seed, epoch), and dealt round-robin over the epoch's slots, so every
+ *   validator attests in exactly one slot per epoch and the slot committees
+ *   differ in size by at most one.
  */
 export function committeeForSlot(
   slot: SlotIndex,
@@ -49,19 +66,21 @@ export function committeeForSlot(
   const all = validatorIndices(config.validatorCount);
   const { committee } = config.params;
   if (committee.kind === "all") return new Set(all);
+  if (committee.kind === "epoch-split") {
+    const order = shuffled(all, hash32(config.seed | 0, epochOf(slot) | 0));
+    const offset = slotsSinceEpochStart(slot);
+    return new Set(
+      order.filter((_, position) => position % SLOTS_PER_EPOCH === offset).sort((a, b) => a - b),
+    );
+  }
   const size = committee.size;
   if (!Number.isInteger(size) || size < 1 || size > all.length) {
     throw new Error(
       `committee size must be an integer in [1, ${all.length}], got ${size}`,
     );
   }
-  const next = generator(hash32(config.seed | 0, slot | 0));
-  const pool = [...all];
-  for (let i = 0; i < size; i++) {
-    const j = i + Math.floor(next() * (pool.length - i));
-    [pool[i], pool[j]] = [pool[j]!, pool[i]!];
-  }
-  return new Set(pool.slice(0, size).sort((a, b) => a - b));
+  const drawn = shuffled(all, hash32(config.seed | 0, slot | 0)).slice(0, size);
+  return new Set(drawn.sort((a, b) => a - b));
 }
 
 /** Whether `validator` attests in `slot`. */

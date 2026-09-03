@@ -56,7 +56,7 @@ The header tabs switch between three displays and the type catalog:
 The プロトコルパラメータ panel below the slot bar holds the scenario's
 initial conditions: a preset (`phase0` / `merge` / `current`, default
 `merge`) that sets every value at once, and each protocol parameter on its
-own — committee (everyone or size `c`), proposer boost, fork-choice rule,
+own — committee (everyone, size `c`, or an epoch split), proposer boost, fork-choice rule,
 equivocation discount, justified-checkpoint switching, slashing and the
 inactivity leak (on/off, `N`, `r`) — plus the seed and every validator's
 initial stake (equal by default). Changing a value recomputes the displayed
@@ -105,9 +105,11 @@ npm run build      # static bundle in dist/ (no backend; plain static SPA)
 - **Validators** (4–10, default 4) act as proposers and attesters, and carry
   recognizable katakana names (アリス, ボブ, キャロル, …) throughout the UI.
   Time advances in slots; epoch boundaries fall every 4 slots. The proposer
-  of a slot (round-robin) and its **committee** — everyone, or `c`
-  validators drawn per slot from the seed — derive deterministically from
-  (slot, protocol parameters, seed) and are public to every validator.
+  of a slot (round-robin) and its **committee** — everyone; `c` validators
+  drawn per slot from the seed; or an **epoch split**, Ethereum's committee
+  structure, in which every validator attests in exactly one seed-assigned
+  slot of each epoch — derive deterministically from (slot, protocol
+  parameters, seed) and are public to every validator.
 - **Protocol parameters** (`ProtocolParams`) make the skeleton's knobs
   explicit: committee assignment, proposer boost, fork-choice rule (GHOST /
   LMD-GHOST), equivocation discount, justified-checkpoint switching

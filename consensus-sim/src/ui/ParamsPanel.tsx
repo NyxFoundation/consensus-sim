@@ -215,11 +215,12 @@ export function ParamsPanel({ session }: ParamsPanelProps) {
                 options={[
                   { key: 'all', label: '全員' },
                   { key: 'sized', label: 'サイズ c' },
+                  { key: 'epoch-split', label: 'エポック分割' },
                 ]}
                 onChange={(kind) =>
                   setParams({
                     committee:
-                      kind === 'all' ? { kind: 'all' } : { kind: 'sized', size: committeeSize },
+                      kind === 'sized' ? { kind: 'sized', size: committeeSize } : { kind },
                   })
                 }
               />
@@ -340,7 +341,9 @@ export function ParamsPanel({ session }: ParamsPanelProps) {
                   onCommit={(seed) => setConfig({ seed })}
                 />
               </label>
-              <span className="intervention-note">サイズ c の committee 抽出に使用</span>
+              <span className="intervention-note">
+                committee の抽出（サイズ c）と割当（エポック分割）に使用
+              </span>
             </div>
             <div className="validator-checks">
               {validators.map((v) => (

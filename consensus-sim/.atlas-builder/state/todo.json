@@ -1596,14 +1596,58 @@
       ]
     },
     {
+      "id": "T-048",
+      "title": "committee 割当方式の第 3 方式『エポック分割』(各バリデータがエポック内でシードから定まる 1 スロットにだけ投票する Ethereum 型の committee 構造)の追加: ProtocolParams.committee の型拡張、schedule の決定的導出(エポックごとにシードで並べ替え、スロットへ均等割当)、codec の読み書き、プロトコルパラメータ UI の選択肢、README・型カタログの追随+ユニット/DOM テスト",
+      "status": "done",
+      "priority": "must",
+      "spec": [
+        "S-003",
+        "S-018",
+        "S-031",
+        "S-014"
+      ],
+      "executor": {
+        "mode": "atlas-builder"
+      },
+      "batch_group": "e3-library",
+      "context_cost": 3,
+      "risk_level": "normal",
+      "notes": "遂行順序 6(A05 の前段)。R-008 選択肢 A' を人間が 2026-09-03 09:36 の resume で承認(骨格 = 投票頻度への追加)。View / Vote / Block は変えない。committee 総重み × boost の boost はそのスロットの committee 重み(≈ n/4 のステーク)を基準にする(定義どおり)。 実装: CommitteeAssignment に {kind: \"epoch-split\"} を追加。schedule.committeeForSlot はエポックごとに全バリデータを (seed, epoch) でシャッフルし、位置 i のバリデータをスロット epochStart + (i mod 4) に割り当てる(各バリデータはエポックに 1 スロット、スロット committee の大きさは高々 1 差。sized の抽出も同じ shuffle 関数の先頭 c 件に統一し結果は不変)。錨スロット 0 に割り当てられたバリデータはエポック 0 では投票しない(スロット 0 に投票段階がないため。エポック 1 以降は全員 1 回)。sameParams/presetOf は kind 比較で追随、codec は kind を受理、UI は committee 割当セグメントに『エポック分割』を追加、型カタログはソース抽出のため自動追随。",
+      "evidence": [
+        {
+          "type": "diff",
+          "summary": "src/domain/model/protocolParams.ts (CommitteeAssignment gains kind \"epoch-split\"), src/domain/model/schedule.ts (shared seeded Fisher–Yates `shuffled`; epoch-split committees dealt round-robin over the epoch's slots from a per-epoch shuffle), src/domain/sim/scenarioCodec.ts (accepts kind \"epoch-split\"), src/ui/ParamsPanel.tsx (エポック分割 option; seed note), README.md (committee description), tests/domain/protocolParams.test.ts (+3: balanced one-slot-per-epoch assignment for n = 4/7/10, epoch/seed variation + determinism, simulation votes once per epoch), tests/domain/scenarioCodec.test.ts (+1 round-trip), tests/ui/params.test.tsx (+1 DOM: latest votes sit in the seed-assigned slot). git diff --stat: 8 files changed, 136 insertions(+), 20 deletions(-)."
+        },
+        {
+          "type": "command",
+          "command": "npm run typecheck",
+          "exit_code": 0,
+          "summary": "tsc --noEmit exits 0 with the widened CommitteeAssignment union (Segmented/onChange narrowing, codec, schedule)."
+        },
+        {
+          "type": "command",
+          "command": "npm test",
+          "exit_code": 0,
+          "summary": "vitest run: 28 files / 343 tests pass (338 → 343). 受け入れ確認(成功条件 14『committee を全員以外にすると各スロットで committee 所属者のみが投票する』の第 3 方式): ドメインテストで n = 4/7/10 の各エポックにつき 4 スロットの committee が互いに素・和集合 = 全員・大きさの差 ≤ 1、(seed, epoch) で変わり同一入力で同一、シミュレーションではエポック 1 以降に各バリデータがちょうど 1 回だけ自分の割当スロットで投票し presetOf はカスタム; codec は epoch-split を往復して同一の実行を再計算; DOM テストでは『エポック分割』を押して 8 スロット進めると投票表の各バリデータの最新票がシードで定まる割当スロット(エポック 2 のスロット 8 か、未到来ならエポック 1 の割当スロット)に置かれる。"
+        },
+        {
+          "type": "command",
+          "command": "npm run build",
+          "exit_code": 0,
+          "summary": "tsc --noEmit && vite build exit 0 (78 modules)."
+        }
+      ]
+    },
+    {
       "id": "T-047",
-      "title": "攻撃ライブラリ(A05 バウンシング: 競合 justified 間の跳ね; 前提 merge + 切替 off; 活性停止)の定義と、既定構成で達成・上書きを外した merge / current で未達 のテスト",
-      "status": "blocked",
+      "title": "攻撃ライブラリ(A05 バウンシング: 競合 justified 間の跳ね; 前提 merge + 切替 off + committee = エポック分割; 活性停止)の定義と、既定構成で達成・committee = エポック分割の上書きを保ったまま切替の上書きだけを外した merge(window)/ current(unrealized)で未達のテスト",
+      "status": "pending",
       "priority": "must",
       "spec": [
         "S-043",
         "S-041",
-        "S-039"
+        "S-039",
+        "S-003"
       ],
       "executor": {
         "mode": "atlas-builder"
@@ -1611,9 +1655,7 @@
       "batch_group": "e3-library",
       "context_cost": 4,
       "risk_level": "normal",
-      "notes": "T-045 から分離(R-006 選択肢 D の再挑戦で A03/A04/A06 は成立、A05 のみ不成立)。跳ねの本質 = 攻撃者が保留票で justified チェックポイントを遅れて出現させ、正直者の fork choice の起点(root)が競合枝の間を跳ね続けて、どのエポックも隣接 justify(= finalize)に至らないこと。本モデルでの壁は R-008 参照。",
-      "blocked_reason": "本モデルは全バリデータが毎スロット投票するため、root の切替(跳ね)で一方の陣営がもう一方の枝へ移った瞬間に両陣営が同じ枝で同じ target(source = その枝の justified、隣接)に投票し、正直 2 陣営の合計が 2/3 以上なら justify → finalize が起きて跳ねが 1 回で終わる。合計が 2/3 未満になるのは攻撃者 ≥ 1/3 のときだけで、その場合は棄権(A09)に帰着し、見捨てた枝には正直票が入らないので跳ね戻れない。Ethereum の跳ねは『各バリデータはエポックに 1 回しか attest しない(跳ね前に投じた票は投じ直せない)』ことに依存しており、この投票頻度は committee=全員 / サイズ c のシード割当のいずれでも表現できない → R-008 で人間判断。",
-      "blocked_by": "R-008"
+      "notes": "T-045 から分離(R-006 選択肢 D の再挑戦で A03/A04/A06 は成立、A05 のみ不成立)。跳ねの本質 = 攻撃者が保留票で justified チェックポイントを遅れて出現させ、正直者の fork choice の起点(root)が競合枝の間を跳ね続けて、どのエポックも隣接 justify(= finalize)に至らないこと。本モデルでの壁は R-008 参照。 2026-09-03 09:36 resume: R-008 は A'(エポック分割 committee の追加 = 骨格追加を人間承認)で解決。T-048 の完了後、A05 は committee = エポック分割の前提で組む: 各バリデータがエポックに 1 回しか投票しないので、跳ねた先の target に投じ直せず隣接 justify(= finalize)が起きず、次エポックで反対枝へ跳ね続ける。window / unrealized は起点の切替を抑えて緩和する。"
     },
     {
       "id": "T-046",
@@ -1681,7 +1723,7 @@
       "batch_group": "e3-attack-ui",
       "context_cost": 5,
       "risk_level": "normal",
-      "notes": "遂行順序 7。成功条件 17・18・20・24 の受け入れ確認を DOM テストで残す。UI の見た目・情報設計の大きな方針転換は人間に戻す。"
+      "notes": "遂行順序 8(UI 刷新 T-049〜T-051 の後、刷新後のデザイン基盤の上に構築)。成功条件 17・18・20・24 の受け入れ確認を DOM テストで残す。UI の見た目・情報設計の大きな方針転換は人間に戻す。"
     },
     {
       "id": "T-043",
@@ -1691,7 +1733,8 @@
       "spec": [
         "S-042",
         "S-040",
-        "S-006"
+        "S-006",
+        "S-027"
       ],
       "executor": {
         "mode": "atlas-builder"
@@ -1699,17 +1742,74 @@
       "batch_group": "e3-attack-ui",
       "context_cost": 4,
       "risk_level": "normal",
-      "notes": "遂行順序 7。成功条件 16 の受け入れ確認を DOM テストで残す。"
+      "notes": "遂行順序 8(UI 刷新 T-049〜T-051 の後、刷新後のデザイン基盤の上に構築)。成功条件 16 の受け入れ確認を DOM テストで残す。"
+    },
+    {
+      "id": "T-049",
+      "title": "UI 刷新 (1) デザイン基盤: デザイントークン(色・余白・文字サイズ・書体の単一定義、4/8px 尺度と 3〜4 段の文字階層)、意図して選定した書体 1 組の日本語・英語・等幅の 3 用途への割当(外部フォントサービス非依存)、アプリ統一のフォーム部品(ボタン・セグメント・数値入力・チェック・セレクト・折り畳み)、OS テーマ追従(prefers-color-scheme)+手動切替、スタイル定義の直書き(色・余白・文字サイズ・書体)を検出する機械検査テスト",
+      "status": "pending",
+      "priority": "must",
+      "spec": [
+        "S-044",
+        "S-027",
+        "S-014"
+      ],
+      "executor": {
+        "mode": "atlas-builder"
+      },
+      "batch_group": "e4-ui-refresh",
+      "context_cost": 4,
+      "risk_level": "normal",
+      "notes": "遂行順序 7。前提事項の「計器」方針が許す範囲の再編は自律可(思想 (b) の但し書き)。無彩色の地に意味色(justified/finalized・攻撃者・バリデータ識別・差分強調)のみ。"
+    },
+    {
+      "id": "T-050",
+      "title": "UI 刷新 (2) 情報設計の再編と全表示への適用: 主役(チェーン表示+状態表)が標準的な PC 幅の初期表示でスクロールなしに画面面積の過半を占め、ブロック木は分岐・J/F・head 移動が図として読める大きさ、操作系(プロトコルパラメータ・介入・シナリオ)をより小さい操作盤へ集約、パネル常駐の説明文をホバー/ⓘ の要求時表示へ退避、ネットワーク/全体/型一覧の各表示に基盤を適用、成功条件 26 (a)〜(f) の機械検査(DOM テスト+実ブラウザ検証スクリプトの計測)",
+      "status": "pending",
+      "priority": "must",
+      "spec": [
+        "S-044",
+        "S-027",
+        "S-023",
+        "S-006",
+        "S-008",
+        "S-012",
+        "S-014"
+      ],
+      "executor": {
+        "mode": "atlas-builder"
+      },
+      "batch_group": "e4-ui-refresh",
+      "context_cost": 5,
+      "risk_level": "normal",
+      "notes": "遂行順序 7。必須 6・7・8 の制約(3 表示、状態表は下半分で slotIndex 整列・約 10 スロット幅・横スクロール、ネットワーク表示のホバー)の範囲内で再編する。既存 DOM テストの操作系列を維持する。"
+    },
+    {
+      "id": "T-051",
+      "title": "UI 刷新 (3) 人間の実ブラウザ確認と承認: 刷新後の UI を人間が手元の実ブラウザで確認して承認する(Human-input Recommendation で承認を求めて停止し、承認の resume 記録を evidence とする。承認前に完了扱いにしない)",
+      "status": "pending",
+      "priority": "must",
+      "spec": [
+        "S-044"
+      ],
+      "executor": {
+        "mode": "atlas-builder"
+      },
+      "batch_group": "e4-ui-refresh",
+      "context_cost": 1,
+      "risk_level": "normal",
+      "notes": "遂行順序 7。T-049・T-050 の完了後に起票する。人間の確認手段: npm run dev または npm run build && node scripts/verify-ui.mjs(R-001 参照)。"
     },
     {
       "id": "T-044",
-      "title": "総点検の再実施(追加分): 改訂で追加された必須対応事項 17〜29 と成功条件 14〜25 について 3 観点(整合/引き算/複合条件バグ)で点検し、ドメイン 2 モジュールの振り分けを点検項目に含め、発見問題を全解消、docs/INSPECTION.md に追記、README 更新、検証ゲート全通し",
+      "title": "総点検の再実施(追加分): 改訂で追加された必須対応事項 17〜30 と成功条件 14〜26 について 3 観点(整合/引き算/複合条件バグ)で点検し、ドメイン 2 モジュールの振り分けを点検項目に含め、発見問題を全解消、docs/INSPECTION.md に追記、README 更新、検証ゲート全通し",
       "status": "pending",
       "priority": "must",
       "spec": [
         "S-026",
         "S-014",
-        "S-035"
+        "S-035",
+        "S-044"
       ],
       "executor": {
         "mode": "atlas-builder"
@@ -1717,7 +1817,7 @@
       "batch_group": "e3-final",
       "context_cost": 5,
       "risk_level": "normal",
-      "notes": "遂行順序 8。最後の必須。他のすべての must Todo 完了後に実施する。点検項目に次を含める(2026-09-03 resume で人間が現状のまま了承した裁量簡約 4 件と、このサイクルの語彙拡張): (1) R-003 fork choice の投票重みは投票 head のチェーン状態のステーク; (2) R-004 justified の即時集計(エポック末を待たない)と、window 切替でブロックの slot を到着時刻の代理にする純関数化(遅延配送された justify ブロックは緩和されない); (3) R-005 空のエポック境界スロットにフォールバックしたチェックポイントは finalize されず 1 エポック遅れる(隣接判定がブロック slot のエポックを使う); (4) R-007 A10/A14 のスロット分割 FFG 二重投票は本モデルの証拠(同一スロットの相反)に当たらずスラッシングされない; (5) T-045 の拡張: DoubleVoteAction.head(2 票目の投票先。未指定なら親)と、攻撃者が自票を vote 参照(validator/slot/head)で保留・選択配送できる capability 判定(正直票の vote 参照は範囲外のまま) — 意味論変更でないこと、UI の手動二重投票が不変であること、型カタログ・codec・介入一覧の表示が追随していることを点検する; (6) A03/A04 の swing 票が枝の根(B1/B2)を head にする理由(証拠を含まないチェーン状態から重みを読む)と、A06 の L=10 が正直基準(s9)の 1 上であることの妥当性。"
+      "notes": "遂行順序 9。最後の必須。他のすべての must Todo 完了後に実施する。点検項目に次を含める(2026-09-03 resume で人間が現状のまま了承した裁量簡約 4 件と、このサイクルの語彙拡張): (1) R-003 fork choice の投票重みは投票 head のチェーン状態のステーク; (2) R-004 justified の即時集計(エポック末を待たない)と、window 切替でブロックの slot を到着時刻の代理にする純関数化(遅延配送された justify ブロックは緩和されない); (3) R-005 空のエポック境界スロットにフォールバックしたチェックポイントは finalize されず 1 エポック遅れる(隣接判定がブロック slot のエポックを使う); (4) R-007 A10/A14 のスロット分割 FFG 二重投票は本モデルの証拠(同一スロットの相反)に当たらずスラッシングされない; (5) T-045 の拡張: DoubleVoteAction.head(2 票目の投票先。未指定なら親)と、攻撃者が自票を vote 参照(validator/slot/head)で保留・選択配送できる capability 判定(正直票の vote 参照は範囲外のまま) — 意味論変更でないこと、UI の手動二重投票が不変であること、型カタログ・codec・介入一覧の表示が追随していることを点検する; (6) A03/A04 の swing 票が枝の根(B1/B2)を head にする理由(証拠を含まないチェーン状態から重みを読む)と、A06 の L=10 が正直基準(s9)の 1 上であることの妥当性。 (7) committee 第 3 方式『エポック分割』(T-048)が View / Vote / Block を変えず、boost の基準(スロット committee 重み)と codec・UI・型カタログが追随していること、A05(T-047)の成立/未達がこの方式に依存する理由が記録されていること; (8) UI 刷新(T-049〜T-051)後に成功条件 26 (a)〜(f) の機械検査がテストとして残り、人間承認の記録(resume)が evidence にあること。"
     }
   ]
 }

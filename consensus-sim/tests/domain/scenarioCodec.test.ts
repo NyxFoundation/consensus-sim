@@ -85,6 +85,19 @@ describe("scenario round-trip", () => {
     expect(data.format).toBe(SCENARIO_FORMAT);
     expect(data.version).toBe(SCENARIO_VERSION);
   });
+
+  it("round-trips an epoch-split committee", () => {
+    const split: Scenario = {
+      ...SCENARIO,
+      config: {
+        ...SCENARIO.config,
+        params: { ...SCENARIO.config.params, committee: { kind: "epoch-split" } },
+      },
+    };
+    const parsed = parseScenario(JSON.parse(JSON.stringify(serializeScenario(split, 8))));
+    expect(parsed.scenario.config.params.committee).toEqual({ kind: "epoch-split" });
+    expect(scenarioStates(parsed.scenario, 8)).toEqual(scenarioStates(split, 8));
+  });
 });
 
 describe("parse rejection", () => {

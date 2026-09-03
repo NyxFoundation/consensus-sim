@@ -6,11 +6,14 @@
 // history; an attack declares its premise as a preset name plus overrides.
 // The default is `merge`.
 
-/** Who attests in a slot: everyone, or `size` validators drawn per slot
- * deterministically from the seed (schedule.ts). */
+/** Who attests in a slot: everyone; `size` validators drawn per slot
+ * deterministically from the seed; or an epoch split (エポック分割) —
+ * Ethereum's committee structure, where every validator attests in exactly
+ * one seed-assigned slot of each epoch (schedule.ts). */
 export type CommitteeAssignment =
   | { readonly kind: "all" }
-  | { readonly kind: "sized"; readonly size: number };
+  | { readonly kind: "sized"; readonly size: number }
+  | { readonly kind: "epoch-split" };
 
 /** GHOST counts every vote; LMD-GHOST only each validator's latest. */
 export type ForkChoiceRule = "GHOST" | "LMD-GHOST";
