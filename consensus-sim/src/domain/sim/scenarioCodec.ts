@@ -376,12 +376,21 @@ function interventionOf(
         validators: validatorsOf(x.validators, validatorCount, `${what}.validators`),
       };
     case "double-propose":
-    case "double-vote":
       return {
-        kind: x.kind,
+        kind: "double-propose",
         slot: slotOf(x.slot, `${what}.slot`),
         validator: validatorOf(x.validator, validatorCount, `${what}.validator`),
       };
+    case "double-vote": {
+      const head = x.head === undefined ? undefined : integer(x.head, `${what}.head`);
+      if (head !== undefined && head < 0) throw new ParseError(`${what}.head must be ≥ 0`);
+      return {
+        kind: "double-vote",
+        slot: slotOf(x.slot, `${what}.slot`),
+        validator: validatorOf(x.validator, validatorCount, `${what}.validator`),
+        ...(head === undefined ? {} : { head }),
+      };
+    }
     case "delay":
       return {
         kind: "delay",

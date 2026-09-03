@@ -6,11 +6,11 @@
     "stop_after_infra_fails": 2
   },
   "progress": {
-    "last_signature": "031daf595359de8544ee9ea19ace406527d703e615d5f461ee8bf135d39bb4ea",
+    "last_signature": "6542c7062c9955508a8cf63e7622c54ec40c24c7bae4b37cfcaad08529fa5a16",
     "idle_cycles_since_progress": 0,
     "infra_fails_since_ok": 0,
-    "last_progress_at": "2026-09-03T06:47:24+09:00",
-    "last_checked_at": "2026-09-03T06:47:24+09:00",
+    "last_progress_at": "2026-09-03T09:09:17+09:00",
+    "last_checked_at": "2026-09-03T09:09:17+09:00",
     "usage_limited_since_ok": 0
   },
   "reset_policy": {
@@ -21,19 +21,26 @@
     "reset_after_decisions": 5
   },
   "counters": {
-    "context_usage_estimate": 0.45,
+    "context_usage_estimate": 0.6,
     "failed_attempts_since_reset": 1,
-    "changed_files_since_reset": 3,
-    "completed_todos_since_reset": 1,
-    "important_decisions_since_reset": 2,
+    "changed_files_since_reset": 16,
+    "completed_todos_since_reset": 2,
+    "important_decisions_since_reset": 4,
     "major_spec_rewrite_since_reset": false,
     "high_risk_change_completed": false
   },
   "handoff": {
-    "written_at": "2026-09-03T08:37:38+09:00",
-    "summary": "Human resume: R-006 は選択肢 D で解決する: ESSENCE も骨格・緩和策の意味論も変えず、A03/A04/A05/A06 を現行意味論の範囲で再挑戦する。R-006 の probe は分断(partition)で正直票を割っていたが出典の手段は「同時二重+選択配送」であり、攻撃者自身の票を有界遅延(d=2)で選択配送すれば相反 2 票は d スロット後に反対陣営の View にも揃って割引が発火し、latestVotes が最新スロットの票を採る現行実装で LMD 均衡が維持できる(5 体・攻撃者 1・正直 2+2 で各陣営 96 vs 64)。A03 = 交互投票+反対陣営への +1 スロット遅延(二重投票なし・正直提案は遅延しない)→ phase0 で活性停止、merge では proposer boost で収束(未達); A04 = 同スロット二重投票+選択配送(+正直提案の 1 スロット遅延で boost を無効化)→ 割引 off で活性停止、merge 既定では割引で収束(未達); A05 は A03/A04 成立後に競合 justified の跳ねを再設計; A06 は開始直後の境界(s4)を d=4 で遅延し L を正直基準(8〜9)の少し上に置いて再検討(R-005 の空境界簡約が判定に混ざらないよう根拠を確認)。それでも不成立の攻撃だけ、攻撃ごとに B(要件緩和)/C(非対応昇格)を個別に再提案すること。\nR-003(投票重みは投票 head のチェーン状態)・R-004(justified 即時集計、window は block slot を到着時刻の代理)・R-005(空境界チェックポイントは finalize されず 1 エポック遅れ)・R-007(A10/A14 のスロット分割 FFG 二重投票は証拠に当たらずスラッシング非発火)の裁量簡約は 4 件とも現状のまま了承する。ループ側で閉じ、総点検(T-044)の点検項目として記録すること。",
-    "next_actions": [],
-    "open_questions": [],
-    "pending_cycle": true
+    "written_at": "2026-09-03T09:10:00+09:00",
+    "summary": "T-045 完了: A03 バランシング(phase0)・A04 LMD バランシング(merge+割引 off)・A06 境界 finality 遅延(merge)が現行意味論のまま成立し、A03/A04 は上書きを外した merge で未達、A06 は最初の finalized が s9 → s13。攻撃ライブラリは 12 件中 11 件(A05 以外)。STOP: A05 バウンシングは『全員が毎スロット投票する』骨格では跳ねが持続しない(root 切替で陣営が同じ枝に乗った直後に隣接 justify → finalize、または攻撃者 ≥ 1/3 の棄権に帰着)ため T-047 に分離し、R-008(Human-input Recommendation、stop_until_human_review)で A'(エポック分割 committee の追加 = 骨格追加)/B(要件緩和)/C(非対応昇格)の判断を待って停止中。R-003/R-004/R-005/R-007 は人間の了承どおり閉じ、T-044 の notes に点検項目として記録済み。置き場: 戦略 = src/domain/model/attackLibrary.ts(balancingOf/balancingSetup/swingBranch を A03/A04 で共有、A06 は boundaryDelayA06、L は STALL=12 / FINALITY_DELAY=10)、メタデータ = src/domain/sim/attackLibrary.ts(11 行)、テスト = tests/domain/attackLibrary.test.ts。このサイクルの語彙拡張: DoubleVoteAction.head(2 票目の投票先、未指定は親)、capabilityOf は攻撃者自身の vote 参照を withhold として許可、codec/UI 追随。ゲート最新値 = typecheck / vitest 28 files 338 tests / build 全 exit 0。運用: state 書き込みは ATLAS_BUILDER_LOCK_TOKEN=$(cat .agent/tmp/loop.lock/token) を付けて stage-projection → tmp/edit_*.py → apply-projection、CWD は CONTROL_ROOT(cd した Bash は戻すこと)、probe は tests/domain/probe.test.ts を一時作成し --silent=false --disableConsoleIntercept で出力・撤去必須。",
+    "next_actions": [
+      "【人間待ち】R-008 を just resume --resolve R-008 --note で解決(A'/B/C)。A' なら committee 割当方式『エポック分割』の追加(ProtocolParams.committee の第 3 方式、schedule.ts、型カタログ・UI・codec 追随)を T-047 の前段 Todo として投影してから A05 を組む。B なら ESSENCE 改訂を再投影して A05 を簡約形で実装。C なら T-047 を閉じ(必須 23 の改訂を Spec に反映)、ライブラリ 11 件を確定。",
+      "T-042(攻撃 UI: シナリオへの攻撃の組込・既定実行構成の提案・生成行動の攻撃者印/破棄印表示・攻撃者の 3 表示での識別・攻撃目標の段階別推移のスロット軸表示・攻撃+手動介入シナリオの保存/再読込/再実行 + DOM テスト)。ライブラリの行数(11 or 12)に依存しない作りにする。",
+      "T-043(攻撃一覧ページ: 形式体系の定義 + 全攻撃の表を ATTACK_LIBRARY から導出、行選択で既定実行構成の提案へ + DOM テスト)。",
+      "T-047(A05)決着後に T-044(総点検: notes の点検項目 (1)〜(6) を含む)。"
+    ],
+    "open_questions": [
+      "R-008: A05 バウンシングの扱い(A' エポック分割 committee の追加 / B 要件緩和 / C 非対応昇格)。"
+    ],
+    "pending_cycle": false
   }
 }

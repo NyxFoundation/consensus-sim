@@ -14,6 +14,9 @@ import type { Attack } from "../model/attack";
 import {
   ATTACK_A01,
   ATTACK_A02,
+  ATTACK_A03,
+  ATTACK_A04,
+  ATTACK_A06,
   ATTACK_A07,
   ATTACK_A09,
   ATTACK_A10,
@@ -108,6 +111,75 @@ export const ATTACK_LIBRARY: readonly LibraryAttack[] = [
       attackers: [1],
       params: { maxDelay: 2 },
       throughSlot: 8,
+    },
+  },
+  {
+    id: "A03",
+    name: "バランシング",
+    source: `${REPORT}#A03`,
+    premise: { preset: "phase0" },
+    attackers: ATTACK_A03.attackers,
+    capabilities: ["withhold", "vote-target", "delay-honest"],
+    goal: ATTACK_A03.goal,
+    strategySummary:
+      "攻撃者はスロット 1 の自ブロックを保留して正直スロット 2 ブロックを隣に作らせ(枝 A / B)、" +
+      "正直者を 2 陣営に割る。以後毎スロット A・B の根へ交互に投票し、その票を反対陣営へ 2 スロット" +
+      "遅らせて届けるので、各陣営は常に自陣営の枝を支持する最新票を見て割れが維持され、どの" +
+      "チェックポイントも 2/3 に届かず活性が停止する。merge では反対陣営の提案が boost 付きで届き" +
+      "割れが崩れて未達。",
+    strategy: ATTACK_A03.strategy,
+    defaultRun: {
+      validatorCount: 5,
+      initialStakes: equalStakes(5),
+      attackers: [1],
+      params: { maxDelay: 2 },
+      throughSlot: 16,
+    },
+  },
+  {
+    id: "A04",
+    name: "LMD バランシング(エクイボケーション+選択配送)",
+    source: `${REPORT}#A04`,
+    premise: { preset: "merge", overrides: { equivocationDiscount: false } },
+    attackers: ATTACK_A04.attackers,
+    capabilities: ["withhold", "equivocation", "vote-target", "delay-honest"],
+    goal: ATTACK_A04.goal,
+    strategySummary:
+      "A03 と同じ割れを作ったうえで、毎スロット A・B の根へ同時に二重投票し、各陣営には自陣営側の" +
+      "票を即時、反対側の票を 2 スロット遅れで選択配送する。LMD-GHOST は最新スロットの票だけを" +
+      "数えるため割れが維持され活性が停止する(正直提案は反対陣営へ、自提案は全員へ 1 スロット" +
+      "遅らせ boost を無効化)。merge 既定では相反 2 票が揃った瞬間に割引が攻撃者の重みを 0 にし、" +
+      "両陣営が同じ枝へ収束して未達。",
+    strategy: ATTACK_A04.strategy,
+    defaultRun: {
+      validatorCount: 5,
+      initialStakes: equalStakes(5),
+      attackers: [1],
+      params: { maxDelay: 2 },
+      throughSlot: 16,
+    },
+  },
+  {
+    id: "A06",
+    name: "エポック境界 finality 遅延",
+    source: `${REPORT}#A06`,
+    premise: { preset: "merge" },
+    attackers: ATTACK_A06.attackers,
+    capabilities: ["delay-honest"],
+    goal: ATTACK_A06.goal,
+    strategySummary:
+      "攻撃者はエポック 1 の境界ブロック(スロット 4)を正直者の半数へ 4 スロット遅らせる。" +
+      "間に合った側は target B4、届かない側は target B3 に投票して target が割れ、エポック 1 は" +
+      "どちらも 2/3 に届かず justify されない。スロット 8 に届いて再合流した後の境界ブロックが" +
+      "エポック 2 で justify・エポック 3 で finalize され、最初の finalized が正直基準の 9 から 13 へ" +
+      "遅れる(L = 10 の活性停止)。",
+    strategy: ATTACK_A06.strategy,
+    defaultRun: {
+      validatorCount: 5,
+      initialStakes: equalStakes(5),
+      attackers: [1],
+      params: { maxDelay: 4 },
+      throughSlot: 16,
     },
   },
   {

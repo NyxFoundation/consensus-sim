@@ -80,7 +80,9 @@ function describe(i: Intervention, config: SimulationConfig): string {
     case 'double-propose':
       return `二重提案 ${validatorLabel(i.validator)} @ s${i.slot}`
     case 'double-vote':
-      return `二重投票 ${validatorLabel(i.validator)} @ s${i.slot}`
+      return `二重投票 ${validatorLabel(i.validator)} @ s${i.slot}${
+        i.head === undefined ? '' : `（2 票目 head ${blockName(i.head)}）`
+      }`
     case 'delay':
       return `遅延 ${messageLabel(i.message)} → s${i.untilSlot} まで${
         i.observers ? `（対象: ${setLabel(i.observers)}）` : ''

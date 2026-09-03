@@ -83,8 +83,9 @@ export interface SlotDirectives {
   readonly stopped?: ReadonlySet<ValidatorIndex>;
   /** The slot's proposer publishes two blocks on the same parent (二重提案). */
   readonly doublePropose?: boolean;
-  /** These validators each cast a second, conflicting vote (二重投票). */
-  readonly doubleVote?: ReadonlySet<ValidatorIndex>;
+  /** These validators each cast a second, conflicting vote (二重投票), for
+   * the designated head when there is one, else for the first head's parent. */
+  readonly doubleVote?: ReadonlyMap<ValidatorIndex, BlockIndex | undefined>;
   /** The proposer builds on this block instead of its fork-choice head
    * (フォーク作成) — ignored when the block is not in the proposer's view. */
   readonly proposeParent?: BlockIndex;
@@ -158,7 +159,11 @@ export function advanceSlot(
     );
     attestations.push(vote);
     if (directives.doubleVote?.has(validator)) {
-      const second = buildEquivocalAttestation(view.blockTree, vote);
+      const second = buildEquivocalAttestation(
+        view.blockTree,
+        vote,
+        directives.doubleVote.get(validator),
+      );
       if (second !== undefined) attestations.push(second);
     }
   }

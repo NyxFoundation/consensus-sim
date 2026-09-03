@@ -181,8 +181,11 @@ export type Capability =
  * The capability `action` exercises for these attackers, or undefined when
  * the action lies outside the range: acting as a validator that is not an
  * attacker, proposing (parent / omission) in a slot an honest validator
- * proposes, naming a message other than ahead of its publication, or
- * delaying a message more than `maxDelay` slots past its publication.
+ * proposes, naming a message other than ahead of its publication (a block
+ * by index; a vote by its head unless it is the attacker's own, whose head
+ * the attacker designates — one half of its double vote for selective
+ * delivery), or delaying a message more than `maxDelay` slots past its
+ * publication.
  */
 export function capabilityOf(
   action: Action,
@@ -212,7 +215,7 @@ export function capabilityOf(
       if (
         sender === undefined ||
         slot === undefined ||
-        action.message.kind === "vote" ||
+        (action.message.kind === "vote" && !own(sender)) ||
         (action.kind === "delay" && action.untilSlot - slot > maxDelay)
       ) {
         return undefined;

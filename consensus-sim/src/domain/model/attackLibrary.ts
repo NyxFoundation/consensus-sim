@@ -16,12 +16,20 @@
 // as long as the essence is reproduced).
 
 import type { Action } from "./action";
-import type { Attack, ProposerSchedule, Strategy } from "./attack";
+import type { Attack, AttackerObservation, ProposerSchedule, Strategy } from "./attack";
 import type { AttackGoal } from "./attackGoal";
 import { leavesUnder, type BlockTree } from "./blockTree";
-import { validatorIndices } from "./config";
+import { validatorIndices, type SimulationConfig } from "./config";
 import { SLOTS_PER_EPOCH, slotsSinceEpochStart } from "./finality";
 import type { BlockIndex, SlotIndex, ValidatorIndex } from "./types";
+
+/** The validators that are not attackers, in index order. */
+function honestOf(
+  attackers: readonly ValidatorIndex[],
+  config: SimulationConfig,
+): ValidatorIndex[] {
+  return validatorIndices(config.validatorCount).filter((v) => !attackers.includes(v));
+}
 
 /** Emit `actions` once, at the very first boundary (slot 0), and nothing
  * afterwards — the shape of a fixed-action-list strategy. */
@@ -85,6 +93,243 @@ export const ATTACK_A02: Attack = {
   strategy: boostReversalA02,
 };
 
+// ── A03 balancing (バランシング) and A04 LMD balancing (LMD バランシング) ──
+// Both keep the honest validators' views split between two branches so that
+// no epoch checkpoint ever gathers a two-thirds link (活性停止). The attacker
+// (validator 1) withholds its slot-1 block B1 just long enough that the
+// honest proposer of slot 2 builds B2 beside it — the two branches A (under
+// B1) and B (under B2) — and splits the honest validators into two camps:
+// camp B (the slot-2 proposer and the honest validators after it) sees B2
+// first and votes B, camp A sees B1 first and votes A. From then on the
+// attacker's swing vote keeps each camp on its branch: a camp always sees
+// the attacker's latest vote endorsing its own branch (64 + 32 against 64),
+// because the vote for the other branch reaches it two slots late (d = 2),
+// by which time a newer swing vote for its own branch has arrived. The swing
+// votes endorse the branch roots B1 / B2, so their weight is read from a
+// chain state that includes no evidence (slashing never zeroes them).
+//
+// A03 casts one swing vote per slot, alternating between the branches.
+// Under phase0 the balance holds and finality stalls; under the merge preset
+// the proposer boost breaks it — an honest proposal on the other branch
+// arrives in its slot with 0.4 × 160 = 64 extra weight and the camp that sees
+// it flips (成功条件 19).
+//
+// A04 casts two votes per slot (二重投票), one per branch, delivered
+// selectively: each camp receives the half for its own branch at once and
+// the other half two slots late. Under LMD-GHOST a camp then always counts
+// the attacker's latest slot with only the half for its own branch visible,
+// so the balance holds — under merge + discount off, with the honest
+// proposals delayed one slot to the other camp and its own proposals to
+// everyone so that no proposal is ever boosted in a camp that did not build
+// it. Under the merge preset the equivocation discount fires as soon as a
+// camp holds both halves of one slot (two slots later), the attacker's
+// weight drops to 0 in that view, 64 against 64 ties to the smaller index
+// and both camps converge on A (成功条件 19).
+interface Balancing {
+  readonly attacker: ValidatorIndex;
+  /** The attacker's first proposal slot p: its block roots branch A. */
+  readonly p: SlotIndex;
+  /** The honest proposal slot q = p + 1: its block, built beside A's root
+   * while that root is withheld, roots branch B. */
+  readonly q: SlotIndex;
+  readonly campA: readonly ValidatorIndex[];
+  readonly campB: readonly ValidatorIndex[];
+  readonly rootA: BlockIndex | undefined;
+  readonly rootB: BlockIndex | undefined;
+}
+
+function balancingOf({
+  attackers,
+  view,
+  schedule,
+  config,
+}: AttackerObservation): Balancing | undefined {
+  const attacker = attackers[0];
+  if (attacker === undefined) return undefined;
+  const p = proposalSlotOf(schedule, [attacker], 1, config.validatorCount);
+  if (p === undefined) return undefined;
+  const q = p + 1;
+  const splitter = schedule.proposerOf(q);
+  const honest = honestOf(attackers, config);
+  const at = honest.indexOf(splitter);
+  if (at < 0 || honest.length < 2) return undefined;
+  const rotated = [...honest.slice(at), ...honest.slice(0, at)];
+  const half = Math.ceil(honest.length / 2);
+  return {
+    attacker,
+    p,
+    q,
+    campB: rotated.slice(0, half),
+    campA: rotated.slice(half),
+    rootA: blockBy(view.blockTree, attacker, p),
+    rootB: blockBy(view.blockTree, splitter, q),
+  };
+}
+
+/** The split: A's root is withheld from camp A until the honest proposer
+ * of q has built beside it, and from camp B one slot longer, so camp B votes
+ * B at slot q while camp A, seeing both, votes A; camp A's slot-q votes are
+ * held back from camp B two slots so that camp B keeps seeing B ahead. */
+function balancingSetup(b: Balancing): Action[] {
+  const root = { kind: "proposal", proposer: b.attacker, slot: b.p } as const;
+  return [
+    { kind: "delay", message: root, untilSlot: b.p + 1, observers: b.campA },
+    { kind: "delay", message: root, untilSlot: b.p + 2, observers: b.campB },
+    ...b.campA.map(
+      (validator): Action => ({
+        kind: "delay",
+        message: { kind: "attestation", validator, slot: b.q },
+        untilSlot: b.q + 2,
+        observers: b.campB,
+      }),
+    ),
+  ];
+}
+
+/** The branch the attacker's vote of slot `t` swings to: A while the split
+ * is being set up (slots p and q), then B and A in alternation. */
+function swingBranch(b: Balancing, t: SlotIndex): "A" | "B" | undefined {
+  if (t < b.p) return undefined;
+  if (t <= b.q) return "A";
+  return (t - b.p) % 2 === 0 ? "B" : "A";
+}
+
+/** How many slots a swing vote is held back from the other camp. */
+const SWING_DELAY = 2;
+
+export const balancingA03: Strategy = (observation) => {
+  const b = balancingOf(observation);
+  if (b === undefined) return [];
+  const t = observation.slot + 1;
+  const branch = swingBranch(b, t);
+  const actions: Action[] = observation.slot === 0 ? balancingSetup(b) : [];
+  if (branch === undefined) return actions;
+  const root = branch === "A" ? b.rootA : b.rootB;
+  if (root !== undefined) {
+    actions.push({ kind: "vote-target", slot: t, validator: b.attacker, head: root });
+  }
+  actions.push({
+    kind: "delay",
+    message: { kind: "attestation", validator: b.attacker, slot: t },
+    untilSlot: t + SWING_DELAY,
+    observers: branch === "A" ? b.campB : b.campA,
+  });
+  return actions;
+};
+
+/** Liveness stall threshold L: above the honest start-up stall (the first
+ * finalization comes at slot 9) so an honest run never trips it. */
+const STALL: AttackGoal = { kind: "liveness-stall", slots: 12 };
+
+export const ATTACK_A03: Attack = {
+  attackers: { kind: "count", atLeast: 1 },
+  goal: [STALL],
+  strategy: balancingA03,
+};
+
+export const lmdBalancingA04: Strategy = (observation) => {
+  const b = balancingOf(observation);
+  if (b === undefined) return [];
+  const t = observation.slot + 1;
+  const actions: Action[] = observation.slot === 0 ? balancingSetup(b) : [];
+  // No proposal is ever boosted in a camp that did not build it: honest
+  // proposals reach the other camp one slot late, the attacker's own reach
+  // everyone one slot late.
+  const proposer = observation.schedule.proposerOf(t);
+  if (proposer === b.attacker && t > b.p) {
+    actions.push({
+      kind: "delay",
+      message: { kind: "proposal", proposer, slot: t },
+      untilSlot: t + 1,
+    });
+  } else if (t >= b.q && (b.campA.includes(proposer) || b.campB.includes(proposer))) {
+    actions.push({
+      kind: "delay",
+      message: { kind: "proposal", proposer, slot: t },
+      untilSlot: t + 1,
+      observers: b.campA.includes(proposer) ? b.campB : b.campA,
+    });
+  }
+  const branch = swingBranch(b, t);
+  if (branch === undefined) return actions;
+  if (t <= b.q || b.rootA === undefined || b.rootB === undefined) {
+    // Only branch A exists yet: the single swing vote of A03.
+    if (b.rootA !== undefined) {
+      actions.push({ kind: "vote-target", slot: t, validator: b.attacker, head: b.rootA });
+    }
+    actions.push({
+      kind: "delay",
+      message: { kind: "attestation", validator: b.attacker, slot: t },
+      untilSlot: t + SWING_DELAY,
+      observers: b.campB,
+    });
+    return actions;
+  }
+  const half = (head: BlockIndex, observers: readonly ValidatorIndex[]): Action => ({
+    kind: "delay",
+    message: { kind: "vote", validator: b.attacker, slot: t, head },
+    untilSlot: t + SWING_DELAY,
+    observers,
+  });
+  actions.push(
+    { kind: "vote-target", slot: t, validator: b.attacker, head: b.rootA },
+    { kind: "double-vote", slot: t, validator: b.attacker, head: b.rootB },
+    half(b.rootA, b.campB),
+    half(b.rootB, b.campA),
+  );
+  return actions;
+};
+
+export const ATTACK_A04: Attack = {
+  attackers: { kind: "count", atLeast: 1 },
+  goal: [STALL],
+  strategy: lmdBalancingA04,
+};
+
+// ── A06 epoch-boundary finality delay (エポック境界 finality 遅延) ───────────
+// The attacker delays the first epoch-boundary proposal (slot 4, honest) to
+// half of the honest validators for d = 4 slots. The validators that receive
+// it in time — its proposer, the next slot's proposer and the attacker —
+// vote target B4; the others still see B3 as the epoch-1 checkpoint and
+// vote target B3, so neither target gathers a two-thirds link (target 分裂)
+// and epoch 1 is never justified. The two groups grow separate chains until
+// the block arrives at slot 8; the next boundary block then unites them, is
+// justified in epoch 2 and finalized in epoch 3 — at slot 13 instead of the
+// honest slot 9. The stall threshold sits one slot above the honest first
+// finalization, so the one-epoch delay is what the goal reads (活性停止 with
+// L = 10; the fallback checkpoint B3 only ever lacks votes, its own
+// finalization never comes into play). Premise merge.
+export const boundaryDelayA06: Strategy = ({ slot, attackers, schedule, config }, params) => {
+  if (slot !== 0) return [];
+  let boundary = SLOTS_PER_EPOCH;
+  for (let i = 0; i < config.validatorCount && attackers.includes(schedule.proposerOf(boundary)); i++) {
+    boundary += SLOTS_PER_EPOCH;
+  }
+  const proposer = schedule.proposerOf(boundary);
+  if (attackers.includes(proposer)) return [];
+  const seeing = [proposer, schedule.proposerOf(boundary + 1)];
+  const hidden = honestOf(attackers, config).filter((v) => !seeing.includes(v));
+  if (hidden.length === 0) return [];
+  return [
+    {
+      kind: "delay",
+      message: { kind: "proposal", proposer, slot: boundary },
+      untilSlot: boundary + params.maxDelay,
+      observers: hidden,
+    },
+  ];
+};
+
+/** One slot above the honest first finalization (slot 9): any delay of it
+ * is a stall. */
+const FINALITY_DELAY: AttackGoal = { kind: "liveness-stall", slots: 10 };
+
+export const ATTACK_A06: Attack = {
+  attackers: { kind: "count", atLeast: 1 },
+  goal: [FINALITY_DELAY],
+  strategy: boundaryDelayA06,
+};
+
 // ── A09 finality stall by ≥1/3 abstention (1/3 超の棄権) ───────────────────
 // The attackers (validators 2 and 3, half the stake) fall silent from slot 1
 // on. With only two validators voting, no source→target link ever reaches the
@@ -93,10 +338,6 @@ export const ATTACK_A02: Attack = {
 export const abstainStallA09: Strategy = once([
   { kind: "stop", fromSlot: 1, validators: [2, 3] },
 ]);
-
-/** Liveness stall threshold L: above the honest start-up stall (≤ 8 slots to
- * the first finalization) so an honest run never trips it. */
-const STALL: AttackGoal = { kind: "liveness-stall", slots: 12 };
 
 export const ATTACK_A09: Attack = {
   attackers: { kind: "stake-ratio", atLeast: 1 / 3 },
@@ -300,7 +541,7 @@ function tipUnder(tree: BlockTree, root: BlockIndex): BlockIndex {
 }
 
 export const leakAmplificationA14: Strategy = ({ slot, attackers, view, schedule, config }) => {
-  const honest = validatorIndices(config.validatorCount).filter((v) => !attackers.includes(v));
+  const honest = honestOf(attackers, config);
   const isolated = honest[0];
   const rest = honest.slice(1);
   if (isolated === undefined || rest.length === 0) return [];

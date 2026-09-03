@@ -192,25 +192,30 @@ export interface VoteOverride {
 
 /**
  * The second vote of a double vote (二重投票): same validator and slot as the
- * primary, but endorsing the primary head's parent — deterministic, and a
- * genuine equivocation whenever the head is not the anchor. Returns
- * undefined when no distinct alternative exists (head = anchor).
+ * primary, endorsing `head` when it is designated, held by the view and
+ * differs from the primary head, otherwise the primary head's parent —
+ * deterministic, and a genuine equivocation whenever the two heads differ.
+ * The target follows the FFG rule on the alternative head's chain; the
+ * source stays the primary's (the justified checkpoint the validator votes
+ * from). Returns undefined when no distinct alternative exists (primary
+ * head = anchor and nothing designated).
  */
 export function buildEquivocalAttestation(
   tree: BlockTree,
   primary: Vote,
+  head?: BlockIndex,
 ): Vote | undefined {
   const headBlock = tree.blocks.get(primary.head);
-  if (headBlock === undefined || headBlock.index === ANCHOR_BLOCK_INDEX) {
-    return undefined;
-  }
-  const altHead = headBlock.parent;
-  const target = checkpointFor(tree, altHead, epochOf(primary.slot));
+  if (headBlock === undefined) return undefined;
+  const designated =
+    head !== undefined && head !== primary.head && tree.blocks.has(head) ? head : undefined;
+  if (designated === undefined && headBlock.index === ANCHOR_BLOCK_INDEX) return undefined;
+  const altHead = designated ?? headBlock.parent;
   return {
     validator: primary.validator,
     slot: primary.slot,
     head: altHead,
     source: primary.source,
-    target,
+    target: checkpointFor(tree, altHead, epochOf(primary.slot)),
   };
 }

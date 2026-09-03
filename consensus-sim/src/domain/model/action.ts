@@ -44,12 +44,15 @@ export interface DoubleProposeAction {
   readonly validator: ValidatorIndex;
 }
 
-/** At `slot`, the validator casts a second conflicting vote (its head's
- * parent) alongside its honest one. */
+/** At `slot`, the validator casts a second conflicting vote alongside its
+ * first one: for `head` when designated (a block of its view other than the
+ * first vote's head — an attacker's selective delivery names it), otherwise
+ * for the first head's parent. */
 export interface DoubleVoteAction {
   readonly kind: "double-vote";
   readonly slot: SlotIndex;
   readonly validator: ValidatorIndex;
+  readonly head?: BlockIndex;
 }
 
 /** The named message reaches the targeted observers only from `untilSlot`

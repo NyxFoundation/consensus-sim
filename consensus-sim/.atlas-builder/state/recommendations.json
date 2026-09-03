@@ -113,7 +113,7 @@
     {
       "id": "R-003",
       "type": "Non-blocking Recommendation",
-      "status": "proposed",
+      "status": "resolved",
       "title": "fork choice の投票重みは「その投票の head のチェーン状態」のステークで計算する(必須対応事項 25 の読み)",
       "detail": "必須対応事項 25「fork choice の重みはそのバリデータの head のチェーン状態のステークで」は、(A)『投票するバリデータの head(= その投票の head)のチェーン状態』と (B)『fork choice を実行する観測者自身の head のチェーン状態』の 2 通りに読める。(B) は head が fork choice の出力なので循環し、T-031 では暫定的に『起点 justified チェックポイントのチェーン状態のステーク』(Ethereum の justified state balances 相当)を採っていた(等ステーク下では差が出ない)。T-032 で罰則が入り差が生じるため、(A) を採用した: 投票の重み = ChainState(vote.head).stakes[voter]。根拠: 循環せず決定的で、成功条件 22「証拠を取り込んだブロック以降の枝の…以後その枝の fork choice 重み・finality 閾値から除外」が字義どおり観測できる(証拠を取り込んだ枝を head とする票だけが 0 になり、取り込んでいない枝の票は従来どおり)。T-031 の起点方式では、justified が証拠ブロックを越えるまで fork choice 重みに反映されず、成功条件 22 の『以後』が数エポック遅れる。Ethereum 実装との差: Ethereum は justified state の balances を全票に一律適用し、スラッシング済みの即時除外は equivocating_indices(= 必須 27 のエクイボケーション割引、T-033)が担う。本読みが意図と異なる場合(起点方式または別の定義を望む場合)は、ESSENCE の必須 25 の文言を明確化のうえ resume で指示してほしい。変更は resolveView の weightOf 1 関数に局所化してある。",
       "requires_human_approval": false,
@@ -121,12 +121,15 @@
         "T-032"
       ],
       "raised_by": "atlas-builder",
-      "created_at": "2026-09-03T03:55:00+09:00"
+      "created_at": "2026-09-03T03:55:00+09:00",
+      "resolved_at": "2026-09-03T09:05:00+09:00",
+      "resolved_by": "atlas-builder",
+      "resolution": "人間が 2026-09-03 08:37 の resume(R-006 解決)で「投票重みは投票 head のチェーン状態」の裁量簡約を現状のまま了承し、ループ側で閉じるよう指示したため閉じる。総点検 T-044 の点検項目として記録済み。"
     },
     {
       "id": "R-004",
       "type": "Non-blocking Recommendation",
-      "status": "proposed",
+      "status": "resolved",
       "title": "justified の実現時期(ブロック毎の即時集計)と切替規則の純関数化に伴う簡約の確認",
       "detail": "T-033 の緩和策は次の 2 つの裁量簡約の上に実装した。判断が意図と異なる場合は resume で指示してほしい(いずれも思想節 (a) の骨格意味論に触れるため自律では変えない)。【1】本モデルの ChainState.justified は T-029 の裁量で各ブロックの取り込み後に即時再評価される(エポック末を待たない)ため、Essence の『unrealized justification(エポック末を待たずに集計した justified)』は枝先端の ChainState.justified と一致し、`unrealized` 切替は『葉の ChainState.justified が起点より古い(slot が小さい)枝を fork choice の候補から除外する』として実装した。Ethereum の実仕様のように realized justification をエポック遷移時にのみ確定させる(B4 の justified が s5 でなく s8、finalized が s9 でなく s12 になる)には ChainState の finality 評価時期を変える必要があり、これは J/F バッジ・状態表・既存テストのタイムラインを一律に約 3 スロット遅らせる骨格変更となる。現状(即時集計)は『取り込み層で決まる』という Essence の記述と矛盾せず、攻撃ライブラリ(A05 バウンシング等)は取り込みの遅延・省略で justified の出現時期を操作できるため、即時集計のまま進める。【2】`window` 切替は View が起点の履歴を持てないため純関数化し、『ブロックの slot を到着時刻の代理』として、窓(各エポック先頭 1 スロット = Ethereum の SAFE_SLOTS_TO_UPDATE_JUSTIFIED の比率)の閉じる前のブロックから得た最高 justified を窓時点の起点とし、それ以外のスロットではその子孫の justified にのみ切り替える。したがって『投票を保留し後のブロックで取り込ませて justified を途中で出現させる』戦略は window で緩和されるが、『justified を含むブロック自体を遅延配送で途中に出す』戦略は(到着時刻を View が持たないので)ブロックの slot 時点で到着した扱いとなり緩和されない。到着時刻に基づく忠実な window にするには View 型に受信時刻を加える必要がある(参照型の変更 = 人間判断)。攻撃ライブラリの A05 は前者(投票保留)の形で簡約する予定。",
       "requires_human_approval": false,
@@ -134,12 +137,15 @@
         "T-033"
       ],
       "raised_by": "atlas-builder",
-      "created_at": "2026-09-03T04:06:00+09:00"
+      "created_at": "2026-09-03T04:06:00+09:00",
+      "resolved_at": "2026-09-03T09:05:00+09:00",
+      "resolved_by": "atlas-builder",
+      "resolution": "人間が 2026-09-03 08:37 の resume(R-006 解決)で「justified 即時集計・window は block slot を到着時刻の代理」の裁量簡約を現状のまま了承し、ループ側で閉じるよう指示したため閉じる。総点検 T-044 の点検項目として記録済み。"
     },
     {
       "id": "R-005",
       "type": "Non-blocking Recommendation",
-      "status": "proposed",
+      "status": "resolved",
       "title": "空のエポック境界スロットにフォールバックしたチェックポイントは finalize されない(隣接判定がブロック slot のエポックを使う簡約)",
       "detail": "T-036 のテスト設計中に発見した現骨格の簡約。用語節どおりチェックポイントは『エポック先頭スロット以前の直近のブロック』にフォールバックするが、finality の隣接判定(chainState.deriveBranch: targetEpoch === sourceEpoch + 1)は epochOf(block.slot) を使う。例: s4 の提案が錨上(フォーク作成)で B1 枝の境界スロットが空だと、エポック 1 のチェックポイントは B1(slot 1、エポック 0)になり、投票 B0→B1 で B1 は justified されるが、次の B1→B8(エポック 2)は『0→2』で隣接とみなされず B1 は finalize されない(B8→B12 で B8 が finalize される 1 エポック遅れの回復)。Ethereum ではチェックポイントは (epoch, root) 対で、同一 root が連続エポックのチェックポイントを務め、隣接はチェックポイントのエポックで判定するため B1 は finalize される。Vote 型は source/target を BlockIndex で持つ(参照型)ため、チェックポイントのエポックは投票の slot から復元できる(target のエポック = epochOf(vote.slot)、source のエポック = その source を justified にしたリンクの target エポック)。提案: リンクを (source, target, targetEpoch) で持ち、justified チェックポイントにエポックを添えて隣接を『チェックポイントのエポック』で判定する — View/Vote/Block 型は不変更だが finality の意味論(思想節 (a) の骨格)に触れるため自律では変えない。影響: 境界スロットが空になる状況(境界スロットの提案者停止・オフライン、境界での提案遅延、フォーク作成)で finality が 1 エポック遅れる。A06(エポック境界 finality 遅延)は『提案遅延で target 分裂』が本質なので、この簡約が判定に混ざらないよう T-040 で設計する。総点検 T-044 の点検項目にも載せる。",
       "requires_human_approval": false,
@@ -147,7 +153,10 @@
         "T-036"
       ],
       "raised_by": "atlas-builder",
-      "created_at": "2026-09-03T04:31:00+09:00"
+      "created_at": "2026-09-03T04:31:00+09:00",
+      "resolved_at": "2026-09-03T09:05:00+09:00",
+      "resolved_by": "atlas-builder",
+      "resolution": "人間が 2026-09-03 08:37 の resume(R-006 解決)で「空境界チェックポイントは finalize されず 1 エポック遅れ」の裁量簡約を現状のまま了承し、ループ側で閉じるよう指示したため閉じる。総点検 T-044 の点検項目として記録済み。"
     },
     {
       "id": "R-006",
@@ -171,7 +180,7 @@
     {
       "id": "R-007",
       "type": "Non-blocking Recommendation",
-      "status": "proposed",
+      "status": "resolved",
       "title": "A10/A14 の二重投票は『同一エポックの FFG target 投票をスロットを分けて 2 枝へ』の簡約 — 本モデルの証拠(同一スロットの相反)には当たらずスラッシングされない",
       "detail": "必須 23 の A10(34% 二重投票による二重 finality)と A14 第 2 段は、Casper FFG の『同一 target エポックで異なる target を持つ 2 投票』(FFG 二重投票、Ethereum ではスラッシング対象)で 2 枝をともに 2/3 に届かせる攻撃だが、本モデルの Equivocation は用語節どおり『同一スロットの相反 2 メッセージ』のみで、二重投票介入の 2 票目は head の親(同一枝側)に固定される。そのため (1) 同一スロットの二重投票では相反 target を 2 枝へ投じられず、(2) 投じられたとしても証拠取り込み即時スラッシング(必須 26)が両枝の finalize を打ち消す(L-20260903T060936)。実装は攻撃者の同一エポック target 投票を別スロットに分けて 2 枝へ投じる形(s4→B4, s5→B3 …)で本質(≥1/3 の相反 FFG 票で二重 finality)を再現し、スラッシングは発火しない。Ethereum でもスラッシングは二重 finality を『防止』せず事後に罰するだけなので、成功条件 19 の未達対象に A10 が無いことと整合する。判断を仰ぎたい点: FFG レベルの二重投票(同一 target エポック・異なる target)を証拠に加えるか(ビュー/証拠の意味論変更 = 思想 (a) の人間判断。加える場合、A10/A14 は証拠を取り込む枝でステークが 0 になり、必須 26 の即時スラッシングと両立させるには『証拠取り込み後も既に justify/finalize 済みは巻き戻らない』という現行の単調性に依存する形になる)。現状は簡約のまま進め、総点検 T-044 の点検項目に載せる。",
       "requires_human_approval": false,
@@ -179,7 +188,26 @@
         "T-046"
       ],
       "raised_by": "atlas-builder",
-      "created_at": "2026-09-03T06:35:00+09:00"
+      "created_at": "2026-09-03T06:35:00+09:00",
+      "resolved_at": "2026-09-03T09:05:00+09:00",
+      "resolved_by": "atlas-builder",
+      "resolution": "人間が 2026-09-03 08:37 の resume(R-006 解決)で「A10/A14 のスロット分割 FFG 二重投票は証拠に当たらずスラッシング非発火」の裁量簡約を現状のまま了承し、ループ側で閉じるよう指示したため閉じる。総点検 T-044 の点検項目として記録済み。"
+    },
+    {
+      "id": "R-008",
+      "type": "Human-input Recommendation",
+      "status": "proposed",
+      "title": "A05 バウンシングは『全員が毎スロット投票する』骨格では跳ねが持続せず成立しない — A05 単独の扱い(A': エポック毎 1 回投票の committee 割当を追加 / B: 要件緩和 / C: 非対応昇格)の判断が必要",
+      "detail": "R-006 選択肢 D の再挑戦で A03/A04/A06 は現行意味論のまま成立した(T-045 done)。A05 だけが次の壁に当たる。\n\n跳ねの本質: 攻撃者が保留した票で古いエポックの justified チェックポイントを競合枝に遅れて出現させ、正直者の fork choice の起点(root)がその枝へ移る。Ethereum ではそのエポックに既に投票済みの正直者は投じ直せないので、移った先の target は 2/3 に届かず(隣接 justify = finalize が起きず)、次のエポックでまた反対枝へ跳ねる。\n\n本モデルで確定した壁(A03 の割れの上で検討): (1) root が競合枝へ移ると fork choice は root の子孫しか選べないので、移った陣営はもう一方の陣営と同じ枝に乗る。(2) 全員が毎スロット投票するため、乗った直後のスロットから両陣営が同じ target に、source = その枝の justified(隣接)で投票する。正直 2 陣営の合計が 2/3 以上(攻撃者 < 1/3)なら即 justify → finalize で跳ねは 1 回で終わる。(3) 合計を 2/3 未満にするには攻撃者 ≥ 1/3 が要り、それは棄権(A09)と同じ機構で、しかも見捨てた枝に正直票が入らないので跳ね戻れない。(4) 移る陣営から justify ブロックを隠す(d=4)と跳ね自体が起きない(R-004 のとおり、ブロック遅延型は window でも緩和されない)。したがって『跳ねが持続し、window / unrealized で緩和される』A05 の成立/未達の作り分けは、投票頻度(エポックに 1 回)なしには表現できない。committee『全員』『サイズ c のシード割当』のどちらも毎スロット投票である。\n\n選択肢(A05 のみ。他 11 攻撃は不変): 【A'】committee 割当方式に第 3 の方式『エポック分割(各バリデータはエポック内でシードから定まる 1 スロットにだけ attest する。Ethereum の committee 構造そのもの)』を追加し、A05 の前提上書きとして宣言する。骨格(投票頻度)への追加なので思想 (a) の人間承認事項。見込み: 跳ねと window / unrealized による緩和の両方を再現できる(正直基準の finality 時期も変わるため A05 のテストはこの方式で組む)。ProtocolParams の committee 型が広がる(型カタログ・UI・codec に追随)。【B】必須 23・成功条件 19 の A05 要件を、本モデルで表現できる 1 回限りの簡約(保留票による遅い justify で一方の陣営を1 度だけ引き寄せ、finality を 1 エポック遅らせる。切替 window の効果は引き寄せの時期の差としてのみ観測)に緩和する(ESSENCE 改訂 = 人間)。【C】A05 を『より具体的な抽象レベルの追加(エポック毎 1 回投票のcommittee 構造)』として非対応事項へ昇格し、ライブラリを 11 件に確定する(ESSENCE 改訂 = 人間)。\n\n推奨: 跳ねと緩和の両面を観測したい(モチベーション節)なら A'、今回スコープを閉じることを優先するなら C。この判断が止めているのは T-047 だけだが、Human-input Recommendation はループの停止ゲートなので、判断まで攻撃 UI(T-042/T-043)も待つ。判断後は選択に応じて T-047 を再設計(A' なら committee 割当方式の追加を前段の Todo にする)または閉じ、T-042/T-043 → T-044(総点検)へ進む。",
+      "requires_human_approval": true,
+      "reason": "A05 の扱い(A': エポック分割 committee の追加 = 骨格追加 / B: 成功条件 19・必須 23 の A05 要件緩和 = ESSENCE / C: 非対応昇格 = ESSENCE)は人間判断であり、T-047 はそれまで blocked。ライブラリの最終構成が決まるまで停止する。",
+      "source": [
+        "T-047",
+        "T-045"
+      ],
+      "raised_by": "atlas-builder",
+      "created_at": "2026-09-03T09:05:00+09:00",
+      "agent_action": "stop_until_human_review"
     }
   ]
 }

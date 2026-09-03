@@ -29,6 +29,7 @@ const ALL_KINDS: Intervention[] = [
   { kind: "propose-parent", slot: 5, parent: 1 },
   { kind: "double-propose", slot: 5, validator: 1 },
   { kind: "double-vote", slot: 6, validator: 3 },
+  { kind: "double-vote", slot: 9, validator: 0, head: 1 },
   { kind: "delay", message: { kind: "block", block: 2 }, untilSlot: 4 },
   {
     kind: "drop",
@@ -164,6 +165,7 @@ describe("parse rejection", () => {
   it.each([
     ["unknown kind", { kind: "bribe", fromSlot: 1 }],
     ["validator out of range", { kind: "double-vote", slot: 1, validator: 4 }],
+    ["negative double-vote head", { kind: "double-vote", slot: 1, validator: 0, head: -1 }],
     ["negative validator", { kind: "stop", fromSlot: 1, validators: [-1] }],
     ["empty stop validators", { kind: "stop", fromSlot: 1, validators: [] }],
     ["toSlot before fromSlot", { kind: "stop", fromSlot: 5, toSlot: 2, validators: [0] }],

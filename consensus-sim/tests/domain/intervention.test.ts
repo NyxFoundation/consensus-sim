@@ -244,6 +244,25 @@ describe("equivocation interventions (二重提案・二重投票)", () => {
     expect(resolved).toBeDefined();
   });
 
+  it("double vote with a designated head casts the second vote for that block", () => {
+    // B3 is built beside B2 (both on B1); at slot 4 the honest head is on
+    // B2's chain, and the second vote is steered to B3 instead of the parent.
+    const s = scenario([
+      { kind: "propose-parent", slot: 3, parent: 1 },
+      { kind: "double-vote", slot: 4, validator: 1, head: 3 },
+      { kind: "double-vote", slot: 4, validator: 2, head: 99 },
+    ]);
+    const state = statesAt(s, 4)[4];
+    if (!state) throw new Error("missing state");
+    const at4 = (v: number) => state.votes.filter((x) => x.validator === v && x.slot === 4);
+    const [primary, second] = at4(1);
+    expect(primary?.head).not.toBe(3);
+    expect(second?.head).toBe(3);
+    // A designated block the view does not hold falls back to the parent.
+    const [p2, s2] = at4(2);
+    expect(s2?.head).toBe(state.tree.blocks.get(p2!.head)!.parent);
+  });
+
   it("double vote at slot 1 (head = only child of anchor) still equivocates or degrades to one vote", () => {
     const s = scenario([{ kind: "double-vote", slot: 1, validator: 2 }]);
     const state = statesAt(s, 1)[1];

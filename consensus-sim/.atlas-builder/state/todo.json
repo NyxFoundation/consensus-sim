@@ -8,9 +8,7 @@
     "avoid_mixing_high_risk_items": true,
     "avoid_mixing_executors": true
   },
-  "active_batch": [
-    "T-045"
-  ],
+  "active_batch": [],
   "items": [
     {
       "id": "T-001",
@@ -1551,8 +1549,8 @@
     },
     {
       "id": "T-045",
-      "title": "攻撃ライブラリ(活性停止・バランシング系 4 件): A03 バランシング(前提 phase0)・A04 LMD バランシング(前提 merge + 割引 off)・A05 バウンシング(前提 merge + 切替 off)・A06 エポック境界 finality 遅延(前提 merge) の定義と、既定構成で達成・A03/A04/A05 は上書きを外した merge(A05 は current も)で未達 のテスト",
-      "status": "blocked",
+      "title": "攻撃ライブラリ(活性停止・バランシング系 3 件): A03 バランシング(前提 phase0)・A04 LMD バランシング(前提 merge + 割引 off)・A06 エポック境界 finality 遅延(前提 merge)の定義と、既定構成で達成・A03/A04 は上書きを外した merge で未達 のテスト",
+      "status": "done",
       "priority": "must",
       "spec": [
         "S-043",
@@ -1565,9 +1563,57 @@
       "batch_group": "e3-library",
       "context_cost": 5,
       "risk_level": "normal",
-      "notes": "遂行順序 6(T-040 から分離した活性停止系)。各攻撃は本質(正直票の割れの維持 / 競合 justified 間の跳ね / 提案遅延による target 分裂)が再現できれば簡約版でよい。表現不能と判明したら自律で読み替えず Human-input Recommendation で人間に戻す(ESSENCE 思想)。着手方針: A05 バウンシング = R-004 記録どおり投票の保留と後出し取り込み(omit-inclusion + 遅延)で起点 justified を枝間で跳ねさせ、切替 off で成立・window/unrealized(merge/current)で緩和 → 未達(切替依存)。A06 = R-005 記録どおり境界ブロックの遅延/分断で target を分裂させ finalized を L スロット停滞(空境界 finalize 遅れの簡約と混ざらないよう境界ブロックは存在させ配送だけ操作)。A03/A04 = 割引依存バランシング(R-006): 本モデルの割引は『View が相反 2 票を保持した瞬間に発火』し、バランシングは選択配送で各正直者が片側だけを見る状態を要するため両立しにくく、スロット内順序独立の設計(決定性)上 LMD の到着順依存も表現できない。まず A05/A06 を実装し、A03/A04 は割引を効かせる忠実な機構(または簡約の妥当性)を設計 → 詰まれば R-006 を Blocking に昇格して人間判断を仰ぐ。全 12 攻撃のうち A01/A02(T-040 済)、A07/A09/A10/A11/A12/A14(T-041)を除く 4 件。",
-      "blocked_reason": "A03/A04/A05/A06 の 4 攻撃はいずれも『正直票の均等分割 / justified の枝間跳ね』を持続させて初めて 活性停止に到達するが、本シミュレータの収束機構(proposer boost・スロット内順序独立・即時 justification・View 局所発火のエクイボケーション割引)がそれを阻み、忠実な機構では既定実行構成で攻撃目標(活性停止)に到達しない。probe で確定(R-006 に記録): (1) A03/A04 バランシングを partition で作ると phase0 でも merge でも同じく finality 停止し、割引が崩さない → 成功条件 19『A03/A04/A05 は上書きを外した merge で未達』が作れない。(2) A06 の境界限定・有界(d≤2)提案遅延は 1 エポックの finality 遅延にとどまり L=12 停止に到達しない(境界ブロックを恒久 drop しても boost で再収束)。持続停止は永続 partition(= 均等分割の維持)でのみ生じるが、これは A06 の『提案遅延で target 分裂』の読み替えであり ESSENCE 思想により自律で行わない。(3) A05 バウンシングは競合する 2 つの justified チェックポイントを要し、それには正直票を 2 枝へ割り続ける(バランシング)前提が必要で同じ壁。緩和策(割引・切替・boost)の忠実度と該当攻撃の成立/未達要件をどう扱うかは ESSENCE / 骨格意味論の人間判断 → R-006(Human-input Recommendation へ昇格)。",
-      "blocked_by": "R-006"
+      "notes": "遂行順序 6。R-006 の人間判断(選択肢 D: ESSENCE も骨格意味論も変えず現行意味論で再挑戦)に従い再設計。A05 は T-047 に分離(R-008)。【A03 バランシング】5 体・攻撃者 V1・正直 2+2 陣営({0,4}=枝 A / {2,3}=枝 B)。攻撃者は s1 の自ブロック B1 を陣営 A へ s2 まで・陣営 B へ s3 まで保留し、正直 s2 提案者(V2、陣営 B)に錨上へ B2 を作らせて 2 枝を作る。陣営 A の s2 票は陣営 B へ 2 スロット遅延。以後、毎スロット枝の根 B1 / B2 へ交互に投票(swing 票)し、その票を反対陣営へ 2 スロット遅らせる(d=2)ので、各陣営は常に自陣営の枝を支持する攻撃者の最新票を見る(96 vs 64)。根へ投票するのは、重み = 投票 head のチェーン状態のステーク(R-003)なので証拠を含まないブロックを head にしてスラッシングの影響を受けないため。phase0 で s16 まで割れ維持・justified なし・活性停止 @ s12(L=12)。merge では s2 の B2 提案が boost 付きで陣営 A に届き即収束、fin=4 @ s9 で未達。【A04 LMD バランシング】同じ割れの上で、s3 以降毎スロット B1 / B2 へ同時二重投票(2 票目 head 指定)し、各陣営に自陣営側の半分を即時・反対側を 2 スロット遅れで選択配送(自票の vote 参照による保留)。LMD は最新スロットの票のみ数え、その時点で見えるのは自陣営側の半分だけなので割れが維持される。boost 無効化: 正直提案は反対陣営へ、自提案は全員へ 1 スロット遅らせ、提案者の陣営以外では boost が付かないようにする。merge+割引 off で活性停止 @ s12。merge 既定(割引 on)では相反 2 票が揃う s5 で割引が発火し攻撃者の重みが 0 →64 vs 64 の tie が index 最小の B1 側へ倒れて両陣営が枝 A に収束、fin=4 @ s10 で未達。【A06 境界 finality 遅延】境界ブロック B4(V4、正直)を、B4 の提案者・次スロット提案者(V0)・攻撃者以外の正直者 {2,3} へ d=4(s8 まで)遅延。s4〜s7 の target が B4({0,1,4}=96)と B3({2,3}=64)に割れてエポック 1 はどちらも 2/3 に届かず justify されない。{2,3} は B3 上に B7/B8 を伸ばし、s8 に合流後は B8 が boost で全員の head になり、エポック 2 で B8 justify・エポック 3 で finalize(最初の finalized が正直基準 s9 → s13)。L=10(正直基準の 1 上)で活性停止 @ s10。R-005 の空境界簡約は判定に混ざらない(B3 は票が足りず justify されないだけで、その finalize 可否は関与しない)。【付随する語彙の拡張(意味論変更なし)】DoubleVoteAction に任意の head(2 票目の投票先。未指定なら従来どおりhead の親)を追加し、攻撃者は自分の vote 参照(validator/slot/head)を保留・選択配送に使えるようにした(capabilityOf: 自票の vote 参照は withhold。正直者の vote 参照は従来どおり範囲外)。UI の手動二重投票は不変。【A05】毎スロット投票の骨格では、root の切替で陣営が同じ枝に乗った瞬間に隣接 justify → finalize が起きる(または攻撃者 ≥ 1/3 の棄権に帰着)ため跳ねが持続しない → T-047 / R-008 で個別再提案。",
+      "evidence": [
+        {
+          "type": "diff",
+          "summary": "src/domain/model/attackLibrary.ts: balancingOf / balancingSetup / swingBranch (shared balancing machinery), balancingA03 / ATTACK_A03, lmdBalancingA04 / ATTACK_A04 (double vote per slot with a designated second head and per-half selective delays, proposal delays that neutralize the boost), boundaryDelayA06 / ATTACK_A06 (FINALITY_DELAY L=10); honestOf helper (A14 reuses it). src/domain/sim/attackLibrary.ts: A03 / A04 / A06 rows (premises phase0 / merge+discount off / merge, 5 validators, attacker [1], maxDelay 2 / 2 / 4, throughSlot 16). src/domain/model/action.ts: DoubleVoteAction.head (optional second-vote head). src/domain/model/protocol.ts: buildEquivocalAttestation takes the designated head (falls back to the parent). src/domain/sim/simulation.ts + intervention.ts: doubleVote directive is a map validator → designated head. src/domain/model/attack.ts: capabilityOf lets an attacker name its own vote by (validator, slot, head) for withholding. src/domain/sim/scenarioCodec.ts: parses double-vote.head. src/ui/InterventionPanel.tsx: list label shows the designated second head. Tests: tests/domain/attackLibrary.test.ts (merge-miss loop A01/A03/A04/A07, camps-on-two-branches with nothing justified, A04 broken by the discount alone, A06 target split + first finalization 13 vs honest 9), attack.test.ts (own vote-ref capability), intervention.test.ts (designated second head, fallback), scenarioCodec.test.ts (round-trip + negative head rejection)."
+        },
+        {
+          "type": "command",
+          "command": "npx vitest run tests/domain/probe.test.ts --silent=false --disableConsoleIntercept",
+          "exit_code": 0,
+          "summary": "一時 probe(撤去済)で推移を確認: A03 phase0 = 陣営 {0,4} が B1 枝・{2,3} が B2 枝に s16 まで留まり jus=0/fin=0、活性停止 @ s12、生成 35 行動・破棄 0; A03 merge = s2 で全員 B2 へ収束、fin=4 @ s9、未達。A04 merge+割引 off = 割れ維持、活性停止 @ s12、生成 78・破棄 0; A04 merge 既定 = s5 で収束、fin=4 @ s10、未達。A06 merge = s4 の target が B4/B3 に分裂、{2,3} が B3 上に B7/B8、s8 合流、jus=8 @ s9、fin=8 @ s13、活性停止 @ s10; 正直 5 体 merge の最初の finalized は s9(stall 最大 8 < 10)。"
+        },
+        {
+          "type": "command",
+          "command": "npx vitest run",
+          "exit_code": 0,
+          "summary": "受け入れ確認(成功条件 19・20): 28 files / 338 tests(332 → 338)。ATTACK_LIBRARY = A01/A02/A03/A04/A06/A07/A09/A10/A11/A12/A14 の 11 件がそれぞれの既定実行構成で攻撃目標が「達成」と判定されるスロットに到達(A03 活性停止 s12・A04 s12・A06 s10); Ex-Ante(A01)・バランシング(A03)・LMD バランシング(A04)・アバランチ(A07)は攻撃が宣言する上書きを外した merge プリセット(既定値のまま)でproposer boost・緩和策が効いて攻撃目標が未達のまま推移; A04 は割引 on のみで崩れる; A06 は s4 のtarget が {3,4} に割れ最初の finalized が s13(正直 s9); 二重投票の 2 票目 head 指定と未知 head の親フォールバック; 自票 vote 参照の保留は withhold、正直票の vote 参照は範囲外; codec 往復で head 保持・負の head 拒否; 11 攻撃の codec 往復で同一 generated・同一 goalAchievedAt(成功条件 20)。"
+        },
+        {
+          "type": "command",
+          "command": "npm run typecheck",
+          "exit_code": 0,
+          "summary": "tsc --noEmit exits 0."
+        },
+        {
+          "type": "command",
+          "command": "npm run build",
+          "exit_code": 0,
+          "summary": "vite build emits the static dist/ bundle (390.0 kB js) with exit 0."
+        }
+      ]
+    },
+    {
+      "id": "T-047",
+      "title": "攻撃ライブラリ(A05 バウンシング: 競合 justified 間の跳ね; 前提 merge + 切替 off; 活性停止)の定義と、既定構成で達成・上書きを外した merge / current で未達 のテスト",
+      "status": "blocked",
+      "priority": "must",
+      "spec": [
+        "S-043",
+        "S-041",
+        "S-039"
+      ],
+      "executor": {
+        "mode": "atlas-builder"
+      },
+      "batch_group": "e3-library",
+      "context_cost": 4,
+      "risk_level": "normal",
+      "notes": "T-045 から分離(R-006 選択肢 D の再挑戦で A03/A04/A06 は成立、A05 のみ不成立)。跳ねの本質 = 攻撃者が保留票で justified チェックポイントを遅れて出現させ、正直者の fork choice の起点(root)が競合枝の間を跳ね続けて、どのエポックも隣接 justify(= finalize)に至らないこと。本モデルでの壁は R-008 参照。",
+      "blocked_reason": "本モデルは全バリデータが毎スロット投票するため、root の切替(跳ね)で一方の陣営がもう一方の枝へ移った瞬間に両陣営が同じ枝で同じ target(source = その枝の justified、隣接)に投票し、正直 2 陣営の合計が 2/3 以上なら justify → finalize が起きて跳ねが 1 回で終わる。合計が 2/3 未満になるのは攻撃者 ≥ 1/3 のときだけで、その場合は棄権(A09)に帰着し、見捨てた枝には正直票が入らないので跳ね戻れない。Ethereum の跳ねは『各バリデータはエポックに 1 回しか attest しない(跳ね前に投じた票は投じ直せない)』ことに依存しており、この投票頻度は committee=全員 / サイズ c のシード割当のいずれでも表現できない → R-008 で人間判断。",
+      "blocked_by": "R-008"
     },
     {
       "id": "T-046",
@@ -1671,7 +1717,7 @@
       "batch_group": "e3-final",
       "context_cost": 5,
       "risk_level": "normal",
-      "notes": "遂行順序 8。最後の必須。他のすべての must Todo 完了後に実施する。"
+      "notes": "遂行順序 8。最後の必須。他のすべての must Todo 完了後に実施する。点検項目に次を含める(2026-09-03 resume で人間が現状のまま了承した裁量簡約 4 件と、このサイクルの語彙拡張): (1) R-003 fork choice の投票重みは投票 head のチェーン状態のステーク; (2) R-004 justified の即時集計(エポック末を待たない)と、window 切替でブロックの slot を到着時刻の代理にする純関数化(遅延配送された justify ブロックは緩和されない); (3) R-005 空のエポック境界スロットにフォールバックしたチェックポイントは finalize されず 1 エポック遅れる(隣接判定がブロック slot のエポックを使う); (4) R-007 A10/A14 のスロット分割 FFG 二重投票は本モデルの証拠(同一スロットの相反)に当たらずスラッシングされない; (5) T-045 の拡張: DoubleVoteAction.head(2 票目の投票先。未指定なら親)と、攻撃者が自票を vote 参照(validator/slot/head)で保留・選択配送できる capability 判定(正直票の vote 参照は範囲外のまま) — 意味論変更でないこと、UI の手動二重投票が不変であること、型カタログ・codec・介入一覧の表示が追随していることを点検する; (6) A03/A04 の swing 票が枝の根(B1/B2)を head にする理由(証拠を含まないチェーン状態から重みを読む)と、A06 の L=10 が正直基準(s9)の 1 上であることの妥当性。"
     }
   ]
 }

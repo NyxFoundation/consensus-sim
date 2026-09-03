@@ -193,12 +193,22 @@ describe("the capability range (攻撃者の能力範囲, 必須 18)", () => {
     expect(
       cap({ kind: "delay", message: { kind: "proposal", proposer: 1, slot: 5 }, untilSlot: 8 }),
     ).toBeUndefined();
-    // Messages are named ahead of publication; an exact reference names a
-    // message already published.
+    // Messages are named ahead of publication; a block index names a block
+    // already published, and an honest vote's head is not the attacker's to
+    // know in advance.
     expect(cap({ kind: "delay", message: { kind: "block", block: 3 }, untilSlot: 6 })).toBeUndefined();
     expect(
-      cap({ kind: "drop", message: { kind: "vote", validator: 1, slot: 5, head: 4 } }),
+      cap({ kind: "drop", message: { kind: "vote", validator: 0, slot: 5, head: 4 } }),
     ).toBeUndefined();
+  });
+
+  it("lets the attacker name one half of its own double vote by its designated head (selective delivery)", () => {
+    expect(
+      cap({ kind: "delay", message: { kind: "vote", validator: 1, slot: 5, head: 4 }, untilSlot: 7 }),
+    ).toBe("withhold");
+    expect(
+      cap({ kind: "drop", message: { kind: "vote", validator: 1, slot: 5, head: 4 }, observers: [0] }),
+    ).toBe("withhold");
   });
 
   it("names messages ahead of publication: proposal / attestation references cover what the sender publishes in the slot", () => {

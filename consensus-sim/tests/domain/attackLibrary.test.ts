@@ -1,7 +1,8 @@
 // Attack library (攻撃ライブラリ) — every library attack reaches its goal under
-// its declared premise and default run (成功条件 19), the boost-sensitive
-// reorgs (A01) miss under the merge preset with the overrides removed, and a
-// saved attack round-trips through the codec and replays identically (成功条件 20).
+// its declared premise and default run (成功条件 19), the mitigation-sensitive
+// attacks (A01, A03, A04, A07) miss under the merge preset with the overrides
+// removed, and a saved attack round-trips through the codec and replays
+// identically (成功条件 20).
 
 import { describe, expect, it } from "vitest";
 import {
@@ -9,6 +10,8 @@ import {
   ATTACK_REGISTRY,
   PRESETS,
   goalAchievedAt,
+  isAncestor,
+  latestFinalized,
   parseScenario,
   premiseParams,
   runScenario,
@@ -60,8 +63,8 @@ describe("attack library", () => {
     }
   });
 
-  it("the mitigation-sensitive attacks (A01, A07) miss under the merge preset (成功条件 19)", () => {
-    for (const id of ["A01", "A07"]) {
+  it("the mitigation-sensitive attacks (A01, A03, A04, A07) miss under the merge preset (成功条件 19)", () => {
+    for (const id of ["A01", "A03", "A04", "A07"]) {
       const a = ATTACK_LIBRARY.find((x) => x.id === id)!;
       // Under its declared premise the goal is reached…
       expect(goalAchievedAt(runScenario(scenarioFor(a), a.defaultRun.throughSlot).goal!)).toBeTypeOf(
@@ -78,6 +81,48 @@ describe("attack library", () => {
     expect(premiseParams(a07.premise).forkChoice).toBe("GHOST");
     const lmd = runScenario(scenarioFor(a07, PRESETS.phase0), a07.defaultRun.throughSlot);
     expect(goalAchievedAt(lmd.goal!)).toBeUndefined();
+  });
+
+  it("the balancing attacks (A03, A04) keep two honest camps on two branches with nothing justified", () => {
+    for (const id of ["A03", "A04"]) {
+      const a = ATTACK_LIBRARY.find((x) => x.id === id)!;
+      const run = runScenario(scenarioFor(a), a.defaultRun.throughSlot);
+      const last = run.states[run.states.length - 1]!;
+      // Branch A is rooted at the attacker's slot-1 block B1, branch B at the
+      // honest slot-2 block B2 built beside it; camp {0, 4} stays on A and
+      // camp {2, 3} on B through the whole run.
+      expect(last.tree.blocks.get(2)!.parent).toBe(0);
+      for (const v of [0, 4]) expect(isAncestor(last.tree, 1, last.heads.get(v)!)).toBe(true);
+      for (const v of [2, 3]) expect(isAncestor(last.tree, 2, last.heads.get(v)!)).toBe(true);
+      for (const state of last.chainStates.values()) expect(state.justified).toBe(0);
+      expect(run.generated.every((g) => g.discarded === undefined)).toBe(true);
+    }
+  });
+
+  it("the LMD balancing (A04) is broken by the equivocation discount alone", () => {
+    const a04 = ATTACK_LIBRARY.find((a) => a.id === "A04")!;
+    expect(premiseParams(a04.premise).equivocationDiscount).toBe(false);
+    const discounted = { ...premiseParams(a04.premise), equivocationDiscount: true };
+    const run = runScenario(scenarioFor(a04, discounted), a04.defaultRun.throughSlot);
+    expect(goalAchievedAt(run.goal!)).toBeUndefined();
+    // Every honest validator ends on the same branch (the attacker's head is
+    // its own still-withheld block).
+    const last = run.states[run.states.length - 1]!;
+    expect(new Set([0, 2, 3, 4].map((v) => last.heads.get(v))).size).toBe(1);
+  });
+
+  it("the finality delay (A06) splits the epoch-1 targets and defers the first finalization by one epoch", () => {
+    const a06 = ATTACK_LIBRARY.find((a) => a.id === "A06")!;
+    const run = runScenario(scenarioFor(a06), a06.defaultRun.throughSlot);
+    const targets = new Set(run.states[4]!.votes.filter((v) => v.slot === 4).map((v) => v.target));
+    expect(targets).toEqual(new Set([3, 4]));
+    const firstFinalization = (states: typeof run.states) =>
+      states.findIndex((s) => latestFinalized(s.tree, s.chainStates) !== 0);
+    expect(firstFinalization(run.states)).toBe(13);
+    expect(goalAchievedAt(run.goal!)).toBe(10);
+    // The honest run finalizes at slot 9, below the threshold L = 10.
+    const { attack: _attack, ...honestScenario } = scenarioFor(a06);
+    expect(firstFinalization(runScenario(honestScenario, 16).states)).toBe(9);
   });
 
   it("the safety violations (A10, A12) finalize two conflicting checkpoints", () => {

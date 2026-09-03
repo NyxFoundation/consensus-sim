@@ -215,10 +215,10 @@ export function directivesForSlot(
       i.validator === proposer &&
       !stopped.has(proposer),
   );
-  const doubleVote = new Set<ValidatorIndex>();
+  const doubleVote = new Map<ValidatorIndex, BlockIndex | undefined>();
   for (const i of interventions) {
     if (i.kind === "double-vote" && i.slot === slot && !stopped.has(i.validator)) {
-      doubleVote.add(i.validator);
+      doubleVote.set(i.validator, i.head ?? doubleVote.get(i.validator));
     }
   }
   let proposeParent: BlockIndex | undefined;
