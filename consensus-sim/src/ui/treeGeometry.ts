@@ -4,16 +4,17 @@
  * read these constants instead of hard-coding their own.
  */
 
-/** Width of one slot column. */
-export const COL_W = 88
+/** Width of one slot column — with LABEL_W, about ten slots fill the stage
+ * of a standard PC width (the dock takes the rest, tokens.css --dock-w). */
+export const COL_W = 96
 /** Height of one fork row in the tree. */
-export const ROW_H = 78
-export const BLOCK_W = 56
-export const BLOCK_H = 34
+export const ROW_H = 92
+export const BLOCK_W = 64
+export const BLOCK_H = 40
 /** Left/right padding inside the tree SVG. */
 export const PAD_X = 24
-export const PAD_TOP = 34
-export const PAD_BOTTOM = 30
+export const PAD_TOP = 40
+export const PAD_BOTTOM = 32
 
 /** Width of the state table's validator-label column. */
 export const LABEL_W = 96

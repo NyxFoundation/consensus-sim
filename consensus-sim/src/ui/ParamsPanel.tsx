@@ -27,6 +27,7 @@ import type {
 } from '../domain'
 import { Button } from './components/Button'
 import { Disclosure } from './components/Disclosure'
+import { Hint } from './components/Hint'
 import { NumberField as NumberFieldControl } from './components/NumberField'
 import { Segmented } from './components/Segmented'
 import type { SimulationSession } from './useSimulation'
@@ -37,6 +38,10 @@ const PRESET_NOTES: Readonly<Record<PresetName, string>> = {
   merge: 'The Merge（2022-09）',
   current: '2023 年の fork choice 修正以降',
 }
+
+const PRESET_HINT = `Ethereum の実在時点に対応する値の束。${PRESET_NAMES.map(
+  (name) => `${name} = ${PRESET_NOTES[name]}`,
+).join('／')}。選ぶと全値を一括設定し、どの束とも一致しない組合せはカスタムと表示`
 
 const FORK_CHOICE_RULES: readonly ForkChoiceRule[] = ['GHOST', 'LMD-GHOST']
 
@@ -153,21 +158,24 @@ export function ParamsPanel({ session }: ParamsPanelProps) {
       : Math.min(2, config.validatorCount)
 
   return (
-    <section className="params-panel" aria-label="プロトコルパラメータ">
+    <section className="params-panel dock-section" aria-label="プロトコルパラメータ">
       <Disclosure
         summary={
-          <h2 className="intervention-title">
+          <h2 className="panel-title">
             プロトコルパラメータ
-            {`（${preset ?? 'カスタム'} / シード ${config.seed}）`}{' '}
-            <span className="intervention-note">
-              シナリオの初期条件。変更すると表示中の実行を最初から再計算（介入は維持）
+            <span className="panel-count">
+              {preset ?? 'カスタム'} / シード {config.seed}
             </span>
+            <Hint text="シナリオの初期条件。変更すると表示中の実行を錨から再計算（介入は維持）するので、1 つのつまみの効果を同じ実行で読み取れる" />
           </h2>
         }
       >
         <div className="intervention-forms">
           <fieldset className="intervention-group">
-            <legend>プリセット</legend>
+            <legend>
+              プリセット
+              <Hint text={PRESET_HINT} />
+            </legend>
             <div className="form-line">
               <Segmented
                 label="プロトコルプリセット"
@@ -176,11 +184,6 @@ export function ParamsPanel({ session }: ParamsPanelProps) {
                 onChange={(name) => setParams(PRESETS[name as PresetName])}
               />
             </div>
-            <span className="intervention-note">
-              {preset
-                ? PRESET_NOTES[preset]
-                : 'カスタム: どのプリセットとも一致しません（プリセットを選ぶと全値を一括設定）'}
-            </span>
           </fieldset>
 
           <fieldset className="intervention-group">
@@ -227,9 +230,7 @@ export function ParamsPanel({ session }: ParamsPanelProps) {
                   onCommit={(boost) => setParams({ boost })}
                 />
               </label>
-              <span className="intervention-note">
-                同スロット受信の提案に committee 総重み × boost
-              </span>
+              <Hint text="スロット s の提案を (s, 投票) までに受信したバリデータの、スロット s の fork choice でのみ、その提案に committee 総重み × boost の追加重みが付く（遅れて届いた提案には付かない）" />
             </div>
           </fieldset>
 
@@ -334,9 +335,7 @@ export function ParamsPanel({ session }: ParamsPanelProps) {
                   onCommit={(seed) => setConfig({ seed })}
                 />
               </label>
-              <span className="intervention-note">
-                committee の抽出（サイズ c）と割当（エポック分割）に使用
-              </span>
+              <Hint text="committee の抽出（サイズ c）と割当（エポック分割）をこのシードから決定的に導く。全員では効かない" />
             </div>
             <div className="validator-checks">
               {validators.map((v) => (
@@ -356,6 +355,7 @@ export function ParamsPanel({ session }: ParamsPanelProps) {
                 </label>
               ))}
               <Button
+                size="sm"
                 disabled={config.initialStakes.every((s) => s === DEFAULT_STAKE)}
                 onClick={() => setConfig({ initialStakes: equalStakes(config.validatorCount) })}
               >

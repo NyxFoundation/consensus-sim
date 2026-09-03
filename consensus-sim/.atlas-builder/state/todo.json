@@ -1848,7 +1848,7 @@
     {
       "id": "T-050",
       "title": "UI 刷新 (2) 情報設計の再編と全表示への適用: 主役(チェーン表示+状態表)が標準的な PC 幅の初期表示でスクロールなしに画面面積の過半を占め、ブロック木は分岐・J/F・head 移動が図として読める大きさ、操作系(プロトコルパラメータ・介入・シナリオ)をより小さい操作盤へ集約、パネル常駐の説明文をホバー/ⓘ の要求時表示へ退避、ネットワーク/全体/型一覧の各表示に基盤を適用、成功条件 26 (a)〜(f) の機械検査(DOM テスト+実ブラウザ検証スクリプトの計測)",
-      "status": "pending",
+      "status": "done",
       "priority": "must",
       "spec": [
         "S-044",
@@ -1865,12 +1865,36 @@
       "batch_group": "e4-ui-refresh",
       "context_cost": 5,
       "risk_level": "normal",
-      "notes": "遂行順序 2(型の改訂 T-052〜T-055 の後)。必須 6・7・8 の制約(3 表示、状態表は下半分で slotIndex 整列・約 10 スロット幅・横スクロール、ネットワーク表示のホバー)の範囲内で再編する。既存 DOM テストの操作系列を維持する。"
+      "notes": "遂行順序 2(型の改訂 T-052〜T-055 の後)。必須 6・7・8 の制約(3 表示、状態表は下半分で slotIndex 整列・約 10 スロット幅・横スクロール、ネットワーク表示のホバー)の範囲内で再編する。既存 DOM テストの操作系列を維持する。 【実装】フレーム = ヘッダーバー（表示タブ・バリデータ数・テーマ）/ 左ステージ（スロットバー + 表示）/ 右の操作盤 dock（幅 --dock-w = 336px、プロトコルパラメータ・介入・シナリオの 3 区画を Disclosure で縦積み、各区画は 1 行の要約: 題名・件数の読み出し・ⓘ）。ステージは .chain-mode が min-height 100% で埋め、上部の tree-region（flex: 1）にブロック木、下部に状態表（共有の横スクロール、LABEL_W + 10 × COL_W = 1056 ≤ 1440 − 336）。ブロック木の幾何を拡大（COL_W 88→96、BLOCK 56×34→64×40、ROW_H 78→92）。常駐説明文（intervention-note / pane-note / network-hint の文・types-caption の段落・空状態の長文）は Hint 部品（ⓘ、data-hint 属性 + aria-label、ホバー/フォーカス時のみ portal + position: fixed のツールチップ）へ退避し、状態文・空状態は短い読み出しに整理（。を含む文は残さない）。機械検査: tests/ui/layout.test.ts（トークン --bar-h / --dock-w とフレームの CSS 契約から 1280×720 / 1440×900 / 1920×1080 でステージ面積 > 50%、10 スロット幅、ブロックの大きさ）、tests/ui/prose.test.tsx（初期表示・進行・セル展開・介入/シナリオ追加・各表示で『。』を含むテキストノードと旧 note クラスが無く、ⓘ は属性のみを持ち、ホバー/フォーカスで表示し外すと消える）。scripts/verify-ui.mjs に実ブラウザの計測（3 視口で主役の面積比 > 0.5・状態表がスクロールなしに見える・操作盤 < 主役・10 列が収まる、appearance: none、常駐文なし、ⓘ の表示/消滅と画面内収まり、テーマ追従と手動上書き、書体の 2 用途）を追加。sandbox では chromium を起動できないため実測は人間の T-051 で行う（R-012）。",
+      "evidence": [
+        {
+          "type": "diff",
+          "summary": "src/ui/App.tsx（ヘッダー / .app-body = .stage（.slot-bar + .mode-body）| aside.dock（3 パネル））、src/ui/styles.css（フレーム: .app grid rows var(--bar-h) 1fr、.app-body grid cols 1fr var(--dock-w)、.stage/.dock が独立スクロール、body overflow hidden; .chain-mode min-height 100% / .chain-scroll flex 列 / .tree-region flex 1; dock の区画・要約・読み出し・list-actions; .hint-tooltip position fixed）、src/ui/tokens.css（--bar-h: 40px、--dock-w: 336px）、src/ui/treeGeometry.ts（COL_W 96 / ROW_H 92 / BLOCK 64×40 / PAD_TOP 40）、src/ui/components/Hint.tsx（新規: ⓘ、data-hint、portal ツールチップ）+ components/index.ts、ChainMode.tsx（tree-region、状態表の ⓘ、pane-note → Hint）、ParamsPanel.tsx / InterventionPanel.tsx / ScenarioPanel.tsx（dock-section、panel-title + panel-count + Hint の要約、全 intervention-note → Hint、フォーク数は .readout、上限超過は .form-status、空状態は短文、一覧ボタンは sm）、NetworkMode.tsx（network-hint → Hint）、TypesPage.tsx（types-caption → toolbar + Hint、空状態短文）、VoteTable.tsx（。除去）、tests/ui/layout.test.ts（新規 10 件）、tests/ui/prose.test.tsx（新規 5 件）、tests/ui/typesPage.test.tsx（caption は data-hint を読む）、scripts/verify-ui.mjs（成功条件 26 (a)〜(f) の実ブラウザ計測）、README.md（フレーム・操作盤・ⓘ・機械検査と verify-ui の説明）。"
+        },
+        {
+          "type": "command",
+          "command": "npm run typecheck",
+          "exit_code": 0,
+          "summary": "tsc --noEmit exits 0 with the new frame, the Hint component and the layout/prose tests."
+        },
+        {
+          "type": "command",
+          "command": "npx vitest run",
+          "exit_code": 0,
+          "summary": "33 files / 397 tests pass（31/382 → +tests/ui/layout.test.ts 10 件: フレーム契約（grid rows/cols がトークン参照、stage/dock の独立スクロール、3 パネルが dock 内・stage はスロットバーと表示のみ、.chain-mode min-height 100% と tree-region → StateTable の順）、1280×720 / 1440×900 / 1920×1080 でステージ面積 > 50%（0.628 / 0.700 / 0.770）、dock < stage、LABEL_W + 2 PAD_X + 10 COL_W ≤ 1104 < 13 列、ブロック寸法; +tests/ui/prose.test.tsx 5 件: 初期表示・進行/セル展開/介入+シナリオ追加・ネットワーク（ホバー含む）/全体/型一覧（選択含む）で『。』テキストノードと旧 note クラスが無く ⓘ は属性のみ、dock に ⓘ > 5・stage に ⓘ ≥ 1、ⓘ のホバー/フォーカスでツールチップが出て外すと消える、3 区画の要約に題名+ⓘ と merge 表示）。既存の DOM テスト（appShell / polish / interventions / steering / stateTable / params / scenario / theme / typesPage）は操作系列を変えずに通過（typesPage は caption を data-hint で読むよう 1 箇所更新）。"
+        },
+        {
+          "type": "command",
+          "command": "npm run build",
+          "exit_code": 0,
+          "summary": "tsc --noEmit && vite build: dist/ (css 19.21 kB, js 442.50 kB) with exit 0. node --check scripts/verify-ui.mjs exits 0（実ブラウザ計測は sandbox で chromium を起動できないため未実行 — 人間が T-051 で `npm run build && node scripts/verify-ui.mjs` を実行する）。"
+        }
+      ]
     },
     {
       "id": "T-051",
       "title": "UI 刷新 (3) 人間の実ブラウザ確認と承認: 刷新後の UI を人間が手元の実ブラウザで確認して承認する(Human-input Recommendation で承認を求めて停止し、承認の resume 記録を evidence とする。承認前に完了扱いにしない)",
-      "status": "pending",
+      "status": "blocked",
       "priority": "must",
       "spec": [
         "S-044"
@@ -1881,7 +1905,8 @@
       "batch_group": "e4-ui-refresh",
       "context_cost": 1,
       "risk_level": "normal",
-      "notes": "遂行順序 2。T-049・T-050 の完了後に起票する。人間の確認手段: npm run dev または npm run build && node scripts/verify-ui.mjs(R-001 参照)。"
+      "notes": "遂行順序 2。T-049・T-050 の完了後に起票する。人間の確認手段: npm run dev または npm run build && node scripts/verify-ui.mjs(R-001 参照)。 R-012 で承認を求めて停止（cycle 38）。確認手順: npm run build && node scripts/verify-ui.mjs（3 視口の計測と (b)〜(f) の検査）、npm run dev で目視。",
+      "blocked_reason": "人間の実ブラウザ確認と承認待ち（R-012 Human-input Recommendation）。承認の resume 記録を evidence として done にする。"
     },
     {
       "id": "T-044",

@@ -1,8 +1,11 @@
 /**
  * Chain display (チェーン表示): the block tree with every validator's
  * information overlaid — per-validator heads, latest votes and J/F
- * checkpoint badges — and, below it, the state table (状態表) whose slot
- * columns line up with the tree's.
+ * checkpoint badges — in the upper part of the stage and, in its lower
+ * part, the state table (状態表) whose slot columns line up with the
+ * tree's. The two are the instrument's protagonists: together they fill the
+ * stage from the first paint (styles.css .chain-mode / .chain-scroll); the
+ * god-view readouts and the LMD vote table follow below them.
  *
  * Per-validator local observation lives in the state table: clicking a cell
  * expands that validator's view at that slot (computed with `observe`, a
@@ -23,6 +26,7 @@ import type { Delivery, InitialConditions, SimulationState } from '../../domain'
 import { BlockTreeView } from '../BlockTreeView'
 import { BlockBodyView, ChainStateTable } from '../ChainStateDetail'
 import { Button } from '../components/Button'
+import { Hint } from '../components/Hint'
 import { Segmented } from '../components/Segmented'
 import { blockName, checkpointName } from '../format'
 import { StateTable, STATE_CELL_ITEMS } from '../StateTable'
@@ -100,8 +104,11 @@ export function ChainMode({
 
   return (
     <section className="chain-mode">
-      <div className="tree-scroll chain-scroll">
-        <div style={{ marginLeft: LABEL_W }}>
+      {/* The protagonists: the tree region grows to fill the stage's upper
+          part, the state table sits in the lower part, and both share one
+          horizontal scroll so their slot columns stay aligned. */}
+      <div className="chain-scroll">
+        <div className="tree-region" style={{ paddingLeft: LABEL_W }}>
           <BlockTreeView
             tree={state.tree}
             votes={state.votes}
@@ -114,10 +121,12 @@ export function ChainMode({
           <span className="state-table-caption">状態表の表示項目</span>
           <Segmented
             label="状態表の表示項目"
+            size="sm"
             value={item}
             options={STATE_CELL_ITEMS}
             onChange={(i) => setItem(i)}
           />
+          <Hint text="行 = バリデータ、列 = スロット（上のブロック木と横位置が揃う）。セルはそのスロット末のバリデータの観測で、他バリデータと食い違うセルを強調。セルを押すとそのバリデータの視点（ビュー・チェーン状態・body）を展開" />
         </div>
         <StateTable
           observations={observations}
@@ -161,9 +170,7 @@ export function ChainMode({
           </dl>
           <h4 className="pane-title">
             head {blockName(detail.obs.head)} のチェーン状態
-            <span className="pane-note">
-              他バリデータの head のチェーン状態と食い違う値を強調
-            </span>
+            <Hint text="他バリデータの head のチェーン状態と食い違う値を強調" />
           </h4>
           <ChainStateTable
             validator={detail.validator}

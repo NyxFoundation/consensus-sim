@@ -26,15 +26,26 @@ npm run dev        # http://localhost:5173
 ```
 
 Open the page, press **＋1 スロット進める** to advance a slot, and watch the
-proposal, the votes and each validator's head update. The header also holds
-the validator count (4–10) and the theme control (自動 / ライト / ダーク:
-自動 follows the OS colour scheme and is the default; a manual choice is
-remembered in the browser). Every colour, spacing, type size and typeface
-comes from one token sheet (`src/ui/tokens.css`), the typefaces are a
-deliberately chosen system set for Japanese, English and monospaced
-(numbers, IDs, slots) text with no external font service, and every form
-control is one of the app's own unified components. The header tabs
-switch between three displays and the type catalog:
+proposal, the votes and each validator's head update.
+
+The screen is laid out as an instrument: one header bar (display tabs,
+validator count 4–10, theme), a **stage** on the left and the **operation
+dock** (操作盤) on the right. The stage carries the slot bar — cursor,
+rewind, advance — and the selected display; on a standard PC width the
+chain display and the state table fill it from the first paint, with about
+ten slot columns visible before horizontal scrolling. The dock is a fixed
+narrow column holding every other control (protocol parameters,
+interventions, scenarios) as collapsible sections, each opening with a
+one-line summary. Panels carry no resident explanations: an **ⓘ** next to a
+title or a group shows its note on hover or keyboard focus. The theme
+control offers 自動 / ライト / ダーク (自動 follows the OS colour scheme and
+is the default; a manual choice is remembered in the browser). Every
+colour, spacing, type size and typeface comes from one token sheet
+(`src/ui/tokens.css`), the typefaces are a deliberately chosen system set
+for Japanese, English and monospaced (numbers, IDs, slots) text with no
+external font service, and every form control is one of the app's own
+unified components. The header tabs switch between three displays and the
+type catalog:
 
 - **チェーン表示** — the block tree with every validator's information
   overlaid (heads, latest votes, J/F checkpoint badges). Below it, the
@@ -59,7 +70,7 @@ switch between three displays and the type catalog:
   it shows is exactly what the implementation defines; selecting a type
   shows its declaration and its dependency links.
 
-The プロトコルパラメータ panel below the slot bar holds the scenario's
+The プロトコルパラメータ section of the dock holds the scenario's
 initial conditions: a preset (`phase0` / `merge` / `current`, default
 `merge`) that sets every value at once, and each protocol parameter on its
 own — committee (everyone, size `c`, or an epoch split), proposer boost, fork-choice rule,
@@ -70,8 +81,8 @@ run from the anchor with the interventions kept, so the effect of one knob
 is read off the same run; the preset label turns to カスタム as soon as a
 value departs from every preset.
 
-The 介入 panel between the slot bar and the mode body injects disturbances
-at the next slot boundary: partition a validator set (分断), switch a
+The 介入 section of the dock injects disturbances at the next slot
+boundary: partition a validator set (分断), switch a
 validator's operating state (稼働状態 — 稼働 / 停止 = silent but still
 receiving / オフライン = fully cut off with a frozen view that catches up
 through normal propagation after returning), schedule a double proposal or
@@ -92,7 +103,7 @@ the whole displayed history deterministically. The ◀ / ▶ cursor rewinds to
 any past slot and reproduces that state exactly; advancing from a past slot
 truncates the discarded future.
 
-The シナリオ panel saves the current run — initial conditions plus the
+The シナリオ section of the dock saves the current run — initial conditions plus the
 intervention list and how far it advanced — to a browser-local list, and
 reloading replays it deterministically to the identical states. The
 protocol parameters, the seed and the initial stakes are part of the saved
@@ -101,10 +112,20 @@ identity, and the list shows each entry's preset.
 Sanity check:
 
 ```bash
-npm test           # vitest — model, chain state, fork choice, protocol params, stakes and penalties, attack execution and goal judgment, determinism, rewind, UI shell
+npm test           # vitest — model, chain state, fork choice, protocol params, stakes and penalties, attack execution and goal judgment, determinism, rewind, UI shell, design contract
 npm run typecheck  # tsc --noEmit
 npm run build      # static bundle in dist/ (no backend; plain static SPA)
 ```
+
+The design contract is machine-checked in the suite: the token sheet is
+the only source of colour / spacing / type / typeface values and no style
+declares a literal of its own (`tests/ui/designTokens.test.ts`), no native
+form control renders outside the unified components, the frame's tokens
+give the chain display and the state table more than half of a standard
+PC viewport (`tests/ui/layout.test.ts`), and no panel holds a sentence of
+resident prose — explanations live only in ⓘ hints
+(`tests/ui/prose.test.tsx`). `scripts/verify-ui.mjs` measures the same
+contract in a real browser (see Development).
 
 ## The model
 
@@ -292,8 +313,15 @@ adversarial combined-intervention test campaign.
 
 `scripts/verify-ui.mjs` smoke-drives the built bundle in a real Chromium
 via Playwright (`npx playwright install chromium` once, then
-`npm run build && node scripts/verify-ui.mjs`). The jsdom test suite covers
-the same interactions headlessly and runs in `npm test`.
+`npm run build && node scripts/verify-ui.mjs`). Besides the shell
+interactions it measures the visual contract at 1280×720, 1440×900 and
+1920×1080: the chain display and state table cover more than half of the
+first paint without scrolling and ten slot columns fit, every form control
+has `appearance: none`, no sentence is rendered as resident text and an ⓘ
+tooltip appears on hover inside the viewport, the theme follows the
+emulated OS scheme and a manual choice overrides it, and the text and
+monospaced typeface roles are applied. The jsdom test suite covers the same
+interactions headlessly and runs in `npm test`.
 
 ### Deploying to GitHub Pages
 

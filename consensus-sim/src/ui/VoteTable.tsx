@@ -25,7 +25,7 @@ export function VoteTable({
         .sort((a, b) => a[0] - b[0])
         .map(([, vote]) => vote)
   if (rows.length === 0) {
-    return <p className="panel-empty">まだ投票はありません。</p>
+    return <p className="panel-empty">まだ投票はありません</p>
   }
   return (
     <table className="vote-table">

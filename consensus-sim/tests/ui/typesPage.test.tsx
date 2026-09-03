@@ -69,7 +69,8 @@ describe('type catalog page', () => {
       expect(names).not.toContain(absent)
     }
     expect(all('.type-edge').length).toBeGreaterThan(0)
-    expect(container.querySelector('.types-caption')?.textContent).toContain(
+    // The caption is an on-demand hint: its explanation lives in data-hint.
+    expect(container.querySelector('.types-caption')?.getAttribute('data-hint')).toContain(
       '本質的仕様モジュール',
     )
   })

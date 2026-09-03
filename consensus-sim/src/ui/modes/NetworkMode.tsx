@@ -30,6 +30,7 @@ import type {
 } from '../../domain'
 import { BlockTreeView } from '../BlockTreeView'
 import { Button } from '../components/Button'
+import { Hint } from '../components/Hint'
 import { blockName, checkpointName } from '../format'
 import { validatorColor } from '../validatorColor'
 
@@ -135,10 +136,10 @@ export function NetworkMode({
       </div>
 
       {detail === undefined || inspected === undefined ? (
-        <p className="network-hint">
-          バリデータにマウスを載せると、そのバリデータのビュー（ブロック木）を
-          ここに表示します。
-        </p>
+        <Hint
+          className="network-hint"
+          text="バリデータのカードにマウスを載せる（またはフォーカスする）と、そのバリデータのビュー（ブロック木）をここに表示"
+        />
       ) : (
         <div className="panel network-detail">
           <h3>

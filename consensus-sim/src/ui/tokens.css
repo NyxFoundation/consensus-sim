@@ -126,4 +126,12 @@
   --radius: 3px;
   --border: 1px solid var(--gridline);
   --border-strong: 1px solid var(--baseline);
+
+  /* ---- layout (the instrument's fixed frame) ----
+     The header and the slot bar are one bar height each and the operation
+     dock (操作盤) is one fixed column; everything else is the stage, so the
+     protagonists' share of the viewport follows from these three values
+     (tests/ui/layout.test.ts computes it, scripts/verify-ui.mjs measures it). */
+  --bar-h: 40px;
+  --dock-w: 336px;
 }

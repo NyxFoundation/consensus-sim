@@ -48,6 +48,7 @@ import { evidenceLabel } from './ChainStateDetail'
 import { Button } from './components/Button'
 import { Checkbox } from './components/Checkbox'
 import { Disclosure } from './components/Disclosure'
+import { Hint } from './components/Hint'
 import { NumberField } from './components/NumberField'
 import { Segmented } from './components/Segmented'
 import { Select } from './components/Select'
@@ -362,21 +363,25 @@ export function InterventionPanel({ session }: InterventionPanelProps) {
   }
 
   return (
-    <section className="intervention-panel" aria-label="介入">
+    <section className="intervention-panel dock-section" aria-label="介入">
       <Disclosure
         summary={
-          <h2 className="intervention-title">
+          <h2 className="panel-title">
             介入
-            {interventions.length > 0 && `（${interventions.length} 件指定中）`}{' '}
-            <span className="intervention-note">
-              新規指定は次のスロット s{nextSlot} の境界から適用
-            </span>
+            {interventions.length > 0 && (
+              <span className="panel-count">{interventions.length} 件指定中</span>
+            )}
+            <span className="panel-count">次は s{nextSlot}</span>
+            <Hint text="介入はスロット境界で指定し、新規指定は次のスロットの境界から適用。指定した介入は一覧に残り、解消・削除すると表示中の履歴を決定的に再計算" />
           </h2>
         }
       >
       <div className="intervention-forms">
         <fieldset className="intervention-group">
-          <legend>分断</legend>
+          <legend>
+            分断
+            <Hint text="選択した集合と残り全員の間でメッセージが届かなくなる。解消すると滞留分が流れ、後続スロットで収束" />
+          </legend>
           <div className="validator-checks">
             {validators.map((v) => (
               <label key={v} className="check-inline">
@@ -405,11 +410,8 @@ export function InterventionPanel({ session }: InterventionPanelProps) {
 
         <fieldset className="intervention-group">
           <legend>
-            稼働状態{' '}
-            <span className="intervention-note">
-              停止 = 提案・投票をやめる（受信は続く）／ オフライン =
-              送受信とも遮断（ビュー凍結、復帰後は通常の伝搬で追いつく）
-            </span>
+            稼働状態
+            <Hint text="停止 = 提案・投票をやめる（受信は続く）／オフライン = 送受信とも遮断（ビュー凍結。復帰後は復帰スロット以降の通常の伝搬で追いつく）／復帰はいずれも稼働へ" />
           </legend>
           {validators.map((v) => {
             const opState = opStateOf(v)
@@ -437,7 +439,10 @@ export function InterventionPanel({ session }: InterventionPanelProps) {
         </fieldset>
 
         <fieldset className="intervention-group">
-          <legend>フォーク作成（提案 parent の指定）</legend>
+          <legend>
+            フォーク作成
+            <Hint text="次の提案者が提案する parent を、その提案者のビュー内のブロックから指定する（未指定時は fork choice が選ぶ）。フォーク数 = 神視点で最新 finalized ブロックを根とする部分木の葉数で、未実行の指定を含めて上限を超える指定は受け付けない（finality が進んでフォーク数が減ると再び指定できる）" />
+          </legend>
           <div className="form-line">
             s{nextSlot} の提案者 {validatorLabel(nextProposer)} が
             <Select
@@ -454,46 +459,53 @@ export function InterventionPanel({ session }: InterventionPanelProps) {
             </Select>
             の上に提案
           </div>
-          <Button
-            disabled={forkParent === '' || forkScheduled || forkRefused}
-            onClick={() => {
-              add({
-                kind: 'propose-parent',
-                slot: nextSlot,
-                parent: Number(forkParent),
-              })
-              setForkParent('')
-            }}
-          >
-            {forkScheduled
-              ? `フォーク作成を予約済み（s${nextSlot}）`
-              : 'フォークを作成'}
-          </Button>
-          <span className="intervention-note">
-            フォーク数 {forkCountNow}
-            {forkCountPending !== forkCountNow &&
-              `（未実行の指定を含めて ${forkCountPending}）`}
-            ／上限 {MAX_FORKS}
-          </span>
-          <span className="intervention-note">
-            {forkRefused
-              ? `この指定でフォーク数が ${forkCountDesignated} となり上限を超えるため受け付けません（finality が進んでフォーク数が減ると再び指定できます）`
-              : '未指定時は fork choice が parent を選びます。フォーク数は最新 finalized ブロックを根とする部分木の葉数'}
-          </span>
+          <div className="form-line">
+            <Button
+              disabled={forkParent === '' || forkScheduled || forkRefused}
+              onClick={() => {
+                add({
+                  kind: 'propose-parent',
+                  slot: nextSlot,
+                  parent: Number(forkParent),
+                })
+                setForkParent('')
+              }}
+            >
+              {forkScheduled
+                ? `フォーク作成を予約済み（s${nextSlot}）`
+                : 'フォークを作成'}
+            </Button>
+            <span className="readout">
+              フォーク数 {forkCountNow}
+              {forkCountPending !== forkCountNow &&
+                `（未実行の指定を含めて ${forkCountPending}）`}
+              ／上限 {MAX_FORKS}
+            </span>
+          </div>
+          {forkRefused && (
+            <span className="form-status" role="status">
+              この指定でフォーク数が {forkCountDesignated} となり上限を超えるため受け付けません
+            </span>
+          )}
         </fieldset>
 
         <fieldset className="intervention-group">
-          <legend>equivocation（二重提案・二重投票）</legend>
-          <Button
-            disabled={doubleProposeScheduled}
-            onClick={() =>
-              add({ kind: 'double-propose', slot: nextSlot, validator: nextProposer })
-            }
-          >
-            {doubleProposeScheduled
-              ? `二重提案を予約済み（s${nextSlot}）`
-              : `次スロットで二重提案（提案者 ${validatorName(nextProposer)}）`}
-          </Button>
+          <legend>
+            equivocation（二重提案・二重投票）
+            <Hint text="二重提案 = 次の提案者が同じ parent の上に 2 ブロックを公開。二重投票 = そのバリデータが規則どおりの票と、その head の親への票を同じスロットに投じる。相反 2 メッセージが揃ったビューで証拠が成立し、ブロックに取り込まれる" />
+          </legend>
+          <div className="form-line">
+            <Button
+              disabled={doubleProposeScheduled}
+              onClick={() =>
+                add({ kind: 'double-propose', slot: nextSlot, validator: nextProposer })
+              }
+            >
+              {doubleProposeScheduled
+                ? `二重提案を予約済み（s${nextSlot}）`
+                : `次スロットで二重提案（提案者 ${validatorName(nextProposer)}）`}
+            </Button>
+          </div>
           <div className="form-line">
             <Select
               aria-label="二重投票するバリデータ"
@@ -518,7 +530,10 @@ export function InterventionPanel({ session }: InterventionPanelProps) {
         </fieldset>
 
         <fieldset className="intervention-group">
-          <legend>メッセージの遅延・欠落</legend>
+          <legend>
+            メッセージの遅延・欠落
+            <Hint text="公開済みの 1 メッセージ（提案・投票）の到達を、対象の受信者に対して指定スロットまで遅らせる、または欠落させる。対象が未選択なら送信者以外の全員" />
+          </legend>
           <div className="form-line">
             <Select
               aria-label="対象メッセージ"
@@ -538,9 +553,7 @@ export function InterventionPanel({ session }: InterventionPanelProps) {
               ))}
             </Select>
             {optionGroups.length === 0 && (
-              <span className="intervention-note">
-                メッセージはまだありません。スロットを進めると提案・投票を選べます。
-              </span>
+              <span className="empty-inline">メッセージはまだありません</span>
             )}
           </div>
           <div className="form-line">
@@ -580,7 +593,6 @@ export function InterventionPanel({ session }: InterventionPanelProps) {
                 {validatorLabel(v)}
               </label>
             ))}
-            <span className="intervention-note">（未選択 = 送信者以外の全員）</span>
           </div>
           <Button
             disabled={
@@ -596,7 +608,10 @@ export function InterventionPanel({ session }: InterventionPanelProps) {
         </fieldset>
 
         <fieldset className="intervention-group">
-          <legend>投票先指定（head / source / target）</legend>
+          <legend>
+            投票先指定
+            <Hint text="そのバリデータの次スロットの投票の head / target をそのビュー内のブロックから、source をビュー内の枝のチェックポイントから指定する（target のエポックはスロットから定まる）。未指定の成分は fork choice と FFG の規則どおり（head 指定時はその枝で計算）。同じエポックで既に投じた FFG 部分と異なる指定は証拠になる" />
+          </legend>
           <div className="form-line">
             <Select
               aria-label="投票先を指定するバリデータ"
@@ -656,22 +671,18 @@ export function InterventionPanel({ session }: InterventionPanelProps) {
               ? `投票先を指定済み（${validatorLabel(vtValidator)} s${nextSlot}）`
               : '投票先を指定'}
           </Button>
-          <span className="intervention-note">
-            head / target の候補はそのバリデータのビュー内のブロック（target
-            のエポックはスロットから定まる）、source はビュー内の枝のチェックポイント。
-            未指定の成分は fork choice と FFG の規則どおり（head 指定時はその枝で計算）
-          </span>
         </fieldset>
 
         <fieldset className="intervention-group">
-          <legend>取り込みの省略</legend>
+          <legend>
+            取り込みの省略
+            <Hint text="次の提案者が body に取り込む投票・証拠（ビュー内にあって parent の祖先が未取り込みのもの）のうち、指定したものを省く。省いた項目は後のブロックが取り込める。未指定時は規則どおりすべて取り込む" />
+          </legend>
           <div className="form-line">
             {`s${nextSlot} の提案者 ${validatorLabel(nextProposer)} が ${blockName(inclusionParent)} 上の提案で省く項目:`}
           </div>
           {candidates.votes.length === 0 && candidates.evidence.length === 0 ? (
-            <span className="intervention-note">
-              取り込み候補はありません（ビュー内の未取り込みの投票・証拠がここに並びます）
-            </span>
+            <span className="empty-inline">取り込み候補はありません</span>
           ) : (
             <div className="validator-checks">
               {candidates.votes.map((v) => {
@@ -707,12 +718,10 @@ export function InterventionPanel({ session }: InterventionPanelProps) {
           <Button disabled={!omitSelected} onClick={scheduleOmission}>
             次の提案で省略
           </Button>
-          <span className="intervention-note">
-            省いた項目は後のブロックが取り込める（未指定時は規則どおりすべて取り込む）
-          </span>
         </fieldset>
       </div>
 
+      <h3 className="list-title">指定中の介入</h3>
       {interventions.length > 0 ? (
         <ul className="intervention-list">
           {interventions.map((i, index) => (
@@ -720,26 +729,28 @@ export function InterventionPanel({ session }: InterventionPanelProps) {
               <span className="intervention-desc">
                 {describe(i, config)}
               </span>
-              {openPartition(i) && (
-                <Button
-                  onClick={() => {
-                    const closed = closeSpanAt(i, cursor)
-                    if (closed) replaceAt(index, closed)
-                    else removeAt(index)
-                  }}
-                >
-                  解消（次スロットから）
+              <span className="list-actions">
+                {openPartition(i) && (
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      const closed = closeSpanAt(i, cursor)
+                      if (closed) replaceAt(index, closed)
+                      else removeAt(index)
+                    }}
+                  >
+                    解消（次スロットから）
+                  </Button>
+                )}
+                <Button size="sm" onClick={() => removeAt(index)}>
+                  削除
                 </Button>
-              )}
-              <Button onClick={() => removeAt(index)}>削除</Button>
+              </span>
             </li>
           ))}
         </ul>
       ) : (
-        <p className="empty-hint">
-          介入はまだありません。上のフォームで指定すると、ここに一覧が並び、
-          解消・削除で表示中の履歴が決定的に再計算されます。
-        </p>
+        <p className="empty-hint">介入はまだありません</p>
       )}
       </Disclosure>
     </section>

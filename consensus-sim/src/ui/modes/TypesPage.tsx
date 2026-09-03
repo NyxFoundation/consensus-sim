@@ -10,6 +10,7 @@
 
 import { useState } from 'react'
 import { Button } from '../components/Button'
+import { Hint } from '../components/Hint'
 import { DOMAIN_SOURCES } from '../domainSources'
 import { extractTypeGraph, layoutTypeGraph } from '../typeGraph'
 
@@ -52,11 +53,13 @@ export function TypesPage() {
 
   return (
     <section className="types-page" aria-label="型一覧">
-      <p className="types-caption">
-        ドメイン層の本質的仕様モジュール（src/domain/model）の型の依存グラフ（最上段 =
-        他のどの型にも依存しない型）。シミュレーション上の制約モジュール（src/domain/sim）の
-        型は含みません。型を選択すると実装の定義がそのまま表示されます。
-      </p>
+      <div className="types-toolbar">
+        <span className="pane-title">本質的仕様の型（src/domain/model）</span>
+        <Hint
+          className="types-caption"
+          text="ドメイン層の本質的仕様モジュール（src/domain/model）の型の依存グラフ。最上段 = 他のどの型にも依存しない型で、辺は型からそれを使う型へ下向き。シミュレーション上の制約モジュール（src/domain/sim）の型は含まない。型を選択すると実装の定義がそのまま表示される"
+        />
+      </div>
       <div className="types-scroll">
         <div
           className="type-graph"
@@ -152,9 +155,7 @@ export function TypesPage() {
           </pre>
         </aside>
       ) : (
-        <p className="empty-hint">
-          グラフ上の型を選択すると、実装ソースの定義と依存関係の詳細が表示されます。
-        </p>
+        <p className="empty-hint">型を選択すると定義を表示</p>
       )}
     </section>
   )

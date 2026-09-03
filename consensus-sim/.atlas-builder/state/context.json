@@ -6,11 +6,11 @@
     "stop_after_infra_fails": 2
   },
   "progress": {
-    "last_signature": "27fbad4c72280b49a63b7402b73935513b5170253b086495dc71b508398bf6ef",
+    "last_signature": "d5b713f1e0808bb4b623931c140ce8905e7e9cdf743b28a4294684f3f304706e",
     "idle_cycles_since_progress": 0,
     "infra_fails_since_ok": 0,
-    "last_progress_at": "2026-09-03T17:01:21+09:00",
-    "last_checked_at": "2026-09-03T17:01:21+09:00",
+    "last_progress_at": "2026-09-03T17:18:59+09:00",
+    "last_checked_at": "2026-09-03T17:18:59+09:00",
     "usage_limited_since_ok": 0
   },
   "reset_policy": {
@@ -21,22 +21,22 @@
     "reset_after_decisions": 5
   },
   "counters": {
-    "context_usage_estimate": 0.55,
+    "context_usage_estimate": 0.35,
     "failed_attempts_since_reset": 0,
-    "changed_files_since_reset": 24,
-    "completed_todos_since_reset": 2,
-    "important_decisions_since_reset": 5,
+    "changed_files_since_reset": 22,
+    "completed_todos_since_reset": 1,
+    "important_decisions_since_reset": 2,
     "major_spec_rewrite_since_reset": false,
     "high_risk_change_completed": false
   },
   "handoff": {
-    "written_at": "2026-09-03T17:05:00+09:00",
-    "summary": "T-054(型の改訂 (3))と T-055(型の改訂 (4))を同一バッチで実施して done(typecheck 0 / vitest 31 files 382 tests 0 / build 0)。遂行順序 1(型の改訂の適用)は完了。ドメイン: Equivocation = 二重提案 {validator, slot, blocks} | 二重投票 {votes} | 包囲投票 {votes}(equivocatorOf / evidenceSlotOf で導出、EvidenceRef.slot = 後の票のスロット)、スロット横断の証拠は相異なる FFG 部分の代表どうしに限る正規化(R-011)、スラッシング 3 形・割引は投票 2 形。checkpointSwitch = {window, unrealized}(NO_SWITCHING)、inactivityLeak = LeakSchedule | 'off'(DEFAULT_INACTIVITY_LEAK は LeakSchedule)、codec version 3。attack.ts: AttackPremise {preset, overrides?, maxDelay}、PublishBase / DeliverBase / MessageSpan / ActionBase、basesOf、withinRange、capabilityOf(自分の保留は d 外、閉じた分断は ≤ d)。sim/attackLibrary.ts: premise.maxDelay、defaultRun.params は任意の追加値、defaultParams / defaultInstance。攻撃ライブラリ: omittingOwnEvidence(攻撃者の提案は自分への証拠を省略)を A10/A12/A14 に適用、A10 は遅延(d = 8)+選択配送で違反 @11・slot 13 の正直提案がスラッシング、A12 は包囲投票を正直チェーン(slot 15)が取り込み攻撃者は自枝で省略・parent/head を slot 20 まで明示、違反 @17、A14 は第 2 スロット A・他 B の FFG で投票し枝ごと配送、第 1 段 @32・第 2 段 @40。UI: ParamsPanel は 2 スイッチ(aria: 'justified 切替窓' / 'unrealized justification')と leak off で N/r 非表示、evidenceLabel は包囲投票に対応。README / docs/INSPECTION.md 追記(R-007 撤回)。R-010 resolved、R-011 Non-blocking(能力範囲の 2 点是正・証拠正規化・スラッシング後の閾値縮小の帰結)を記録。残る must: T-050/T-051(UI 刷新の残り、人間承認で停止)、T-042/T-043(攻撃 UI)、T-044(総点検)。フェーズは must のまま。",
+    "written_at": "2026-09-03T17:22:00+09:00",
+    "summary": "cycle 38: T-050(UI 刷新 (2) 情報設計の再編と全表示への適用)を done(typecheck 0 / vitest 33 files 397 tests 0 / build 0)。フレーム = ヘッダーバー(表示タブ・バリデータ数・テーマ、高さ --bar-h 40px)/ 左 .stage(スロットバー + .mode-body)/ 右 aside.dock(操作盤、幅 --dock-w 336px、params/intervention/scenario の 3 区画 .dock-section、各区画は Disclosure の summary に .panel-title + .panel-count + Hint)。チェーン表示は .chain-mode(min-height 100%)→ .chain-scroll(flex 列、横スクロール共有)→ .tree-region(flex 1、ブロック木)+ .state-table-toolbar + StateTable、その下に .state-detail と .panel-row(全バリデータの状態 / 最新投票)。幾何: COL_W 96 / ROW_H 92 / BLOCK 64×40 / PAD_TOP 40。説明文は src/ui/components/Hint.tsx(ⓘ、data-hint + aria-label、ホバー/フォーカス中だけ createPortal + position: fixed の .hint-tooltip)。空状態は .empty-hint(パネル末尾)/ .empty-inline(フォーム内)の短文、フォーク数は .readout、上限超過は .form-status、一覧ボタンは size=sm の .list-actions。機械検査: tests/ui/layout.test.ts(フレーム契約と 3 視口の面積比)、tests/ui/prose.test.tsx(『。』テキストノード無し・旧 note クラス無し・ⓘ は属性のみ・ホバーで表示)、既存 designTokens / theme。scripts/verify-ui.mjs に成功条件 26 (a)〜(f) の実ブラウザ計測を追加(sandbox では未実行)。README 追随。T-051 は R-012(Human-input、requires_human_approval、A 承認 / B 修正指示 / C 方針転換)で blocked、ループはここで停止する。残る must: T-051(承認待ち)、T-042/T-043(攻撃 UI)、T-044(総点検)。フェーズは must のまま。",
     "next_actions": [
-      "T-050(UI 刷新 (2) 情報設計の再編と全表示への適用): 前提事項のデザイン方針(主役 = チェーン表示+状態表が標準 PC 幅の初期表示でスクロールなしに過半、操作盤は小面積に集約、説明文は要求時表示へ、統一部品、トークン参照のみ)に沿ってレイアウトを再編する。既存基盤: src/ui/tokens.css / components/(Button, Segmented, NumberField, Checkbox, Disclosure)、tests/ui/designTokens.test.ts / polish.test.tsx / appShell.test.tsx が機械検査を固定している。成功条件 26 (a)〜(f) の機械検査をテストに追加しつつ、T-050 の Todo 本文の要件を満たす。ParamsPanel の justified 切替が 2 スイッチ(切替窓 / unrealized)になったこと、leak off で N/r が隠れることを再編後の操作盤にも反映する。",
-      "T-051: T-050 完了後、Human-input Recommendation(requires_human_approval: true)で人間の実ブラウザ確認と承認を求めて停止(必須対応事項 30)。承認前に T-051 を done にしない。",
-      "その後 T-042/T-043(攻撃 UI: 前提列は premise.preset + overrides + maxDelay(d)、既定実行構成は defaultInstance(entry) / defaultParams(entry) を使う。攻撃者に必要な能力は entry.capabilities、行動の 2 基底の説明は attack.ts の PublishBase / DeliverBase の docコメントに揃える)→ T-044(総点検、notes の点検項目 (1)〜(10)。R-011 の 3 点(能力範囲の是正・証拠の正規化・スラッシング後の閾値縮小)を点検記録に含める)。",
-      "運用: atlas-builder state の呼び出しは ATLAS_BUILDER_LOCK_TOKEN=$(cat .agent/tmp/loop.lock/token) を前置する。Bash のガードは ESSENCE.md / .atlas-builder/state のパスを含むコマンド文字列や heredoc を拒むことがあるので、投影・診断スクリプトは Write ツールで PROJECT_STATE_ROOT/tmp/ に置いて python3 で実行する(stage-projection → 編集 → apply-projection)。cd を含む複合コマンドはガードに拒まれることがあるので、npm は --prefix、grep は絶対パスで呼ぶ。挙動診断は lessons.jsonl 参照(一時 test ファイル+$TMPDIR への書き出し、終了後に削除)。"
+      "R-012 の人間判断を読む(recommendations.json の resolution と reflection.jsonl の human_resume)。A 承認なら T-051 を done(evidence = resume 記録の要約と日時)にする。B 修正指示なら指示内容を T-050 の追補 Todo(または T-051 の notes)として実装し、再度 Human-input Recommendation で承認を求める。C 方針転換なら必須 6・7・8 との整合を確認して再設計し、同様に承認を求める。",
+      "承認後 T-042/T-043(攻撃 UI)を刷新後の基盤の上に構築する: 攻撃の選択・既定実行構成の提案は dock の新区画(.dock-section + Disclosure + .panel-title/.panel-count/Hint)、攻撃一覧ページは表示タブに追加(Segmented の MODE_LABELS、stage 内、説明は Hint に退避して『。』を残さない — prose.test.tsx が全表示を走査する)。前提列は premise.preset + overrides + maxDelay(d)、既定実行構成は defaultInstance(entry) / defaultParams(entry)、必要な能力は entry.capabilities、2 基底の説明は attack.ts の PublishBase / DeliverBase の doc コメントに揃える。判定推移のスロット軸表示は状態表の列(COL_W)に揃える。",
+      "T-044(総点検): notes の点検項目 (1)〜(10)。(8) には layout.test.ts / prose.test.tsx / designTokens.test.ts / theme.test.tsx と verify-ui.mjs の計測、R-012 の承認記録を含める。R-011 の 3 点(能力範囲の是正・証拠の正規化・スラッシング後の閾値縮小)も点検記録に含める。docs/INSPECTION.md に追記。",
+      "運用: atlas-builder state の呼び出しは CONTROL_ROOT で ATLAS_BUILDER_LOCK_TOKEN=$(cat .agent/tmp/loop.lock/token) を前置する(Bash の cwd は直前のコマンドの cd を引き継ぐので、CONTROL_ROOT へ戻ってから呼ぶ)。Bash のガードは ESSENCE.md / .atlas-builder/state のパスを含むコマンド文字列や heredoc を拒むので、投影・診断スクリプトは Write ツールで PROJECT_STATE_ROOT/tmp/ に置いて python3 で実行する(stage-projection → 編集 → apply-projection)。挙動診断・UI 検査の手筋は lessons.jsonl 参照。"
     ],
     "open_questions": [],
     "pending_cycle": false

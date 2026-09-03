@@ -1,8 +1,11 @@
 /**
- * Application shell: display tabs (チェーン / ネットワーク / 全体表示 /
- * 型一覧), the slot cursor with rewind and advance controls, the protocol
- * parameter, intervention and scenario panels, and the scenario's
- * validator count.
+ * Application shell — the instrument's frame. One header bar (display tabs,
+ * validator count, theme), then a stage on the left and the operation dock
+ * (操作盤) on the right. The stage carries the slot bar (cursor, rewind,
+ * advance) and the selected display; the dock gathers every other control —
+ * protocol parameters, interventions, scenarios — in a fixed narrow column,
+ * so the protagonists (the chain display and the state table) own most of
+ * the viewport from the first paint (tokens.css --bar-h / --dock-w).
  * All model computation stays behind useSimulation / src/domain.
  */
 
@@ -107,68 +110,74 @@ export function App() {
         </div>
       </header>
 
-      <div className="slot-bar">
-        <div className="slot-cursor" role="group" aria-label="スロット巻き戻し">
-          <Button
-            className="cursor-step"
-            aria-label="1 スロット戻る"
-            disabled={cursor === 0}
-            onClick={() => session.setCursor(cursor - 1)}
-          >
-            ◀
-          </Button>
-          <span className="slot-current">
-            スロット <strong>{cursor}</strong>
-            {inPast && <span className="slot-run"> / 最新 {runSlot}</span>}
-          </span>
-          <Button
-            className="cursor-step"
-            aria-label="1 スロット先へ"
-            disabled={!inPast}
-            onClick={() => session.setCursor(cursor + 1)}
-          >
-            ▶
-          </Button>
-          {inPast && (
-            <Button className="cursor-latest" onClick={() => session.setCursor(runSlot)}>
-              最新へ
+      <div className="app-body">
+        <div className="stage">
+          <div className="slot-bar">
+            <div className="slot-cursor" role="group" aria-label="スロット巻き戻し">
+              <Button
+                className="cursor-step"
+                aria-label="1 スロット戻る"
+                disabled={cursor === 0}
+                onClick={() => session.setCursor(cursor - 1)}
+              >
+                ◀
+              </Button>
+              <span className="slot-current">
+                スロット <strong>{cursor}</strong>
+                {inPast && <span className="slot-run"> / 最新 {runSlot}</span>}
+              </span>
+              <Button
+                className="cursor-step"
+                aria-label="1 スロット先へ"
+                disabled={!inPast}
+                onClick={() => session.setCursor(cursor + 1)}
+              >
+                ▶
+              </Button>
+              {inPast && (
+                <Button className="cursor-latest" onClick={() => session.setCursor(runSlot)}>
+                  最新へ
+                </Button>
+              )}
+            </div>
+            <span className="slot-next">
+              次スロットの提案者: {validatorName(nextProposer)}
+            </span>
+            <Button variant="primary" className="advance" onClick={() => session.advance()}>
+              {inPast ? 'ここから進める（以降の履歴を破棄）' : '＋1 スロット進める'}
             </Button>
-          )}
+          </div>
+
+          <main className="mode-body">
+            {mode === 'chain' && (
+              <ChainMode state={current} config={config} delivery={delivery} />
+            )}
+            {mode === 'network' && (
+              <NetworkMode
+                state={current}
+                config={config}
+                delivery={delivery}
+                interventions={session.interventions}
+              />
+            )}
+            {mode === 'global' && (
+              <GlobalMode
+                state={current}
+                config={config}
+                delivery={delivery}
+                interventions={session.interventions}
+              />
+            )}
+            {mode === 'types' && <TypesPage />}
+          </main>
         </div>
-        <span className="slot-next">
-          次スロットの提案者: {validatorName(nextProposer)}
-        </span>
-        <Button variant="primary" className="advance" onClick={() => session.advance()}>
-          {inPast ? 'ここから進める（以降の履歴を破棄）' : '＋1 スロット進める'}
-        </Button>
+
+        <aside className="dock" aria-label="操作盤">
+          <ParamsPanel session={session} />
+          <InterventionPanel key={config.validatorCount} session={session} />
+          <ScenarioPanel session={session} />
+        </aside>
       </div>
-
-      <ParamsPanel session={session} />
-      <InterventionPanel key={config.validatorCount} session={session} />
-      <ScenarioPanel session={session} />
-
-      <main className="mode-body">
-        {mode === 'chain' && (
-          <ChainMode state={current} config={config} delivery={delivery} />
-        )}
-        {mode === 'network' && (
-          <NetworkMode
-            state={current}
-            config={config}
-            delivery={delivery}
-            interventions={session.interventions}
-          />
-        )}
-        {mode === 'global' && (
-          <GlobalMode
-            state={current}
-            config={config}
-            delivery={delivery}
-            interventions={session.interventions}
-          />
-        )}
-        {mode === 'types' && <TypesPage />}
-      </main>
     </div>
   )
 }
