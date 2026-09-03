@@ -12,7 +12,7 @@ text is Japanese; code and documentation are English.
 
 **Status:** feature-complete for the most-abstract level. The pure domain
 layer is fully tested (including adversarial combinations of every
-intervention at once), and the UI ships the four tabs described below with
+intervention at once), and the UI ships the two pages described below with
 the intervention panel, slot rewind and localStorage-backed scenarios.
 Every scenario operation is discoverable from the UI itself: panels
 collapse but summarize their contents, empty lists explain the next step,
@@ -44,8 +44,7 @@ colour, spacing, type size and typeface comes from one token sheet
 (`src/ui/tokens.css`), the typefaces are a deliberately chosen system set
 for Japanese, English and monospaced (numbers, IDs, slots) text with no
 external font service, and every form control is one of the app's own
-unified components. The header tabs switch between three displays and the
-type catalog:
+unified components. The header tabs switch between the two pages:
 
 - **チェーン表示** — the block tree with every validator's information
   overlaid (heads, latest votes, J/F checkpoint badges). Below it, the
@@ -60,15 +59,19 @@ type catalog:
   block's **body** (the votes and equivocation evidence it included), the
   block tree, and every vote it has seen (equivocating double votes listed
   individually) with the block each vote supported.
-- **ネットワーク表示** — one card per validator (operating state, head /
-  justified / finalized / latest vote at a glance); hover a card to see
-  that validator's own block tree.
-- **全体表示** — chain on the left, network on the right.
-- **型一覧** — the domain layer's exported types as a top-down dependency
-  graph (types depending on no other type on the top row). The catalog is
-  extracted from the domain source bundled verbatim into the app, so what
-  it shows is exactly what the implementation defines; selecting a type
-  shows its declaration and its dependency links.
+- **型一覧** — the essential specification's exported types as a top-down
+  dependency graph (types depending on no other type on the top row). The
+  page has its own layout: only the header bar frames it (no slot bar, no
+  dock, no validator count), the graph takes about four fifths of the width
+  and the focused type the remaining fifth. One type is always in focus —
+  the first type of the top row when the page opens — and the focus pane
+  shows its verbatim declaration with its comment, the types it depends on
+  and the types that depend on it; selecting any of those, or a node of the
+  graph, moves the focus. The catalog is extracted from the domain source
+  bundled verbatim into the app, so what it shows is exactly what the
+  implementation defines. There is no network or overview display: every
+  validator's own state and view is observed through the state table's
+  cell expansion.
 
 The プロトコルパラメータ section of the dock holds the scenario's
 initial conditions: a preset (`phase0` / `merge` / `current`, default

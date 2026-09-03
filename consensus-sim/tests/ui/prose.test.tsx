@@ -124,19 +124,11 @@ describe('no resident explanation: prose lives only in on-demand hints', () => {
     expectNoResidentProse('with an intervention and a saved scenario')
   })
 
-  it('holds on the network, global and type-catalog displays', async () => {
+  it('holds on the type catalog page', async () => {
     await advance(3)
-    await click(buttonByText('ネットワーク表示'))
-    expectNoResidentProse('network')
-    await act(async () => {
-      all('.validator-card')[0]?.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }))
-    })
-    expectNoResidentProse('network with a hovered card')
-    await click(buttonByText('全体表示'))
-    expectNoResidentProse('global')
     await click(buttonByText('型一覧'))
     expectNoResidentProse('types')
-    await click(all('.type-node')[0])
+    await click(all('.type-node')[3])
     expectNoResidentProse('types with a selection')
   })
 })

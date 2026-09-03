@@ -6,11 +6,11 @@
     "stop_after_infra_fails": 2
   },
   "progress": {
-    "last_signature": "d5b713f1e0808bb4b623931c140ce8905e7e9cdf743b28a4294684f3f304706e",
+    "last_signature": "c6f3b4959136b6563de124979ddb49e9512d3427aa88c223b6318a4e1b329369",
     "idle_cycles_since_progress": 0,
     "infra_fails_since_ok": 0,
-    "last_progress_at": "2026-09-03T17:18:59+09:00",
-    "last_checked_at": "2026-09-03T17:18:59+09:00",
+    "last_progress_at": "2026-09-03T20:16:54+09:00",
+    "last_checked_at": "2026-09-03T20:16:54+09:00",
     "usage_limited_since_ok": 0
   },
   "reset_policy": {
@@ -21,19 +21,26 @@
     "reset_after_decisions": 5
   },
   "counters": {
-    "context_usage_estimate": 0.35,
+    "context_usage_estimate": 0.55,
     "failed_attempts_since_reset": 0,
-    "changed_files_since_reset": 22,
-    "completed_todos_since_reset": 1,
-    "important_decisions_since_reset": 2,
-    "major_spec_rewrite_since_reset": false,
+    "changed_files_since_reset": 36,
+    "completed_todos_since_reset": 4,
+    "important_decisions_since_reset": 4,
+    "major_spec_rewrite_since_reset": true,
     "high_risk_change_completed": false
   },
   "handoff": {
-    "written_at": "2026-09-03T18:03:14+09:00",
-    "summary": "Human resume: R-012 を承認: 刷新後の UI（ヘッダーバー / 左ステージ（スロットバー + ブロック木 + 状態表）/ 右の操作盤 336px、ⓘ ホバー説明、デザイントークン、OS 追従テーマ）を人間が実ブラウザで確認し、必須対応事項 30・成功条件 26 の刷新完了として承認する。次サイクルは T-051 をこの resume 記録を evidence として done にし、T-042/T-043（攻撃 UI）→ T-044（総点検）へ進む。フェーズは must のまま（approve-should / close-at-must のいずれも選ばない）。\nR-011（能力範囲の是正 2 点・証拠のスロット横断正規化・スラッシング後の閾値縮小の帰結）は現状のまま了承する。ループ側で閉じ、総点検 T-044 の点検項目として記録すること。",
-    "next_actions": [],
-    "open_questions": [],
-    "pending_cycle": true
+    "written_at": "2026-09-03T20:20:00+09:00",
+    "summary": "cycle 39: 20:01 の steering resume(ESSENCE 改訂)を受けて Spec を再投影(sha 51c92047…、S-046 型一覧レイアウト / S-047 コメント日本語化 / S-048 攻撃の自動再生を追加、stale 10 件を追随)し、T-051 を R-012 承認記録で done、T-056〜T-060 を新設、R-011 を resolved、R-013(必須 6 の 2 ページと必須 22 の攻撃一覧ページの読み: 攻撃一覧を第 3 のページとして投影)を Non-blocking で記録。実装: T-056(ネットワーク表示・全体表示の削除: NetworkMode/GlobalMode 削除、App は Page = chain | types、CSS/テスト/verify-ui/README 追随、テストの観測先は状態表 .state-cell-diff)と T-057(型一覧の独自レイアウト: ヘッダーバー直下に .types-page grid 4fr:1fr、スロットバー・操作盤・バリデータ数なし、初期フォーカス = 最上段先頭で常に 1 型がフォーカス、宣言はコメント込み → 依存先・依存元リンク、typesPage.test / layout.test の契約、verify-ui.mjs の実測)を done。typecheck 0 / vitest 33 files 397 tests 0 / build 0。フェーズは must のまま。残る must: T-059(コメント日本語化)→ T-058(型一覧の人間承認ゲート)、T-042/T-043/T-060(攻撃 UI・攻撃一覧ページ・自動再生)、T-044(総点検)。",
+    "next_actions": [
+      "T-059: src/domain/model/*.ts の全コメント(ファイル頭・型・関数・規則の説明)を日本語にし(識別子は英語のまま、用語節のユビキタス言語)、PresetName(protocolParams.ts)と StageStatus(attackGoal.ts)の欠落コメントを補う。builder に『model 配下のみ、コード変更なし、各 export 型の直前に /** */ の日本語コメント』で委任してよい。機械検査を追加: extractTypeGraph(DOMAIN_SOURCES) の全ノードの declaration が /** で始まりコメント本文に日本語(\\p{Script=Hiragana}|\\p{Script=Katakana}|\\p{Script=Han})を含むこと、model ソースの全コメントに ASCII だけの文が無いこと(tests/ui/typeGraph.test.ts か tests/domain/purity.test.ts の隣)。sim/UI/tests は英語のまま。typesPage.test の『宣言はコメント込み』はそのまま通る。",
+      "T-058: T-059 完了後に Human-input Recommendation(requires_human_approval)を起票して停止: 型一覧ページ(必須 8・成功条件 2)と日本語コメント表示(成功条件 10)の実ブラウザ確認。確認手順 = npm run build && node scripts/verify-ui.mjs(型一覧の 8:2・高さ・初期フォーカス・宣言のコメントを計測)と npm run dev の目視。承認の resume 記録を evidence に done。",
+      "承認後、遂行順序 2: T-042(攻撃の組込 UI — dock の新区画、既定実行構成の提案に throughSlot と seed を含める、生成行動の攻撃者印・破棄印、判定推移のスロット軸表示)→ T-043(攻撃一覧ページ — ヘッダーバーのページ切替に第 3 のタブ、冒頭に形式体系の定義、表は attackLibrary から導出、Hint に説明を退避して『。』を残さない)→ T-060(自動再生 — UI 層のタイマー + advance()、達成スロットで自動停止・終了スロットで停止・一時停止/再開、停止後の巻き戻し)。DOM テストで成功条件 16〜20・24・28 を固定。",
+      "T-044: 最後に総点検を再実施(notes の点検項目 (1)〜(13))、docs/INSPECTION.md に追記、README 更新、検証ゲート全通し。"
+    ],
+    "open_questions": [
+      "R-013(Non-blocking): 必須 6 の『2 ページ』を撤去の宣言と読み、攻撃一覧を第 3 のページとして作る。人間が異なる意図なら update-essence で必須 6 を改訂してもらう。"
+    ],
+    "pending_cycle": false
   }
 }

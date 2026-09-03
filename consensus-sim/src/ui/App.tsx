@@ -1,12 +1,15 @@
 /**
- * Application shell — the instrument's frame. One header bar (display tabs,
- * validator count, theme), then a stage on the left and the operation dock
- * (操作盤) on the right. The stage carries the slot bar (cursor, rewind,
- * advance) and the selected display; the dock gathers every other control —
- * protocol parameters, interventions, scenarios — in a fixed narrow column,
- * so the protagonists (the chain display and the state table) own most of
- * the viewport from the first paint (tokens.css --bar-h / --dock-w).
- * All model computation stays behind useSimulation / src/domain.
+ * Application shell — the instrument's frame. One header bar (page tabs,
+ * validator count, theme) above the page. The chain display page is a stage
+ * on the left and the operation dock (操作盤) on the right: the stage
+ * carries the slot bar (cursor, rewind, advance) and the chain display, the
+ * dock gathers every other control — protocol parameters, interventions,
+ * scenarios — in a fixed narrow column, so the protagonists (the chain
+ * display and the state table) own most of the viewport from the first
+ * paint (tokens.css --bar-h / --dock-w). The type catalog page has its own
+ * layout (必須 8): only the header bar frames it — no slot bar, no dock, no
+ * validator count. All model computation stays behind useSimulation /
+ * src/domain.
  */
 
 import { useState } from 'react'
@@ -20,8 +23,6 @@ import { Button } from './components/Button'
 import { Segmented } from './components/Segmented'
 import { Select } from './components/Select'
 import { ChainMode } from './modes/ChainMode'
-import { GlobalMode } from './modes/GlobalMode'
-import { NetworkMode } from './modes/NetworkMode'
 import { TypesPage } from './modes/TypesPage'
 import { InterventionPanel } from './InterventionPanel'
 import { ParamsPanel } from './ParamsPanel'
@@ -30,12 +31,10 @@ import { useSimulation } from './useSimulation'
 import { useThemeMode } from './useTheme'
 import type { ThemeMode } from './useTheme'
 
-type Mode = 'chain' | 'network' | 'global' | 'types'
+type Page = 'chain' | 'types'
 
-const MODE_LABELS: Readonly<Record<Mode, string>> = {
+const PAGE_LABELS: Readonly<Record<Page, string>> = {
   chain: 'チェーン表示',
-  network: 'ネットワーク表示',
-  global: '全体表示',
   types: '型一覧',
 }
 
@@ -58,7 +57,7 @@ const VALIDATOR_COUNTS = Array.from(
 export function App() {
   const session = useSimulation()
   const theme = useThemeMode()
-  const [mode, setMode] = useState<Mode>('chain')
+  const [page, setPage] = useState<Page>('chain')
 
   const { current, config, delivery, cursor, runSlot } = session
   const inPast = cursor < runSlot
@@ -74,31 +73,33 @@ export function App() {
 
         <nav className="mode-tabs">
           <Segmented
-            label="表示切替"
+            label="ページ切替"
             className="mode-tabs-segmented"
-            value={mode}
-            options={(Object.keys(MODE_LABELS) as Mode[]).map((key) => ({
+            value={page}
+            options={(Object.keys(PAGE_LABELS) as Page[]).map((key) => ({
               key,
-              label: MODE_LABELS[key],
+              label: PAGE_LABELS[key],
             }))}
-            onChange={(m) => setMode(m)}
+            onChange={(p) => setPage(p)}
           />
         </nav>
 
         <div className="header-controls">
-          <label className="field-inline">
-            バリデータ数
-            <Select
-              value={config.validatorCount}
-              onChange={(e) => session.setValidatorCount(Number(e.target.value))}
-            >
-              {VALIDATOR_COUNTS.map((n) => (
-                <option key={n} value={n}>
-                  {n} 体
-                </option>
-              ))}
-            </Select>
-          </label>
+          {page === 'chain' && (
+            <label className="field-inline">
+              バリデータ数
+              <Select
+                value={config.validatorCount}
+                onChange={(e) => session.setValidatorCount(Number(e.target.value))}
+              >
+                {VALIDATOR_COUNTS.map((n) => (
+                  <option key={n} value={n}>
+                    {n} 体
+                  </option>
+                ))}
+              </Select>
+            </label>
+          )}
           <Segmented
             label="テーマ"
             className="theme-toggle"
@@ -110,74 +111,59 @@ export function App() {
         </div>
       </header>
 
-      <div className="app-body">
-        <div className="stage">
-          <div className="slot-bar">
-            <div className="slot-cursor" role="group" aria-label="スロット巻き戻し">
-              <Button
-                className="cursor-step"
-                aria-label="1 スロット戻る"
-                disabled={cursor === 0}
-                onClick={() => session.setCursor(cursor - 1)}
-              >
-                ◀
-              </Button>
-              <span className="slot-current">
-                スロット <strong>{cursor}</strong>
-                {inPast && <span className="slot-run"> / 最新 {runSlot}</span>}
-              </span>
-              <Button
-                className="cursor-step"
-                aria-label="1 スロット先へ"
-                disabled={!inPast}
-                onClick={() => session.setCursor(cursor + 1)}
-              >
-                ▶
-              </Button>
-              {inPast && (
-                <Button className="cursor-latest" onClick={() => session.setCursor(runSlot)}>
-                  最新へ
+      {page === 'types' ? (
+        <TypesPage />
+      ) : (
+        <div className="app-body">
+          <div className="stage">
+            <div className="slot-bar">
+              <div className="slot-cursor" role="group" aria-label="スロット巻き戻し">
+                <Button
+                  className="cursor-step"
+                  aria-label="1 スロット戻る"
+                  disabled={cursor === 0}
+                  onClick={() => session.setCursor(cursor - 1)}
+                >
+                  ◀
                 </Button>
-              )}
+                <span className="slot-current">
+                  スロット <strong>{cursor}</strong>
+                  {inPast && <span className="slot-run"> / 最新 {runSlot}</span>}
+                </span>
+                <Button
+                  className="cursor-step"
+                  aria-label="1 スロット先へ"
+                  disabled={!inPast}
+                  onClick={() => session.setCursor(cursor + 1)}
+                >
+                  ▶
+                </Button>
+                {inPast && (
+                  <Button className="cursor-latest" onClick={() => session.setCursor(runSlot)}>
+                    最新へ
+                  </Button>
+                )}
+              </div>
+              <span className="slot-next">
+                次スロットの提案者: {validatorName(nextProposer)}
+              </span>
+              <Button variant="primary" className="advance" onClick={() => session.advance()}>
+                {inPast ? 'ここから進める（以降の履歴を破棄）' : '＋1 スロット進める'}
+              </Button>
             </div>
-            <span className="slot-next">
-              次スロットの提案者: {validatorName(nextProposer)}
-            </span>
-            <Button variant="primary" className="advance" onClick={() => session.advance()}>
-              {inPast ? 'ここから進める（以降の履歴を破棄）' : '＋1 スロット進める'}
-            </Button>
+
+            <main className="mode-body">
+              <ChainMode state={current} config={config} delivery={delivery} />
+            </main>
           </div>
 
-          <main className="mode-body">
-            {mode === 'chain' && (
-              <ChainMode state={current} config={config} delivery={delivery} />
-            )}
-            {mode === 'network' && (
-              <NetworkMode
-                state={current}
-                config={config}
-                delivery={delivery}
-                interventions={session.interventions}
-              />
-            )}
-            {mode === 'global' && (
-              <GlobalMode
-                state={current}
-                config={config}
-                delivery={delivery}
-                interventions={session.interventions}
-              />
-            )}
-            {mode === 'types' && <TypesPage />}
-          </main>
+          <aside className="dock" aria-label="操作盤">
+            <ParamsPanel session={session} />
+            <InterventionPanel key={config.validatorCount} session={session} />
+            <ScenarioPanel session={session} />
+          </aside>
         </div>
-
-        <aside className="dock" aria-label="操作盤">
-          <ParamsPanel session={session} />
-          <InterventionPanel key={config.validatorCount} session={session} />
-          <ScenarioPanel session={session} />
-        </aside>
-      </div>
+      )}
     </div>
   )
 }

@@ -110,6 +110,26 @@ describe('the protagonists own more than half of a standard PC viewport', () => 
   })
 })
 
+describe('the type catalog page has its own layout (必須 8)', () => {
+  it('is rendered outside the stage/dock body, framed by the header bar only', () => {
+    const typesAt = appTsx.indexOf('<TypesPage />')
+    const bodyAt = appTsx.indexOf('className="app-body"')
+    expect(typesAt).toBeGreaterThan(-1)
+    expect(typesAt).toBeLessThan(bodyAt)
+    // The validator count is a chain-page control.
+    expect(appTsx).toMatch(/page === 'chain' && \(\s*<label className="field-inline">/)
+  })
+
+  it('splits its width four fifths graph / one fifth focused type and fills the height', () => {
+    expect(rule('.types-page')).toMatch(
+      /grid-template-columns:\s*minmax\(0,\s*4fr\)\s+minmax\(0,\s*1fr\)/,
+    )
+    expect(rule('.types-page')).toMatch(/height:\s*100%/)
+    expect(rule('.types-scroll')).toMatch(/overflow:\s*auto/)
+    expect(rule('.type-detail')).toMatch(/overflow:\s*auto/)
+  })
+})
+
 describe('about ten slots fit the stage of a PC width (必須 7)', () => {
   it('label column + 10 slot columns fit the 1440-wide stage', () => {
     const dockW = px('--dock-w')

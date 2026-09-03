@@ -502,7 +502,7 @@ nav.mode-tabs [data-ui='button'].active {
   font-size: var(--text-sm);
 }
 
-/* A local view's tree (state-cell expansion, network hover). */
+/* A local view's tree (state-cell expansion). */
 .tree-scroll {
   overflow: auto;
   border: var(--border);
@@ -1008,95 +1008,6 @@ nav.mode-tabs [data-ui='button'].active {
   font-size: var(--text-sm);
 }
 
-/* ---- network display ---- */
-
-.validator-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
-  gap: var(--space-2);
-}
-
-.validator-card {
-  display: block;
-  text-align: left;
-  background: transparent;
-  border: var(--border);
-  border-radius: var(--radius);
-  padding: var(--space-2) var(--space-3);
-  color: var(--ink-primary);
-  font: inherit;
-  cursor: pointer;
-}
-
-.validator-card.inspected {
-  border-color: var(--accent);
-  outline: 1px solid var(--accent);
-}
-
-.validator-card.diverged {
-  border-color: var(--status-warning);
-}
-
-.card-title {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-weight: 600;
-  margin-bottom: var(--space-2);
-}
-
-.card-flag {
-  margin-left: auto;
-  font-size: var(--text-xs);
-  font-weight: 600;
-  color: var(--ink-on-warning);
-  background: var(--status-warning);
-  border-radius: var(--radius);
-  padding: 0 var(--space-2);
-}
-
-.card-flag + .card-flag {
-  margin-left: var(--space-1);
-}
-
-/* Operating state (稼働状態) is chrome-adjacent model state: monochrome chip,
-   the text carries the signal. */
-.card-flag-op {
-  color: var(--ink-primary);
-  background: var(--neutral-cell);
-}
-
-.network-hint {
-  margin: var(--space-3) var(--space-0-5);
-}
-
-.network-detail {
-  margin-top: var(--space-3);
-}
-
-.network-detail h3 .validator-dot {
-  margin-right: var(--space-2);
-}
-
-/* ---- global display ---- */
-
-.global-mode {
-  display: grid;
-  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
-  gap: var(--space-3);
-  align-items: start;
-  flex: 1;
-  min-height: 0;
-}
-
-.global-pane {
-  min-width: 0;
-  min-height: 0;
-  align-self: stretch;
-  display: flex;
-  flex-direction: column;
-}
-
 .pane-title {
   margin: 0 0 var(--space-2);
   font-size: var(--text-sm);
@@ -1104,17 +1015,31 @@ nav.mode-tabs [data-ui='button'].active {
   color: var(--ink-secondary);
 }
 
-/* ---- type catalog (型一覧) ---- */
+/* ---- type catalog (型一覧) ----
+ * The page's own layout (必須 8): only the header bar frames it. The graph
+ * pane takes four fifths of the width and the focus pane the remaining
+ * fifth; each scrolls on its own, the frame never moves. */
 
 .types-page {
+  display: grid;
+  grid-template-columns: minmax(0, 4fr) minmax(0, 1fr);
+  height: 100%;
+  min-height: 0;
+}
+
+.types-graph-pane {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  min-width: 0;
+  min-height: 0;
+  padding: var(--space-3);
+  gap: var(--space-2);
 }
 
 .types-toolbar {
   display: flex;
   align-items: center;
+  flex: none;
 }
 
 .types-toolbar .pane-title {
@@ -1122,7 +1047,9 @@ nav.mode-tabs [data-ui='button'].active {
 }
 
 .types-scroll {
-  overflow-x: auto;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
   border: var(--border);
   border-radius: var(--radius);
 }
@@ -1192,8 +1119,11 @@ nav.mode-tabs [data-ui='button'].active {
 }
 
 .type-detail {
-  border: var(--border);
-  border-radius: var(--radius);
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  border-left: var(--border);
+  background: var(--plane);
   padding: var(--space-3) var(--space-3);
 }
 
@@ -1214,7 +1144,7 @@ nav.mode-tabs [data-ui='button'].active {
   display: grid;
   grid-template-columns: auto 1fr;
   gap: var(--space-1) var(--space-3);
-  margin: 0 0 var(--space-2);
+  margin: var(--space-3) 0 0;
 }
 
 .type-detail-links dt {
@@ -1250,6 +1180,7 @@ nav.mode-tabs [data-ui='button'].active {
   border: var(--border);
   border-radius: var(--radius);
   overflow-x: auto;
+  white-space: pre-wrap;
   font-family: var(--font-mono);
   font-size: var(--text-sm);
   line-height: var(--leading-normal);

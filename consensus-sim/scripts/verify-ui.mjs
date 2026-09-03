@@ -130,15 +130,14 @@ try {
   check('本文に --font-text', fonts.body.length > 0 && fonts.body !== fonts.mono, fonts.body)
   check('数値・ID に --font-mono', /mono|Menlo|Consolas/i.test(fonts.mono), fonts.mono)
 
-  // Shell: title, slot 0, the four display tabs.
+  // Shell: title, slot 0, the two page tabs.
   check('タイトル表示', (await page.textContent('h1')) === 'consensus-sim')
   const slotText = () => page.textContent('.slot-current')
   check('スロット0開始', (await slotText())?.includes('0') === true)
   const tabs = await page.$$eval('.mode-tabs button', (els) => els.map((e) => e.textContent))
   check(
-    '4表示タブ',
-    JSON.stringify(tabs) ===
-      JSON.stringify(['チェーン表示', 'ネットワーク表示', '全体表示', '型一覧']),
+    '2ページタブ',
+    JSON.stringify(tabs) === JSON.stringify(['チェーン表示', '型一覧']),
     String(tabs),
   )
 
@@ -174,23 +173,69 @@ try {
   const dockSections = await page.$$eval('.dock .dock-section', (els) => els.length)
   check('操作盤は 3 区画', dockSections === 3, String(dockSections))
 
-  // Network display: one card per validator; hovering opens the local view.
-  await page.click('.mode-tabs button:has-text("ネットワーク表示")')
-  const cards = await page.$$eval('.validator-card', (els) => els.length)
-  check('ネットワーク表示にカード4枚', cards === 4, String(cards))
-  await page.hover('.validator-card')
-  check('カードhoverで局所ビュー表示', (await page.$('.network-detail')) !== null)
-
-  // Global display: chain pane and network pane side by side.
-  await page.click('.mode-tabs button:has-text("全体表示")')
-  check('全体表示は2ペイン', (await page.$$eval('.global-pane', (els) => els.length)) === 2)
-
-  // Type catalog: the dependency graph renders nodes.
+  // Type catalog page (必須 8 / 成功条件 2): header bar only — no slot bar,
+  // no dock, no validator count; graph pane ≈ 4/5 of the width, focus pane
+  // ≈ 1/5; the first type of the top layer is in focus on opening, and
+  // selecting a node switches the focus pane to it.
   await page.click('.mode-tabs button:has-text("型一覧")')
+  const barH = await page.$eval('.app-header', (el) => el.getBoundingClientRect().height)
   const typeNodes = await page.$$eval('.type-node', (els) => els.length)
   check('型一覧にノード表示', typeNodes > 0, String(typeNodes))
+  check('型一覧にスロットバー無し', (await page.$('.slot-bar')) === null)
+  check('型一覧に操作盤無し', (await page.$('.dock')) === null)
+  check('型一覧にバリデータ数設定無し', (await page.$('.field-inline select')) === null)
+  const split = await page.evaluate(() => {
+    const pageEl = document.querySelector('.types-page')
+    const graph = document.querySelector('.types-graph-pane')
+    const focus = document.querySelector('.type-detail')
+    if (!pageEl || !graph || !focus) return null
+    const w = pageEl.getBoundingClientRect().width
+    return {
+      graph: graph.getBoundingClientRect().width / w,
+      focus: focus.getBoundingClientRect().width / w,
+      pageH: pageEl.getBoundingClientRect().height,
+      viewH: window.innerHeight,
+    }
+  })
+  check(
+    '型一覧は幅の約8割がグラフ・約2割がフォーカス中の型',
+    split !== null && split.graph > 0.75 && split.graph < 0.85 && split.focus > 0.15 && split.focus < 0.25,
+    JSON.stringify(split),
+  )
+  check(
+    '型一覧はヘッダーバーの下を埋める',
+    split !== null && Math.abs(split.viewH - split.pageH - barH) <= 2,
+    JSON.stringify(split),
+  )
+  const initialFocus = await page.evaluate(() => {
+    const nodes = [...document.querySelectorAll('.type-node')]
+    const minTop = Math.min(...nodes.map((n) => parseInt(n.style.top, 10)))
+    const first = nodes
+      .filter((n) => parseInt(n.style.top, 10) === minTop)
+      .sort((a, b) => parseInt(a.style.left, 10) - parseInt(b.style.left, 10))[0]
+    const active = document.querySelector('.type-node.active .type-node-name')
+    const heading = document.querySelector('.type-detail h3')
+    return {
+      first: first?.querySelector('.type-node-name')?.textContent ?? null,
+      active: active?.textContent ?? null,
+      heading: heading?.textContent ?? null,
+    }
+  })
+  check(
+    '開いた直後は最上段の先頭の型がフォーカス',
+    initialFocus.first !== null &&
+      initialFocus.first === initialFocus.active &&
+      (initialFocus.heading ?? '').includes(initialFocus.first),
+    JSON.stringify(initialFocus),
+  )
+  await page.click('.type-node:has-text("Vote")')
+  const focusedHeading = await page.textContent('.type-detail h3')
+  check('型を選ぶと右側がその型に切り替わる', focusedHeading?.includes('Vote') === true, focusedHeading ?? '')
+  const focusedSource = await page.textContent('.type-source')
+  check('宣言はコメント込みで表示', focusedSource?.trimStart().startsWith('/**') === true)
 
-  // Validator count change resets to slot 0.
+  // Back on the chain page, a validator count change resets to slot 0.
+  await page.click('.mode-tabs button:has-text("チェーン表示")')
   await page.selectOption('.field-inline select', '7')
   check('7体設定でスロット0へ', (await slotText())?.includes('0') === true)
 } finally {

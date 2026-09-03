@@ -59,13 +59,11 @@ async function advance(times: number) {
 }
 
 describe('App shell', () => {
-  it('starts at slot 0 with the anchor block only and three mode tabs', () => {
+  it('starts at slot 0 with the anchor block only and the two page tabs', () => {
     expect(text('h1')).toBe('consensus-sim')
     expect(text('.slot-current')).toContain('0')
     expect(all('.mode-tabs button').map((b) => b.textContent)).toEqual([
       'チェーン表示',
-      'ネットワーク表示',
-      '全体表示',
       '型一覧',
     ])
     expect(all('.tree-block')).toHaveLength(1)
@@ -78,13 +76,20 @@ describe('App shell', () => {
     expect(all('.vote-table tbody tr')).toHaveLength(4)
   })
 
-  it('switches to network and global displays and back', async () => {
-    await click(buttonByText('ネットワーク表示'))
-    expect(container.querySelector('.network-mode')).not.toBeNull()
-    await click(buttonByText('全体表示'))
-    expect(container.querySelector('.global-mode')).not.toBeNull()
+  it('switches to the type catalog page and back without losing the run', async () => {
+    await advance(2)
+    await click(buttonByText('型一覧'))
+    expect(container.querySelector('.types-page')).not.toBeNull()
+    // The catalog page has its own layout: no slot bar, no dock, no
+    // validator count — only the header bar frames it (必須 8).
+    expect(container.querySelector('.slot-bar')).toBeNull()
+    expect(container.querySelector('.dock')).toBeNull()
+    expect(container.querySelector('.field-inline select')).toBeNull()
+    expect(container.querySelector('.theme-toggle')).not.toBeNull()
     await click(buttonByText('チェーン表示'))
-    expect(all('.tree-block').length).toBeGreaterThan(0)
+    expect(text('.slot-current')).toContain('2')
+    expect(all('.tree-block')).toHaveLength(3)
+    expect(container.querySelector('.dock')).not.toBeNull()
   })
 
   it('resets to slot 0 when the validator count changes', async () => {
@@ -118,83 +123,5 @@ describe('Chain display overlay', () => {
     expect(all('.badge-finalized')).toHaveLength(2)
     expect(all('.badge-justified').length).toBeGreaterThan(0)
     expect(text('.status-list')).toContain('finalized')
-  })
-})
-
-async function hover(el: Element | null | undefined) {
-  if (!el) throw new Error('hover target not found')
-  await act(async () => {
-    el.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }))
-  })
-}
-
-describe('Network mode', () => {
-  it('shows one card per validator with head / justified / finalized / vote', async () => {
-    await advance(9)
-    await click(buttonByText('ネットワーク表示'))
-    const cards = all('.validator-card')
-    expect(cards).toHaveLength(4)
-    for (const card of cards) {
-      const body = card.textContent ?? ''
-      expect(body).toContain('head')
-      expect(body).toContain('justified')
-      expect(body).toContain('finalized')
-      expect(body).toContain('最新投票')
-    }
-    // Instant delivery: everyone agrees, so no card is flagged as diverged.
-    expect(all('.validator-card.diverged')).toHaveLength(0)
-  })
-
-  it('shows the hovered validator view as a block tree', async () => {
-    await advance(4)
-    await click(buttonByText('ネットワーク表示'))
-    expect(container.querySelector('.network-hint')).not.toBeNull()
-    expect(container.querySelector('.network-detail')).toBeNull()
-
-    const cards = all('.validator-card')
-    await hover(cards[2])
-    expect(text('.network-detail h3')).toContain('キャロル のビュー')
-    // 5 blocks visible in V2's local view at slot 4 (anchor + one per slot).
-    expect(all('.network-detail .tree-block')).toHaveLength(5)
-
-    await hover(cards[0])
-    expect(text('.network-detail h3')).toContain('アリス のビュー')
-  })
-
-  it('reflects the validator count in the card grid', async () => {
-    const select = container.querySelector('.field-inline select')
-    if (!(select instanceof HTMLSelectElement)) throw new Error('select not found')
-    await act(async () => {
-      select.value = '7'
-      select.dispatchEvent(new Event('change', { bubbles: true }))
-    })
-    await click(buttonByText('ネットワーク表示'))
-    expect(all('.validator-card')).toHaveLength(7)
-  })
-})
-
-describe('Global mode', () => {
-  it('shows the chain pane on the left and the network pane on the right', async () => {
-    await advance(4)
-    await click(buttonByText('全体表示'))
-    const panes = all('.global-pane')
-    expect(panes).toHaveLength(2)
-    expect(panes[0]?.querySelector('.chain-mode')).not.toBeNull()
-    expect(panes[0]?.querySelectorAll('.tree-block').length).toBeGreaterThan(0)
-    expect(panes[0]?.querySelector('.state-table')).not.toBeNull()
-    expect(panes[1]?.querySelectorAll('.validator-card')).toHaveLength(4)
-  })
-
-  it('keeps chain interactions working inside the global layout', async () => {
-    await advance(4)
-    await click(buttonByText('全体表示'))
-    // State-table cell expansion works inside the global chain pane.
-    const rows = all('.global-pane .state-table tbody tr')
-    const cell = rows[2]?.querySelectorAll('td .state-cell')[2]
-    await click(cell)
-    expect(text('.state-detail h3')).toContain('キャロル の視点')
-    const cards = all('.validator-card')
-    await hover(cards[1])
-    expect(text('.network-detail h3')).toContain('ボブ のビュー')
   })
 })

@@ -1766,7 +1766,7 @@
     },
     {
       "id": "T-042",
-      "title": "攻撃 UI: シナリオへの攻撃の組込(選択・攻撃者集合・パラメータ・プリセット+上書き・既定実行構成の提案と変更・条件未満表示)、生成行動の攻撃者印付き表示(介入一覧・状態表・チェーン表示、破棄印含む)、攻撃者バリデータの 3 表示での識別、攻撃目標判定の段階ごとの推移と根拠のスロット軸表示、攻撃+手動介入シナリオの保存・再読込・再実行+DOM テスト",
+      "title": "攻撃 UI: シナリオへの攻撃の組込(選択・攻撃者集合・パラメータ・プリセット+上書き・既定実行構成(終了スロットを含む)の提案と変更・条件未満表示)、生成行動の攻撃者印付き表示(介入一覧・状態表・チェーン表示、破棄印含む)、攻撃者バリデータのチェーン表示・状態表での識別、攻撃目標判定の段階ごとの推移と根拠のスロット軸表示、攻撃+手動介入シナリオの保存・再読込・再実行+DOM テスト",
       "status": "pending",
       "priority": "must",
       "spec": [
@@ -1782,7 +1782,7 @@
       "batch_group": "e3-attack-ui",
       "context_cost": 5,
       "risk_level": "normal",
-      "notes": "遂行順序 3(型の改訂 T-052〜T-055 と UI 刷新 T-050/T-051 の後、刷新後のデザイン基盤の上に構築)。既定実行構成の提案は前提(プリセット+上書き・遅延上限 d)を含む。成功条件 17・18・20・24 の受け入れ確認を DOM テストで残す。UI の見た目・情報設計の大きな方針転換は人間に戻す。"
+      "notes": "遂行順序 2(遂行順序 1 の T-056/T-057/T-059 の後、刷新後のデザイン基盤(dock の区画・Hint・panel-title/panel-count・readout/form-status)の上に構築)。既定実行構成の提案は前提(プリセット+上書き・遅延上限 d)と自動再生の終了スロットを含む。実行開始→自動再生は T-060。成功条件 17・18・20・24 の受け入れ確認を DOM テストで残す。UI の見た目・情報設計の大きな方針転換は人間に戻す。"
     },
     {
       "id": "T-043",
@@ -1801,7 +1801,7 @@
       "batch_group": "e3-attack-ui",
       "context_cost": 4,
       "risk_level": "normal",
-      "notes": "遂行順序 3(型の改訂 T-052〜T-055 と UI 刷新 T-050/T-051 の後、刷新後のデザイン基盤の上に構築)。前提列はプリセット名+上書き・遅延上限 d。成功条件 16 の受け入れ確認を DOM テストで残す。"
+      "notes": "遂行順序 2(T-042 と同バッチ群)。攻撃一覧は必須 22 が求める第 3 のページ(R-013: 必須 6 の『2 ページ』はネットワーク表示・全体表示の撤去を述べたものと解釈)。ヘッダーバーのページ切替に載せ、前提列はプリセット名+上書き・遅延上限 d、既定実行構成列に終了スロットを含める。行選択→既定実行構成の提案→実行開始の操作で自動再生(T-060)。説明文は Hint に退避して『。』を残さない(prose.test.tsx が全ページを走査)。成功条件 16 の受け入れ確認を DOM テストで残す。"
     },
     {
       "id": "T-049",
@@ -1894,7 +1894,7 @@
     {
       "id": "T-051",
       "title": "UI 刷新 (3) 人間の実ブラウザ確認と承認: 刷新後の UI を人間が手元の実ブラウザで確認して承認する(Human-input Recommendation で承認を求めて停止し、承認の resume 記録を evidence とする。承認前に完了扱いにしない)",
-      "status": "blocked",
+      "status": "done",
       "priority": "must",
       "spec": [
         "S-044"
@@ -1905,12 +1905,23 @@
       "batch_group": "e4-ui-refresh",
       "context_cost": 1,
       "risk_level": "normal",
-      "notes": "遂行順序 2。T-049・T-050 の完了後に起票する。人間の確認手段: npm run dev または npm run build && node scripts/verify-ui.mjs(R-001 参照)。 R-012 で承認を求めて停止（cycle 38）。確認手順: npm run build && node scripts/verify-ui.mjs（3 視口の計測と (b)〜(f) の検査）、npm run dev で目視。",
-      "blocked_reason": "人間の実ブラウザ確認と承認待ち（R-012 Human-input Recommendation）。承認の resume 記録を evidence として done にする。"
+      "notes": "遂行順序 2。T-049・T-050 の完了後に起票する。人間の確認手段: npm run dev または npm run build && node scripts/verify-ui.mjs(R-001 参照)。 R-012 で承認を求めて停止（cycle 38）。確認手順: npm run build && node scripts/verify-ui.mjs（3 視口の計測と (b)〜(f) の検査）、npm run dev で目視。 【承認】2026-09-03 18:03 の resume(R-012 承認)を evidence として done(cycle 39)。",
+      "evidence": [
+        {
+          "type": "diff",
+          "summary": "Human review record (resume 2026-09-03T18:03:14+09:00, gate_release of R-012; reflection.jsonl human_resume entry; recommendations.json R-012.resolution): the human verified the refreshed UI in a real browser (header bar / left stage with slot bar + block tree + state table / right 336px dock, ⓘ hover notes, design tokens, OS-following theme) and approved it as the completion of 必須対応事項 30 and 成功条件 26. No implementation diff in this Todo; the approval is the evidence required by 必須 30 (承認前に完了扱いにしない)."
+        },
+        {
+          "type": "command",
+          "command": "npm test",
+          "exit_code": 0,
+          "summary": "Cycle 38 machine checks for 成功条件 26 (a)-(f) (tests/ui/layout.test.ts, prose.test.tsx, designTokens.test.ts, theme.test.tsx) were green at the time of the human review (33 files / 397 tests)."
+        }
+      ]
     },
     {
       "id": "T-044",
-      "title": "総点検の再実施(追加分): 改訂で追加・改訂された必須対応事項 3・9・17〜30 と成功条件 14〜27 について 3 観点(整合/引き算/複合条件バグ)で点検し、ドメイン 2 モジュールの振り分けを点検項目に含め、発見問題を全解消、docs/INSPECTION.md に追記、README 更新、検証ゲート全通し",
+      "title": "総点検の再実施(追加分): 改訂で追加・改訂された必須対応事項 3・6・8・9・17〜32 と成功条件 2・10・14〜28 について 3 観点(整合/引き算/複合条件バグ)で点検し、ドメイン 2 モジュールの振り分けを点検項目に含め、発見問題を全解消、docs/INSPECTION.md に追記、README 更新、検証ゲート全通し",
       "status": "pending",
       "priority": "must",
       "spec": [
@@ -1918,7 +1929,11 @@
         "S-014",
         "S-035",
         "S-044",
-        "S-045"
+        "S-045",
+        "S-006",
+        "S-046",
+        "S-047",
+        "S-048"
       ],
       "executor": {
         "mode": "atlas-builder"
@@ -1926,7 +1941,7 @@
       "batch_group": "e3-final",
       "context_cost": 5,
       "risk_level": "normal",
-      "notes": "遂行順序 4。最後の必須。他のすべての must Todo 完了後に実施する。点検項目に次を含める: (1) R-003 fork choice の投票重みは投票 head のチェーン状態のステーク(了承済み簡約); (2) R-004 justified の即時集計(エポック末を待たない — 新 Essence の非対応事項「realized justification のエポック境界での更新」として明文化済み)と、切替窓でブロックの slot を到着時刻の代理にする純関数化(遅延配送された justify ブロックは緩和されない); (3) 【改訂】R-005 の簡約は新 Essence(必須 29・用語チェックポイント)で上書き: 境界スロットが空なら同一ブロックが連続エポックのチェックポイントとなり、そのリンクも正当で隣接はエポック番号で判定する(T-052)— 実装・テスト・docs/INSPECTION.md が新意味論で一致していること; (4) 【改訂】R-007 の簡約は新 Essence(Equivocation の 3 形)で上書き: 同一 target エポックで target の異なる 2 投票と包囲投票が証拠となりスラッシングされる(T-054)、A10/A12 が成功条件 27 の可罰性(攻撃者 ≥ 1/3 の FFG 証拠が神視点で成立、取り込んだ枝でスラッシング)を伴う(T-055)こと; (5) T-045 の拡張: DoubleVoteAction.head と自票の保留・選択配送の capability 判定が新しい行動の 2 基底(公開/配送)の糖衣として整合していること、UI の手動二重投票が不変であること、型カタログ・codec・介入一覧の表示が追随していること; (6) A03/A04 の swing 票が枝の根を head にする理由(証拠を含まないチェーン状態から重みを読む)と、A06 の L が正直基準の 1 上であることの妥当性(FFG のエポック単位決定 T-053 後の正直基準で再確認); (7) committee 第 3 方式『エポック分割』(T-048)が View / Vote / Block を変えず、boost の基準(スロット committee 重み)と codec・UI・型カタログが追随していること、A05(T-047)の成立/未達がこの方式に依存する理由が記録されていること; (8) UI 刷新(T-049〜T-051)後に成功条件 26 (a)〜(f) の機械検査がテストとして残り、人間承認の記録(resume)が evidence にあること; (9) A05 バウンシング(T-047)と切替の緩和策: R-009 の人間判断(C: 観測可能な事実へ改訂)が ESSENCE・仕様・実装・テスト・docs/INSPECTION.md で一致していること、AttackDefaultRun.seed(既定 0)が codec・攻撃 UI の既定実行構成提案に追随していること、A05 の開幕誘導が seed 0 の committee 順序に依存することが記録されていること; (10) 型の改訂(T-052〜T-055)後の 2 モジュール振り分け: 識別子のソート / Checkpoint / Instant と View / InitialConditions と Schedule / MessageRef / ネットワークモデル / 行動の 2 基底が model に、シードから予定表を導く乱数生成器・シナリオ・介入キュー・既定実行構成・codec が sim にあり、型一覧が model のみを表示すること、番兵値が残っていないこと、正直者の FFG 部分がエポック単位で決まり FFG 相反を起こさないこと。"
+      "notes": "遂行順序 3。最後の必須。他のすべての must Todo 完了後に実施する。点検項目に次を含める: (1) R-003 fork choice の投票重みは投票 head のチェーン状態のステーク(了承済み簡約); (2) R-004 justified の即時集計(エポック末を待たない — 新 Essence の非対応事項「realized justification のエポック境界での更新」として明文化済み)と、切替窓でブロックの slot を到着時刻の代理にする純関数化(遅延配送された justify ブロックは緩和されない); (3) 【改訂】R-005 の簡約は新 Essence(必須 29・用語チェックポイント)で上書き: 境界スロットが空なら同一ブロックが連続エポックのチェックポイントとなり、そのリンクも正当で隣接はエポック番号で判定する(T-052)— 実装・テスト・docs/INSPECTION.md が新意味論で一致していること; (4) 【改訂】R-007 の簡約は新 Essence(Equivocation の 3 形)で上書き: 同一 target エポックで target の異なる 2 投票と包囲投票が証拠となりスラッシングされる(T-054)、A10/A12 が成功条件 27 の可罰性(攻撃者 ≥ 1/3 の FFG 証拠が神視点で成立、取り込んだ枝でスラッシング)を伴う(T-055)こと; (5) T-045 の拡張: DoubleVoteAction.head と自票の保留・選択配送の capability 判定が新しい行動の 2 基底(公開/配送)の糖衣として整合していること、UI の手動二重投票が不変であること、型カタログ・codec・介入一覧の表示が追随していること; (6) A03/A04 の swing 票が枝の根を head にする理由(証拠を含まないチェーン状態から重みを読む)と、A06 の L が正直基準の 1 上であることの妥当性(FFG のエポック単位決定 T-053 後の正直基準で再確認); (7) committee 第 3 方式『エポック分割』(T-048)が View / Vote / Block を変えず、boost の基準(スロット committee 重み)と codec・UI・型カタログが追随していること、A05(T-047)の成立/未達がこの方式に依存する理由が記録されていること; (8) UI 刷新(T-049〜T-051)後に成功条件 26 (a)〜(f) の機械検査がテストとして残り、人間承認の記録(resume)が evidence にあること; (9) A05 バウンシング(T-047)と切替の緩和策: R-009 の人間判断(C: 観測可能な事実へ改訂)が ESSENCE・仕様・実装・テスト・docs/INSPECTION.md で一致していること、AttackDefaultRun.seed(既定 0)が codec・攻撃 UI の既定実行構成提案に追随していること、A05 の開幕誘導が seed 0 の committee 順序に依存することが記録されていること; (10) 型の改訂(T-052〜T-055)後の 2 モジュール振り分け: 識別子のソート / Checkpoint / Instant と View / InitialConditions と Schedule / MessageRef / ネットワークモデル / 行動の 2 基底が model に、シードから予定表を導く乱数生成器・シナリオ・介入キュー・既定実行構成・codec が sim にあり、型一覧が model のみを表示すること、番兵値が残っていないこと、正直者の FFG 部分がエポック単位で決まり FFG 相反を起こさないこと。 (11) R-011(了承済み): 自分のメッセージの保留は d に縛られない / 閉じた分断は長さ ≤ d のときだけ範囲内、証拠のスロット横断正規化(相異なる FFG 部分の代表どうし)、スラッシング後の閾値縮小(総ステークが縮み正直 1 体で justify が進む)が ESSENCE・実装・テスト・docs/INSPECTION.md で一致していること; (12) 遂行順序 1(T-056/T-057/T-059): ネットワーク表示・全体表示の残骸(コード・CSS・テスト・README・verify-ui)が無いこと、型一覧ページが必須 8 の独自レイアウト(ヘッダーバーのみ、8:2、初期フォーカス)で成功条件 2 の人間承認記録が evidence にあること、model モジュールの全コメントが日本語で型一覧の全型がコメントを持つこと(成功条件 10); (13) 自動再生(T-060): 達成スロットでの自動停止・終了スロットでの停止・一時停止/再開・停止後の巻き戻しと介入追加が成功条件 28 どおりで、生成行動が保存されず再実行で同一に再生されること(成功条件 20)。"
     },
     {
       "id": "T-052",
@@ -2105,6 +2120,144 @@
           "summary": "tsc --noEmit && vite build exits 0 (dist/ static bundle)."
         }
       ]
+    },
+    {
+      "id": "T-056",
+      "title": "ネットワーク表示・全体表示の削除: モードタブ・NetworkMode/GlobalMode コンポーネント・専用 CSS・DOM テスト・verify-ui の該当節・README の記述を撤去し、ページ構成をチェーン表示と型一覧の 2 ページにする(バリデータ個別観測は状態表のセル展開に一本化)",
+      "status": "done",
+      "priority": "must",
+      "spec": [
+        "S-006",
+        "S-008",
+        "S-014"
+      ],
+      "executor": {
+        "mode": "atlas-builder"
+      },
+      "batch_group": "e6-pages",
+      "context_cost": 3,
+      "risk_level": "normal",
+      "notes": "遂行順序 1。T-006/T-007/T-008 が作った表示の撤去。状態表のセル展開(T-020/T-030)が個別観測を担うことを確認してから削除する。攻撃者識別(必須 21)の対象もチェーン表示・状態表の 2 つになる。 【実装】cycle 39: 撤去完了。攻撃者識別の表示先はチェーン表示・状態表の 2 つ。",
+      "evidence": [
+        {
+          "type": "diff",
+          "summary": "Deleted src/ui/modes/NetworkMode.tsx and src/ui/modes/GlobalMode.tsx. src/ui/App.tsx: Mode -> Page = 'chain' | 'types' (tabs チェーン表示 / 型一覧, aria-label ページ切替), network/global imports and renders removed. src/ui/styles.css: the network-display (.validator-grid/.validator-card/.card-title/.card-flag*/.network-hint/.network-detail) and global-display (.global-mode/.global-pane) sections removed (-96 lines). Tests: tests/ui/appShell.test.tsx (two page tabs; the Network mode / Global mode suites and the hover helper removed), tests/ui/interventions.test.tsx (partition / offline / drop assertions moved from .validator-card.diverged to the state table's .state-cell-diff via a latestColumnDiffs() helper; the 停止中 card-flag test became a state-table + vote-table check), tests/ui/prose.test.tsx (network/global walk removed). scripts/verify-ui.mjs: 2ページタブ check, network/global sections removed. README.md: status and the page list describe the two pages and state that there is no network / overview display (observation via the state table's cell expansion)."
+        },
+        {
+          "type": "command",
+          "command": "! grep -rn -E 'NetworkMode|GlobalMode|ネットワーク表示|全体表示|validator-card|global-pane|network-detail' src tests scripts README.md",
+          "exit_code": 0,
+          "summary": "The negated grep exits 0 (no match): no remnant of the network / global displays in source, tests, scripts or README (docs/INSPECTION.md keeps its historical inspection record)."
+        },
+        {
+          "type": "command",
+          "command": "npm run typecheck",
+          "exit_code": 0,
+          "summary": "tsc --noEmit passes after the removal."
+        },
+        {
+          "type": "command",
+          "command": "npx vitest run",
+          "exit_code": 0,
+          "summary": "33 files / 397 tests pass (6 network/global tests removed, 3 catalog-page tests and 1 stopped-validator table test added)."
+        },
+        {
+          "type": "command",
+          "command": "npm run build",
+          "exit_code": 0,
+          "summary": "vite build succeeds (86 modules, static dist/)."
+        }
+      ]
+    },
+    {
+      "id": "T-057",
+      "title": "型一覧ページの再レイアウト(必須 8・成功条件 2): ヘッダーバー(ページ切替・テーマ切替)だけを残しスロットバー・操作盤・バリデータ数設定を載せない独自レイアウト、幅の概ね 8 割に依存グラフ・残り約 2 割にフォーカス中の型(宣言をコメント込みで、依存先・依存元の一覧 — 選ぶとフォーカスが移る)、開いた直後は最上段の先頭の型がフォーカス+DOM テスト",
+      "status": "done",
+      "priority": "must",
+      "spec": [
+        "S-046",
+        "S-025",
+        "S-027",
+        "S-014"
+      ],
+      "executor": {
+        "mode": "atlas-builder"
+      },
+      "batch_group": "e6-pages",
+      "context_cost": 4,
+      "risk_level": "normal",
+      "notes": "遂行順序 1。主役(チェーン表示+状態表)の過半規則はチェーン表示ページのみ(前提事項)なので layout.test.ts の面積検査は型一覧に適用しない。8:2 はトークン化した grid 比で機械検査する。人間の実ブラウザ承認は T-058。 【実装】cycle 39: 独自レイアウト完了(機械検査 = typesPage.test + layout.test、実ブラウザ計測 = verify-ui.mjs)。人間の承認は T-058(T-059 の日本語コメント後にまとめて求める)。",
+      "evidence": [
+        {
+          "type": "diff",
+          "summary": "src/ui/App.tsx: the type catalog page renders directly under the header bar (`page === 'types' ? <TypesPage /> : <div className=\"app-body\">…stage + dock…</div>`), so the slot bar, the dock and the validator-count select (chain-page only) are absent on it; the header keeps the page tabs and the theme toggle. src/ui/modes/TypesPage.tsx: two panes — .types-graph-pane (toolbar + scrollable graph) and the focus pane .type-detail (declaration with its doc comment first, then 依存する型 / この型に依存する型 links); focus state initialised to the top layer's first column (INITIAL_FOCUS) and never empty (selecting the focused node keeps it); the empty-hint removed. src/ui/styles.css: .types-page is a grid `minmax(0, 4fr) minmax(0, 1fr)` (≈ 8:2) filling the height, .types-scroll and .type-detail scroll independently, .type-source wraps (pre-wrap). Tests: tests/ui/typesPage.test.tsx (own layout: no slot bar / dock / validator count, two panes; initial focus = leftmost top-row node shown in h3 and source; focus moves on node click and dependency-link click; declaration starts with /** and is a verbatim slice of the module source), tests/ui/layout.test.ts (TypesPage rendered outside .app-body, validator count gated on the chain page, 4fr/1fr split, height 100%, both panes overflow: auto). scripts/verify-ui.mjs: real-browser checks — no slot bar / dock / validator count on the page, graph pane width share in (0.75, 0.85) and focus pane in (0.15, 0.25), page fills the height under the header bar, initial focus = first node of the top row, selecting Vote switches the focus pane, declaration shown with its comment."
+        },
+        {
+          "type": "command",
+          "command": "npx vitest run tests/ui/typesPage.test.tsx tests/ui/appShell.test.tsx tests/ui/interventions.test.tsx tests/ui/layout.test.ts tests/ui/prose.test.tsx",
+          "exit_code": 0,
+          "summary": "5 files pass, including the 6 catalog-page tests and the 2 new layout-contract tests for 必須 8."
+        },
+        {
+          "type": "command",
+          "command": "npm run typecheck && npm run build",
+          "exit_code": 0,
+          "summary": "Typecheck and production build exit 0."
+        }
+      ]
+    },
+    {
+      "id": "T-058",
+      "title": "型一覧ページの人間の実ブラウザ確認と承認(必須 8・成功条件 2): 再レイアウト後の型一覧を人間が手元の実ブラウザで確認して承認する(Human-input Recommendation で承認を求めて停止し、承認の resume 記録を evidence とする。承認前に完了扱いにしない)",
+      "status": "pending",
+      "priority": "must",
+      "spec": [
+        "S-046"
+      ],
+      "executor": {
+        "mode": "atlas-builder"
+      },
+      "batch_group": "e6-pages",
+      "context_cost": 1,
+      "risk_level": "normal",
+      "notes": "遂行順序 1。T-057 と T-059(日本語コメント — 成功条件 10 と同時に確認できる)の完了後に起票する。人間の往復を減らすため、攻撃 UI(T-042/T-043/T-060)が同じサイクル群で終わるならその見た目確認と 1 つの Recommendation にまとめてよい。確認手段: npm run dev または npm run build && node scripts/verify-ui.mjs。"
+    },
+    {
+      "id": "T-059",
+      "title": "本質的仕様モジュール(src/domain/model)のコメント日本語化(必須 32・成功条件 10): 型定義と規則の説明コメントをすべて日本語にし(識別子は英語のまま)、型一覧に表示される全型がコメントを持つようにする(PresetName・StageStatus の欠落を補う)+『全型にコメントがある・コメントが日本語である』機械検査",
+      "status": "pending",
+      "priority": "must",
+      "spec": [
+        "S-047",
+        "S-025",
+        "S-014"
+      ],
+      "executor": {
+        "mode": "atlas-builder"
+      },
+      "batch_group": "e6-pages",
+      "context_cost": 4,
+      "risk_level": "normal",
+      "notes": "遂行順序 1。sim モジュール・UI・テストのコメントは英語のまま(対象外)。用語節のユビキタス言語と一致する語を使う。typeGraph の includeDocComment が拾うのは直前の /** */ ブロックなので、各 export 型の直前に日本語の /** */ を置く。"
+    },
+    {
+      "id": "T-060",
+      "title": "攻撃の自動再生(必須 31・成功条件 28): 攻撃一覧の行選択+実行開始の操作だけでスロットが一定間隔で自動的に送られ、各スロットの提案・投票・生成行動・判定推移がチェーン表示・状態表・介入一覧に順次現れる。一時停止・再開、攻撃目標達成スロットでの自動停止、未達時は既定実行構成の終了スロットで停止、停止後の巻き戻し・介入追加・パラメータ変更+DOM テスト(成功条件 19 の 12 攻撃の自動停止・A01/A03/A04/A07 の merge 未達→終了スロット停止を含む)",
+      "status": "pending",
+      "priority": "must",
+      "spec": [
+        "S-048",
+        "S-043",
+        "S-041",
+        "S-012"
+      ],
+      "executor": {
+        "mode": "atlas-builder"
+      },
+      "batch_group": "e3-attack-ui",
+      "context_cost": 4,
+      "risk_level": "normal",
+      "notes": "遂行順序 2(T-042/T-043 の後)。既定実行構成の終了スロットは AttackDefaultRun.throughSlot(既存)。送りの間隔の既定値は裁量(例 600ms)、速度調整は任意(S-019)。自動再生は UI 層のタイマー+既存 advance() で組み、ドメインの決定性を崩さない(生成行動は保存しない)。"
     }
   ]
 }

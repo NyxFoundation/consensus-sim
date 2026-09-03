@@ -72,20 +72,28 @@ async function checkPartitionValidator(v: number) {
   await click(box)
 }
 
+/** The state-table cells of the latest slot column that carry a difference mark. */
+function latestColumnDiffs(): Element[] {
+  return all('.state-table tbody tr').flatMap((row) => {
+    const cells = row.querySelectorAll('td .state-cell')
+    const last = cells[cells.length - 1]
+    return last?.classList.contains('state-cell-diff') ? [last] : []
+  })
+}
+
 describe('partition intervention from the UI', () => {
-  it('diverges the network cards and reconverges after healing', async () => {
+  it('diverges the state table and reconverges after healing', async () => {
     await checkPartitionValidator(0)
     await checkPartitionValidator(1)
     await click(buttonByText('選択集合を残りから分断'))
     expect(text('.intervention-list')).toContain('分断')
 
     await advance(6)
-    await click(buttonByText('ネットワーク表示'))
-    expect(all('.validator-card.diverged').length).toBeGreaterThan(0)
+    expect(all('.state-cell-diff').length).toBeGreaterThan(0)
 
     await click(buttonByText('解消（次スロットから）'))
     await advance(2)
-    expect(all('.validator-card.diverged')).toHaveLength(0)
+    expect(latestColumnDiffs()).toHaveLength(0)
   })
 })
 
@@ -181,34 +189,27 @@ describe('operating states from the UI', () => {
     // Slot 1 (ボブ's proposal) is empty; slots 2 and 3 propose.
     expect(all('.tree-block')).toHaveLength(3)
 
-    // ボブ's card is frozen at the anchor while everyone else moved on, and
-    // its operating state is readable at a glance.
-    await click(buttonByText('ネットワーク表示'))
-    const diverged = all('.validator-card.diverged')
+    // ボブ's row is frozen at the anchor while everyone else moved on: the
+    // latest column marks exactly that row as differing, with head B0.
+    const diverged = latestColumnDiffs()
     expect(diverged).toHaveLength(1)
-    expect(diverged[0]?.textContent).toContain('ボブ')
+    expect(diverged[0]?.closest('tr')?.textContent).toContain('ボブ')
     expect(diverged[0]?.textContent).toContain('B0')
-    const opFlags = all('.card-flag-op')
-    expect(opFlags).toHaveLength(1)
-    expect(opFlags[0]?.textContent).toBe('オフライン')
 
     // Return to 稼働: pent-up messages arrive through normal propagation
-    // and the views reconverge; the operating-state flag disappears.
+    // and the views reconverge on the latest column.
     await click(opStateButton('ボブ', '稼働'))
     await advance(2)
-    expect(all('.validator-card.diverged')).toHaveLength(0)
-    expect(all('.card-flag-op')).toHaveLength(0)
-    await click(buttonByText('チェーン表示'))
+    expect(latestColumnDiffs()).toHaveLength(0)
     expect(all('.vote-table tbody tr')).toHaveLength(4)
   })
 
-  it('shows 停止中 on the card of a merely stopped validator', async () => {
+  it('a merely stopped validator keeps receiving: no divergence, one vote fewer', async () => {
     await click(opStateButton('キャロル', '停止'))
-    await advance(1)
-    await click(buttonByText('ネットワーク表示'))
-    const opFlags = all('.card-flag-op')
-    expect(opFlags).toHaveLength(1)
-    expect(opFlags[0]?.textContent).toBe('停止中')
+    expect(text('.intervention-list')).toContain('停止 キャロル')
+    await advance(2)
+    expect(latestColumnDiffs()).toHaveLength(0)
+    expect(all('.vote-table tbody tr')).toHaveLength(3)
   })
 
   it('leaves a span scheduled beyond the cursor untouched when the state is changed after a rewind', async () => {
@@ -347,13 +348,12 @@ describe('message drop from the UI', () => {
     await click(buttonByText('適用'))
     expect(text('.intervention-list')).toContain('欠落 ブロック B1')
 
-    // Everyone but the sender (V1) loses B1: the network cards diverge.
-    await click(buttonByText('ネットワーク表示'))
-    expect(all('.validator-card.diverged').length).toBeGreaterThan(0)
+    // Everyone but the sender (V1) loses B1: the state table diverges.
+    expect(all('.state-cell-diff').length).toBeGreaterThan(0)
 
     // Removing the intervention restores the original history.
     await click(buttonByText('削除'))
-    expect(all('.validator-card.diverged')).toHaveLength(0)
+    expect(all('.state-cell-diff')).toHaveLength(0)
   })
 })
 
