@@ -130,14 +130,14 @@ try {
   check('本文に --font-text', fonts.body.length > 0 && fonts.body !== fonts.mono, fonts.body)
   check('数値・ID に --font-mono', /mono|Menlo|Consolas/i.test(fonts.mono), fonts.mono)
 
-  // Shell: title, slot 0, the two page tabs.
+  // Shell: title, slot 0, the three page tabs.
   check('タイトル表示', (await page.textContent('h1')) === 'consensus-sim')
   const slotText = () => page.textContent('.slot-current')
   check('スロット0開始', (await slotText())?.includes('0') === true)
   const tabs = await page.$$eval('.mode-tabs button', (els) => els.map((e) => e.textContent))
   check(
-    '2ページタブ',
-    JSON.stringify(tabs) === JSON.stringify(['チェーン表示', '型一覧']),
+    '3ページタブ',
+    JSON.stringify(tabs) === JSON.stringify(['チェーン表示', '攻撃一覧', '型一覧']),
     String(tabs),
   )
 
@@ -233,6 +233,40 @@ try {
   check('型を選ぶと右側がその型に切り替わる', focusedHeading?.includes('Vote') === true, focusedHeading ?? '')
   const focusedSource = await page.textContent('.type-source')
   check('宣言はコメント込みで表示', focusedSource?.trimStart().startsWith('/**') === true)
+
+  // Attack list page (必須 22 / 成功条件 16・17): header bar only, the
+  // formal system's three definition tables before the library table of 12
+  // rows; choosing a row returns to the chain display with the default run
+  // proposed. Auto-play (必須 31 / 成功条件 28): 実行開始 is the only input —
+  // slots advance on the timer and stop at the achievement slot (A11: 4).
+  await page.click('.mode-tabs button:has-text("攻撃一覧")')
+  check('攻撃一覧にスロットバー無し', (await page.$('.slot-bar')) === null)
+  check('攻撃一覧に操作盤無し', (await page.$('.dock')) === null)
+  const systemTables = await page.$$eval('.attacks-system table', (els) => els.length)
+  check('攻撃一覧の冒頭に形式体系の定義 3 表', systemTables === 3, String(systemTables))
+  const attackRows = await page.$$eval('.attack-table tbody tr', (els) => els.length)
+  check('攻撃一覧に 12 攻撃の表', attackRows === 12, String(attackRows))
+  await page.click('[aria-label="攻撃 A11 を選択"]')
+  check(
+    '行選択でチェーン表示へ戻り既定実行構成を提案',
+    (await page.textContent('.attack-panel .panel-count')) === 'A11' &&
+      (await slotText())?.includes('0') === true &&
+      (await page.textContent('.play-toggle')) === '実行開始',
+  )
+  await page.click('.play-toggle')
+  await page.waitForFunction(
+    () => document.querySelector('.play-toggle')?.textContent === '再開',
+    null,
+    { timeout: 15_000 },
+  )
+  const stoppedAt = await page.textContent('.slot-current strong')
+  check('実行開始だけで自動再生し達成スロット 4 で停止', stoppedAt === '4', String(stoppedAt))
+  check(
+    '停止時に判定推移が達成 @s4',
+    (await page.textContent('.goal-table th'))?.includes('達成 @s4') === true,
+  )
+  await page.waitForTimeout(1500)
+  check('停止後は進まない', (await page.textContent('.slot-current strong')) === '4')
 
   // Back on the chain page, a validator count change resets to slot 0.
   await page.click('.mode-tabs button:has-text("チェーン表示")')

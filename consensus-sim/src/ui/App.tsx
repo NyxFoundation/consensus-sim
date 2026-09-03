@@ -6,10 +6,12 @@
  * dock gathers every other control — the attack, protocol parameters,
  * interventions, scenarios — in a fixed narrow column, so the protagonists (the chain
  * display and the state table) own most of the viewport from the first
- * paint (tokens.css --bar-h / --dock-w). The type catalog page has its own
- * layout (必須 8): only the header bar frames it — no slot bar, no dock, no
- * validator count. All model computation stays behind useSimulation /
- * src/domain.
+ * paint (tokens.css --bar-h / --dock-w). The attack list page (必須 22) and
+ * the type catalog page (必須 8) have their own layout: only the header bar
+ * frames them — no slot bar, no dock, no validator count. Choosing an
+ * attack on the list proposes its default run and returns to the chain
+ * display, whose slot bar carries the auto-play control (必須 31). All
+ * model computation stays behind useSimulation / src/domain.
  */
 
 import { useState } from 'react'
@@ -22,20 +24,23 @@ import {
 import { Button } from './components/Button'
 import { Segmented } from './components/Segmented'
 import { Select } from './components/Select'
+import { AttacksPage } from './modes/AttacksPage'
 import { ChainMode } from './modes/ChainMode'
 import { TypesPage } from './modes/TypesPage'
 import { AttackPanel } from './AttackPanel'
 import { InterventionPanel } from './InterventionPanel'
 import { ParamsPanel } from './ParamsPanel'
+import { PlayControl } from './PlayControl'
 import { ScenarioPanel } from './ScenarioPanel'
 import { useSimulation } from './useSimulation'
 import { useThemeMode } from './useTheme'
 import type { ThemeMode } from './useTheme'
 
-type Page = 'chain' | 'types'
+type Page = 'chain' | 'attacks' | 'types'
 
 const PAGE_LABELS: Readonly<Record<Page, string>> = {
   chain: 'チェーン表示',
+  attacks: '攻撃一覧',
   types: '型一覧',
 }
 
@@ -114,6 +119,13 @@ export function App() {
 
       {page === 'types' ? (
         <TypesPage />
+      ) : page === 'attacks' ? (
+        <AttacksPage
+          onSelect={(entry) => {
+            session.proposeAttack(entry)
+            setPage('chain')
+          }}
+        />
       ) : (
         <div className="app-body">
           <div className="stage">
@@ -148,6 +160,7 @@ export function App() {
               <span className="slot-next">
                 次スロットの提案者: {validatorName(nextProposer)}
               </span>
+              <PlayControl session={session} />
               <Button variant="primary" className="advance" onClick={() => session.advance()}>
                 {inPast ? 'ここから進める（以降の履歴を破棄）' : '＋1 スロット進める'}
               </Button>

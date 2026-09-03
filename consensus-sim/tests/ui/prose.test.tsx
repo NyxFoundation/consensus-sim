@@ -60,9 +60,11 @@ async function advance(times: number) {
 
 /**
  * Every non-blank text node under the app, with the path to its element.
- * Text inside `<pre>` is quoted source, not UI prose: the type catalog's
- * focus pane shows a declaration verbatim from the implementation, whose
- * doc comment is Japanese by design (必須 32) and therefore carries 。.
+ * Text inside `<pre>` or a `[data-quoted]` element is content quoted
+ * verbatim from the implementation, not UI prose: the type catalog's focus
+ * pane shows a declaration whose doc comment is Japanese by design (必須
+ * 32), and the attack list's strategy column shows the library's own
+ * summary of each strategy (必須 22) — both carry 。 as data.
  */
 function textNodes(scope: Element): { text: string; where: string }[] {
   const out: { text: string; where: string }[] = []
@@ -70,7 +72,7 @@ function textNodes(scope: Element): { text: string; where: string }[] {
   for (let n = walker.nextNode(); n; n = walker.nextNode()) {
     const text = n.textContent?.trim() ?? ''
     if (text === '') continue
-    if (n.parentElement?.closest('pre')) continue
+    if (n.parentElement?.closest('pre, [data-quoted]')) continue
     const el = n.parentElement
     const where = el
       ? `${el.tagName.toLowerCase()}${el.className ? `.${String(el.className).split(' ').join('.')}` : ''}`
@@ -136,6 +138,19 @@ describe('no resident explanation: prose lives only in on-demand hints', () => {
     expectNoResidentProse('types')
     await click(all('.type-node')[3])
     expectNoResidentProse('types with a selection')
+  })
+
+  it('holds on the attack list page and after choosing an attack', async () => {
+    await click(buttonByText('攻撃一覧'))
+    // The definitions are tables, and only the library's strategy summaries
+    // are quoted content.
+    expect(all('.attacks-page [data-quoted]').map((el) => el.className)).toEqual(
+      Array.from({ length: 12 }, () => 'attack-strategy'),
+    )
+    expectNoResidentProse('attacks')
+    await click(container.querySelector('[aria-label="攻撃 A11 を選択"]'))
+    expect(container.querySelector('.play-control')).not.toBeNull()
+    expectNoResidentProse('chain display with an attack proposed')
   })
 })
 

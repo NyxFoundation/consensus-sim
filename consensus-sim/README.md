@@ -12,8 +12,9 @@ text is Japanese; code and documentation are English.
 
 **Status:** feature-complete for the most-abstract level. The pure domain
 layer is fully tested (including adversarial combinations of every
-intervention at once), and the UI ships the two pages described below with
-the intervention panel, slot rewind and localStorage-backed scenarios.
+intervention at once), and the UI ships the three pages described below with
+the intervention panel, the attack library with auto-play, slot rewind and
+localStorage-backed scenarios.
 Every scenario operation is discoverable from the UI itself: panels
 collapse but summarize their contents, empty lists explain the next step,
 and the message selector groups the log per publish slot.
@@ -44,7 +45,7 @@ colour, spacing, type size and typeface comes from one token sheet
 (`src/ui/tokens.css`), the typefaces are a deliberately chosen system set
 for Japanese, English and monospaced (numbers, IDs, slots) text with no
 external font service, and every form control is one of the app's own
-unified components. The header tabs switch between the two pages:
+unified components. The header tabs switch between the three pages:
 
 - **チェーン表示** — the block tree with every validator's information
   overlaid (heads, latest votes, J/F checkpoint badges). Below it, the
@@ -59,6 +60,17 @@ unified components. The header tabs switch between the two pages:
   block's **body** (the votes and equivocation evidence it included), the
   block tree, and every vote it has seen (equivocating double votes listed
   individually) with the block each vote supported.
+- **攻撃一覧** — the entry to the attack experiments. The page opens with
+  the formal system's definitions as tables — the attack triple, the
+  attacker's capability range (the two bases and the action vocabulary over
+  them) and the four goal predicates — followed by the attack library as one
+  table derived from the implementation: name, source id in the review
+  report, premise (preset + overrides, `d`), attacker condition, required
+  capabilities, goal stages, strategy summary and default run. Choosing a
+  row proposes that attack's default run as the scenario's initial
+  conditions and returns to the chain display, where **実行開始** in the slot
+  bar starts the auto-play (see below). Like the type catalog, the page has
+  only the header bar around it.
 - **型一覧** — the essential specification's exported types as a top-down
   dependency graph (types depending on no other type on the top row). The
   page has its own layout: only the header bar frames it (no slot bar, no
@@ -127,6 +139,18 @@ a **goal trace** between the tree and the state table shows every stage of
 the attack goal per slot — the predicate's indicator (stalled slots, reorg
 count, stake ratio, conflicting checkpoints), whether it holds, and the
 slot the stage was achieved at, with the full grounds on hover.
+
+With an attack bound, the slot bar carries the **auto-play** control:
+**実行開始** advances one slot every 600 ms without further input — the
+proposals, the votes, the generated actions and the goal verdicts appear
+slot by slot — **一時停止** pauses, **再開** continues, and playback stops
+by itself at the slot the attack goal is judged achieved, or at the run's
+end slot (終了スロット, proposed by the default run and editable in the
+攻撃 section) when the goal is missed — the way to watch a mitigation work
+is to choose the attack, switch the preset to `merge` and press 実行開始.
+After a stop the cursor rewinds as usual, interventions can be added and
+parameters changed, and 再開 from an achievement stop carries the run on to
+its end slot. Moving the cursor during playback pauses it.
 
 The シナリオ section of the dock saves the current run — initial conditions plus the
 manual intervention list, the attack (by id, attacker set and parameters;

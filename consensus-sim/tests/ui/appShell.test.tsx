@@ -59,11 +59,12 @@ async function advance(times: number) {
 }
 
 describe('App shell', () => {
-  it('starts at slot 0 with the anchor block only and the two page tabs', () => {
+  it('starts at slot 0 with the anchor block only and the three page tabs', () => {
     expect(text('h1')).toBe('consensus-sim')
     expect(text('.slot-current')).toContain('0')
     expect(all('.mode-tabs button').map((b) => b.textContent)).toEqual([
       'チェーン表示',
+      '攻撃一覧',
       '型一覧',
     ])
     expect(all('.tree-block')).toHaveLength(1)

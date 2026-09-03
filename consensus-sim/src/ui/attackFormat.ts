@@ -14,9 +14,10 @@ import type {
   CommitteeAssignment,
   GoalEvidence,
   InactivityLeak,
+  LibraryAttack,
   ProtocolParams,
 } from '../domain'
-import { blockName, checkpointName } from './format'
+import { blockName, checkpointName, stakeLabel } from './format'
 
 /** A ratio as the fraction the Essence writes (1/3, 1/2, 2/3) or a percentage. */
 export function fractionLabel(x: number): string {
@@ -55,6 +56,41 @@ const CAPABILITY_LABELS: Readonly<Record<Capability, string>> = {
 
 export function capabilityLabel(capability: Capability): string {
   return CAPABILITY_LABELS[capability]
+}
+
+/** The whole action vocabulary (the sugar over the two bases, 必須 18), in
+ * the order the attack list spells it out. */
+export const CAPABILITIES: readonly Capability[] = Object.keys(
+  CAPABILITY_LABELS,
+) as Capability[]
+
+/** An attack parameter name as the UI writes it: the premise's d, or the
+ * strategy's own name. */
+export function paramLabel(name: string): string {
+  return name === 'maxDelay' ? 'd' : name
+}
+
+/** The default run (既定実行構成) of a library attack, one line per item:
+ * validator count, initial stakes, attacker set, attack parameters (d
+ * and the strategy's own), seed and end slot. */
+export function defaultRunLines(entry: LibraryAttack): readonly string[] {
+  const run = entry.defaultRun
+  const stakes = run.initialStakes
+  const equal = stakes.every((s) => s === stakes[0])
+  const params = [
+    `d = ${entry.premise.maxDelay}`,
+    ...Object.entries(run.params ?? {}).map(([name, value]) => `${paramLabel(name)} = ${value}`),
+  ]
+  return [
+    `バリデータ ${run.validatorCount} 体`,
+    equal
+      ? `初期ステーク 全員 ${stakeLabel(stakes[0] ?? 0)}`
+      : `初期ステーク ${stakes.map(stakeLabel).join(' / ')}`,
+    `攻撃者 ${run.attackers.map(validatorName).join('・')}`,
+    `パラメータ ${params.join(', ')}`,
+    `シード ${run.seed}`,
+    `終了スロット s${run.throughSlot}`,
+  ]
 }
 
 const onOff = (b: boolean) => (b ? 'on' : 'off')

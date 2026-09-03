@@ -1309,3 +1309,155 @@ nav.mode-tabs [data-ui='button'].active {
   background: color-mix(in srgb, var(--status-attacker) 36%, transparent);
   font-weight: 700;
 }
+
+/* ---- auto-play (自動再生) — the slot bar's run control ---- */
+
+.play-control {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.play-toggle {
+  white-space: nowrap;
+}
+
+.play-readout {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--ink-secondary);
+  white-space: nowrap;
+}
+
+/* ---- attack list (攻撃一覧) ----
+ * The page's own layout (必須 22): only the header bar frames it. The
+ * formal system's definitions come first as three tables side by side,
+ * then the library as one table derived from the implementation; the page
+ * scrolls as a whole with the library's header row pinned. */
+
+.attacks-page {
+  height: 100%;
+  min-height: 0;
+  overflow: auto;
+  padding: var(--space-3) var(--space-4) var(--space-6);
+}
+
+.attacks-page .pane-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-2);
+}
+
+.attacks-system {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.system-table,
+.attack-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: var(--text-sm);
+}
+
+.system-table caption {
+  text-align: left;
+  font-weight: 600;
+  color: var(--ink-secondary);
+  padding: 0 0 var(--space-1);
+}
+
+.system-table th,
+.system-table td,
+.attack-table th,
+.attack-table td {
+  border: var(--border);
+  padding: var(--space-1) var(--space-2);
+  text-align: left;
+  vertical-align: top;
+  line-height: var(--leading-normal);
+}
+
+.system-table th {
+  width: 30%;
+  font-weight: 600;
+  background: var(--plane);
+  color: var(--ink-primary);
+}
+
+.vocabulary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.vocabulary-term {
+  border: var(--border);
+  border-radius: var(--radius);
+  padding: 0 var(--space-1);
+  white-space: nowrap;
+}
+
+.attack-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--plane);
+  color: var(--ink-secondary);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.attack-row:hover td {
+  background: var(--plane);
+}
+
+.attack-select {
+  display: block;
+  width: 100%;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.attack-select:hover {
+  border-color: var(--accent);
+}
+
+.attack-id {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  margin-right: var(--space-1);
+}
+
+.attack-source-cell,
+.attack-premise,
+.attack-run {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+.attack-source-cell {
+  overflow-wrap: anywhere;
+}
+
+.attack-run div {
+  white-space: nowrap;
+}
+
+.attack-capabilities,
+.attack-goal {
+  margin: 0;
+  padding-left: var(--space-4);
+  white-space: nowrap;
+}
+
+.attack-strategy {
+  min-width: 320px;
+  color: var(--ink-primary);
+}

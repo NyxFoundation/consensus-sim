@@ -10,18 +10,27 @@
  * future and continues from the cursor (branch comparison is explicitly out
  * of scope in the Essence).
  *
+ * Auto-play (自動再生, 必須 31) is a timer in this hook over the same
+ * `advance`: with an attack bound, `play` advances one slot every
+ * PLAY_INTERVAL_MS from the cursor and stops by itself at the slot the
+ * attack goal is judged achieved, or at the end slot of the run
+ * (`throughSlot`); `pause` stops it, and playing again from the stop
+ * resumes. The domain stays deterministic: nothing about the timer enters
+ * the scenario.
+ *
  * All consensus computation lives in src/domain; this hook only holds the
  * (config, interventions, attack, runSlot, cursor) tuple as React state,
  * plus the end slot an attack's default run declares for auto-play.
  */
 
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   compileDelivery,
   defaultConditions,
   defaultInstance,
   equalStakes,
   findLibraryAttack,
+  goalAchievedAt,
   runScenario,
   DEFAULT_PARAMS,
   DEFAULT_VALIDATOR_COUNT,
@@ -62,9 +71,17 @@ export interface SimulationSession {
   /** The slot currently displayed (≤ runSlot). */
   readonly cursor: number
   readonly current: SimulationState
+  /** Whether auto-play is running (自動再生中). */
+  readonly playing: boolean
   /** Advance one slot from the cursor; a past cursor truncates the future. */
   advance(): void
-  /** Move the displayed slot within [0, runSlot] (巻き戻し). */
+  /** Start auto-play from the cursor (実行開始 / 再開): one slot per
+   * PLAY_INTERVAL_MS until the goal is achieved or `throughSlot` is
+   * reached. No-op without an attack. */
+  play(): void
+  /** Stop auto-play (一時停止); the run stays where it is. */
+  pause(): void
+  /** Move the displayed slot within [0, runSlot] (巻き戻し); pauses auto-play. */
   setCursor(slot: number): void
   /** Replace the manual intervention list; every state recomputes. */
   setInterventions(next: readonly Intervention[]): void
@@ -91,6 +108,16 @@ export interface SimulationSession {
 }
 
 const DEFAULT_SEED = 0
+
+/** Auto-play interval between slots (送りの間隔の既定値). */
+export const PLAY_INTERVAL_MS = 600
+
+/** A running auto-play: the slot it was started from. A goal already
+ * achieved at the starting slot does not stop it again, so playing from
+ * an achievement stop carries the run on to its end slot. */
+interface Playing {
+  readonly from: number
+}
 
 interface SessionCore {
   readonly config: InitialConditions
@@ -145,6 +172,8 @@ export function useSimulation(): SimulationSession {
     freshCore(defaultConfig(DEFAULT_VALIDATOR_COUNT), undefined, undefined),
   )
 
+  const [playing, setPlaying] = useState<Playing | undefined>(undefined)
+
   const { config, interventions, attack, throughSlot, runSlot, cursor } = core
 
   const run = useMemo(
@@ -165,11 +194,34 @@ export function useSimulation(): SimulationSession {
   }, [])
 
   const setCursor = useCallback((slot: number) => {
+    setPlaying(undefined)
     setCore((c) => ({
       ...c,
       cursor: Math.min(Math.max(slot, 0), c.runSlot),
     }))
   }, [])
+
+  const play = useCallback(() => {
+    setPlaying((p) => p ?? { from: cursor })
+  }, [cursor])
+
+  const pause = useCallback(() => {
+    setPlaying(undefined)
+  }, [])
+
+  const achievedAt = run.goal === undefined ? undefined : goalAchievedAt(run.goal)
+
+  useEffect(() => {
+    if (playing === undefined) return
+    const atEnd = throughSlot === undefined || cursor >= throughSlot
+    const achievedHere = achievedAt === cursor && achievedAt > playing.from
+    if (attack === undefined || atEnd || achievedHere) {
+      setPlaying(undefined)
+      return
+    }
+    const timer = setTimeout(advance, PLAY_INTERVAL_MS)
+    return () => clearTimeout(timer)
+  }, [playing, cursor, attack, throughSlot, achievedAt, advance])
 
   const setInterventions = useCallback(
     (next: readonly Intervention[]) => {
@@ -216,6 +268,7 @@ export function useSimulation(): SimulationSession {
   }, [])
 
   const proposeAttack = useCallback((entry: LibraryAttack) => {
+    setPlaying(undefined)
     setCore(
       freshCore(defaultConditions(entry), defaultInstance(entry), entry.defaultRun.throughSlot),
     )
@@ -226,6 +279,7 @@ export function useSimulation(): SimulationSession {
   }, [])
 
   const loadScenario = useCallback((scenario: Scenario, runSlot: number) => {
+    setPlaying(undefined)
     setCore({
       config: scenario.config,
       interventions: scenario.interventions,
@@ -253,7 +307,10 @@ export function useSimulation(): SimulationSession {
       runSlot,
       cursor,
       current,
+      playing: playing !== undefined,
       advance,
+      play,
+      pause,
       setCursor,
       setInterventions,
       setConfig,
@@ -273,7 +330,10 @@ export function useSimulation(): SimulationSession {
       runSlot,
       cursor,
       current,
+      playing,
       advance,
+      play,
+      pause,
       setCursor,
       setInterventions,
       setConfig,

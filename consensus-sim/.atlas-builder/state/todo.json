@@ -1806,7 +1806,7 @@
     {
       "id": "T-043",
       "title": "攻撃一覧ページ: 冒頭に形式体系の定義(3 つ組・能力範囲・述語)、続いて全 12 攻撃の表(攻撃名/出典 ID/前提パラメータ/攻撃者集合の条件/必要能力/攻撃目標/戦略の要約/既定実行構成)を実装ライブラリから導出して表示し、行選択で既定実行構成の提案・実行へ遷移+DOM テスト",
-      "status": "pending",
+      "status": "done",
       "priority": "must",
       "spec": [
         "S-042",
@@ -1820,7 +1820,26 @@
       "batch_group": "e3-attack-ui",
       "context_cost": 4,
       "risk_level": "normal",
-      "notes": "遂行順序 2(T-042 と同バッチ群)。攻撃一覧は必須 22 が求める第 3 のページ(R-013: 必須 6 の『2 ページ』はネットワーク表示・全体表示の撤去を述べたものと解釈)。ヘッダーバーのページ切替に載せ、前提列はプリセット名+上書き・遅延上限 d、既定実行構成列に終了スロットを含める。行選択→既定実行構成の提案→実行開始の操作で自動再生(T-060)。説明文は Hint に退避して『。』を残さない(prose.test.tsx が全ページを走査)。成功条件 16 の受け入れ確認を DOM テストで残す。"
+      "notes": "遂行順序 2(T-042 と同バッチ群)。攻撃一覧は必須 22 が求める第 3 のページ(R-013: 必須 6 の『2 ページ』はネットワーク表示・全体表示の撤去を述べたものと解釈)。ヘッダーバーのページ切替に載せ、前提列はプリセット名+上書き・遅延上限 d、既定実行構成列に終了スロットを含める。行選択→既定実行構成の提案→実行開始の操作で自動再生(T-060)。説明文は Hint に退避して『。』を残さない(prose.test.tsx が全ページを走査)。成功条件 16 の受け入れ確認を DOM テストで残す。 → cycle 42: 実装完了。タブ順はチェーン表示 / 攻撃一覧 / 型一覧。定義は Hint ではなく 3 表(『。』なし)、戦略の要約セルは data-quoted の引用内容として prose 検査から除外。行選択 = session.proposeAttack → チェーン表示へ遷移、実行開始はスロットバーの PlayControl(T-060)。実ブラウザ検査は scripts/verify-ui.mjs に追記(sandbox では Playwright を起動できず未実行)。",
+      "evidence": [
+        {
+          "type": "diff",
+          "summary": "Attack list page as the third page. src/ui/App.tsx: Page = chain | attacks | types, header tabs チェーン表示 / 攻撃一覧 / 型一覧; the attacks page renders with the header bar only (no slot bar, dock or validator count, like the type catalog) and its onSelect calls session.proposeAttack(entry) then returns to the chain display. New src/ui/modes/AttacksPage.tsx: first the formal system's definitions as three tables — 攻撃の 3 つ組 (攻撃者集合の条件 / 攻撃目標 / 戦略), 攻撃者の能力範囲 (公開 (i) / 配送 (ii) plus the action vocabulary row listing every Capability the implementation names, via the new CAPABILITIES export of attackFormat.ts), 攻撃目標述語 (安全性違反 / 活性停止（L） / リオーグ（k） / 攻撃者ステーク比率（θ）) — written as definitions without 。 so they are content, not resident prose; then the library table (columns 攻撃 / 出典 / 前提 / 攻撃者集合の条件 / 必要な能力 / 攻撃目標 / 戦略の要約 / 既定実行構成) mapped row by row from ATTACK_LIBRARY through the shared labels (premiseLabel / conditionLabel / capabilityLabel / stageLabel) and the new defaultRunLines (validator count, initial stakes, attacker names, d + strategy params, seed, end slot); the strategy summary cell is marked data-quoted=\"library\" as quoted implementation content. Each row's name is a Button (aria-label 攻撃 A## を選択) that proposes the default run. styles.css: .attacks-page (scrolls as a whole, sticky library header), .attacks-system 3-column grid, .system-table / .attack-table, vocabulary chips — tokens only. tests/ui/prose.test.tsx: [data-quoted] joins <pre> as the quoted-content exclusion and a new case walks the attack list and the proposed run; appShell.test.tsx and scripts/verify-ui.mjs expect the three tabs, and verify-ui.mjs gains real-browser checks for the page (no slot bar / dock, 3 definition tables, 12 rows, row selection → A11 proposed at slot 0). README: three pages, the 攻撃一覧 bullet."
+        },
+        {
+          "type": "command",
+          "command": "npx vitest run tests/ui/attacksPage.test.tsx tests/ui/autoplay.test.tsx tests/ui/prose.test.tsx tests/ui/appShell.test.tsx",
+          "exit_code": 0,
+          "summary": "24 tests. attacksPage.test.tsx (7, 成功条件 16・17): the page has the header bar only and the definitions before the library; the three definition tables carry the triple's three terms, the two bases with 偽造不能 / 最大 d スロット and the 9-term action vocabulary, and the four predicates with 互いに祖先関係にない 2 つのチェックポイント / 既定 k = 1; the library table has exactly the eight required columns and one row per ATTACK_LIBRARY entry in library order; for every one of the 12 entries the cells equal the implementation — id + name, source = entry.source (essences/deep-research-report.md#A##), premise = premiseLabel (preset, d), condition = conditionLabel, capability list = entry.capabilities, goal list = entry.goal stages, strategy = entry.strategySummary verbatim, default run = defaultRunLines (validator count, attacker names, seed, end slot); A05 / A04 / A07 overrides and A14's two stages are spelled out; choosing A05 returns to the chain display at slot 0 with the attack bound, validator count 4, attackers as the default run, カスタム preset = 前提どおり, 終了スロット 24 and 実行開始 offered; re-choosing a bound, advanced A11 proposes a fresh run from slot 0. prose.test.tsx: no resident 。 on the attack list (only the 12 strategy cells are quoted) nor on the chain display after a proposal."
+        },
+        {
+          "type": "command",
+          "command": "npm run typecheck; npm test; npm run build  (each with its exit code captured)",
+          "exit_code": 0,
+          "summary": "tsc --noEmit exit 0; vitest run exit 0 — 37 files / 420 tests (35 / 407 before this cycle: +attacksPage.test.tsx 7, +autoplay.test.tsx 5, +1 in prose.test.tsx; the design-contract checks designTokens / layout / prose stay green with the new page and the slot-bar control); vite build exit 0 (dist/ assets only)."
+        }
+      ],
+      "updated_at": "2026-09-03T22:55:00+09:00"
     },
     {
       "id": "T-049",
@@ -2301,7 +2320,7 @@
     {
       "id": "T-060",
       "title": "攻撃の自動再生(必須 31・成功条件 28): 攻撃一覧の行選択+実行開始の操作だけでスロットが一定間隔で自動的に送られ、各スロットの提案・投票・生成行動・判定推移がチェーン表示・状態表・介入一覧に順次現れる。一時停止・再開、攻撃目標達成スロットでの自動停止、未達時は既定実行構成の終了スロットで停止、停止後の巻き戻し・介入追加・パラメータ変更+DOM テスト(成功条件 19 の 12 攻撃の自動停止・A01/A03/A04/A07 の merge 未達→終了スロット停止を含む)",
-      "status": "pending",
+      "status": "done",
       "priority": "must",
       "spec": [
         "S-048",
@@ -2315,7 +2334,26 @@
       "batch_group": "e3-attack-ui",
       "context_cost": 4,
       "risk_level": "normal",
-      "notes": "遂行順序 2(T-042/T-043 の後)。既定実行構成の終了スロットは AttackDefaultRun.throughSlot(既存)。送りの間隔の既定値は裁量(例 600ms)、速度調整は任意(S-019)。自動再生は UI 層のタイマー+既存 advance() で組み、ドメインの決定性を崩さない(生成行動は保存しない)。"
+      "notes": "遂行順序 2(T-042/T-043 の後)。既定実行構成の終了スロットは AttackDefaultRun.throughSlot(既存)。送りの間隔の既定値は裁量(例 600ms)、速度調整は任意(S-019)。自動再生は UI 層のタイマー+既存 advance() で組み、ドメインの決定性を崩さない(生成行動は保存しない)。 → cycle 42: 実装完了。自動再生の操作はスロットバーの 1 か所(攻撃区画への重複ボタンは置かない)。停止規則: 達成スロット(開始スロットより後)または終了スロット、カーソル移動・提案・再読込で一時停止。達成で停止した後の再開は終了スロットまで進む。間隔 600ms 固定(速度調整は任意 T-014)。",
+      "evidence": [
+        {
+          "type": "diff",
+          "summary": "Auto-play in the UI layer over the existing deterministic advance. src/ui/useSimulation.ts: PLAY_INTERVAL_MS = 600 (exported for tests); playing state { from } with play() / pause(); an effect that, while playing, stops when the attack is gone, the cursor has reached throughSlot, or the goal is judged achieved at the current slot (goalAchievedAt(run.goal) === cursor) — the achievement stop applies only when the achievement lies after the slot playback started from, so 再開 from an achievement stop carries the run on to its end slot — and otherwise schedules advance() after PLAY_INTERVAL_MS (cleared on every change); setCursor / proposeAttack / loadScenario pause. Nothing about the timer enters the scenario: generated actions are recomputed, never stored. New src/ui/PlayControl.tsx in the slot bar (shown while an attack is bound): 実行開始 (runSlot 0) / 一時停止 / 再開, disabled at the end slot, with the 終了 s{n} readout (再生中 while running) and an ⓘ hint; App.tsx mounts it between the next-proposer readout and the manual advance. README: the auto-play paragraph in the 攻撃 section (stop rules, mitigation observation via the merge preset, rewind / interventions / parameters after the stop). scripts/verify-ui.mjs: real-browser check that 実行開始 alone advances A11 to slot 4, reads 達成 @s4 and stays there."
+        },
+        {
+          "type": "command",
+          "command": "npx vitest run tests/ui/autoplay.test.tsx",
+          "exit_code": 0,
+          "summary": "5 DOM tests with fake timers (成功条件 28, 19, 17): from the attack list, choosing A11 and pressing 実行開始 is the only input — the button reads 一時停止 and the readout 再生中 / 終了 s8; each PLAY_INTERVAL_MS tick advances one slot (slot 1 = 2 tree blocks, slot 3 = 判定中 with 3 attacker rows), at slot 4 the trace reads 達成 @s4 and playback stops (再開, three further ticks leave slot 4, generated actions listed with 攻撃者), and 再開 carries the run to the end slot 8 where the button is disabled; 一時停止 holds the slot across ticks and 再開 continues to the achievement; after the stop the cursor rewinds to slot 2 (最新 4, trace 判定中, timer idle), 最新へ returns, and ＋1 スロット進める / the intervention forms / the parameter fields work as before; moving the cursor during playback pauses it. A01 under its phase0 premise stops at its achievement slot before 6; a fresh A01 with the preset switched to merge (前提と異なる（現在 merge）) runs to the end slot 6 unachieved (判定中, no 達成) and stays. The 12-attack achievements, the A01/A03/A04/A07 merge misses and the A05 window / current observations that the stop rule reads through goalAchievedAt are fixed by tests/domain/attackLibrary.test.ts (unchanged, green)."
+        },
+        {
+          "type": "command",
+          "command": "npm run typecheck; npm test; npm run build  (each with its exit code captured)",
+          "exit_code": 0,
+          "summary": "tsc --noEmit exit 0; vitest run exit 0 — 37 files / 420 tests (35 / 407 before this cycle: +attacksPage.test.tsx 7, +autoplay.test.tsx 5, +1 in prose.test.tsx; the design-contract checks designTokens / layout / prose stay green with the new page and the slot-bar control); vite build exit 0 (dist/ assets only)."
+        }
+      ],
+      "updated_at": "2026-09-03T22:55:00+09:00"
     },
     {
       "id": "T-061",
