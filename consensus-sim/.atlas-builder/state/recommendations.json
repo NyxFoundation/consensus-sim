@@ -321,7 +321,7 @@
     {
       "id": "R-LG-20260903T231408+0900-3860",
       "type": "Human-input Recommendation",
-      "status": "proposed",
+      "status": "resolved",
       "raised_by": "atlas-builder-loop",
       "gate": "must_complete_awaiting_phase_approval",
       "target": "todo.json",
@@ -349,7 +349,10 @@
       },
       "requires_human_approval": true,
       "agent_action": "stop_until_human_review",
-      "created_at": "2026-09-03T23:14:08+09:00"
+      "created_at": "2026-09-03T23:14:08+09:00",
+      "resolved_at": "2026-09-04T00:55:06+09:00",
+      "resolved_by": "human",
+      "resolution": "must 境界ゲート R-LG-20260903T231408+0900-3860 を承認し、should フェーズ(approve-should)へ進める: 57/57 の must(最終は T-044 総点検の再実施、typecheck 0 / vitest 37 files 425 tests 0 / build 0 / clean copy で npm ci・test・build 0)を確認済みの上で、ESSENCE 任意対応事項に対応する should 3 件(T-014 自動再生の速度調整と攻撃なし自動再生、T-015 キーボードショートカット、T-017 シナリオのメモ・命名)に自律予算を与える。\nESSENCE.md と essences/ は無変更。次サイクルは handoff の next_actions に従い batch_policy の範囲で should 3 件を着手し、実ブラウザ確認(verify-ui.mjs)は従来どおり人間の手元実行に委ねる。"
     }
   ]
 }
