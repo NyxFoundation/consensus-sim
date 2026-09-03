@@ -81,6 +81,12 @@ unrealized justification)・スラッシング・inactivity leak)も含めて �
 - 技術スタックの選定は Atlas Builder の裁量に任せる(描画方式も含む。ただし
   ドメイン層を TypeScript で書くことは必須対応事項 20 の前提である)。
 - バックエンドなしの静的 SPA を維持し、GitHub Pages で公開する。UI テキストは日本語。
+- 公開は `<リポジトリ根>/.github/workflows/deploy.yml`(人間が管理する。PROJECT_ROOT
+  の外にあり、Atlas Builder は編集しない)による GitHub Actions 経由の GitHub Pages
+  デプロイで、main への push ごとに `consensus-sim/` で `npm ci` → `npm test` →
+  `npm run build` を実行し、すべて成功したときだけ `dist/` を公開する。Atlas Builder は
+  この契約 — clean install で test・build が exit 0 で終わり、`dist/` が相対パス参照で
+  自己完結する — を壊さない。
 - UI のデザイン方針 — 「計器(instrument)」: 研究計器としての固有の顔を持ち、
   開いた瞬間に構造が読める分析画面とする。
   - 主役はチェーン表示と状態表である。標準的な PC の画面幅の初期表示で、スクロール
@@ -318,6 +324,12 @@ profile: auto-approve
     チェーン表示・状態表・判定推移が各スロットで更新され、途中で一時停止・再開でき、
     攻撃目標が達成と判定されたスロットで停止し、停止後にカーソルで任意の過去スロットへ
     巻き戻せる。
+29. main に push すると deploy workflow が成功で終わり、
+    `https://nyxfoundation.github.io/consensus-sim/` を開くとその push の内容が表示される。
+    テストまたはビルドが失敗する commit では workflow が失敗で終わり、公開中の内容は
+    直前の成功版のまま変わらない。この観測は人間が GitHub 上で行い、完了の承認条件とは
+    しない。Atlas Builder 側の裏づけは前提事項のデプロイ契約の機械検査(clean install での
+    `npm ci && npm test && npm run build` の exit 0 と `dist/` の相対参照)とする。
 
 ## 必須対応事項
 
