@@ -16,6 +16,7 @@ import {
   ATTACK_A02,
   ATTACK_A03,
   ATTACK_A04,
+  ATTACK_A05,
   ATTACK_A06,
   ATTACK_A07,
   ATTACK_A09,
@@ -48,9 +49,14 @@ export interface AttackDefaultRun {
   readonly initialStakes: readonly Stake[];
   readonly attackers: readonly ValidatorIndex[];
   readonly params: AttackParams;
+  /** The seed the run is tuned to: it fixes the committees a strategy
+   * reads its slots from (only the epoch split depends on it). */
+  readonly seed: number;
   /** How far the default run is carried for the goal to be reached. */
   readonly throughSlot: SlotIndex;
 }
+
+const DEFAULT_SEED = 0;
 
 /** One row of the attack library: its identity, premise, the formal-system
  * fields (attacker condition, goal, strategy) and everything the UI shows. */
@@ -89,6 +95,7 @@ export const ATTACK_LIBRARY: readonly LibraryAttack[] = [
       initialStakes: equalStakes(4),
       attackers: [1],
       params: { maxDelay: 2 },
+      seed: DEFAULT_SEED,
       throughSlot: 6,
     },
   },
@@ -110,6 +117,7 @@ export const ATTACK_LIBRARY: readonly LibraryAttack[] = [
       initialStakes: equalStakes(4),
       attackers: [1],
       params: { maxDelay: 2 },
+      seed: DEFAULT_SEED,
       throughSlot: 8,
     },
   },
@@ -133,6 +141,7 @@ export const ATTACK_LIBRARY: readonly LibraryAttack[] = [
       initialStakes: equalStakes(5),
       attackers: [1],
       params: { maxDelay: 2 },
+      seed: DEFAULT_SEED,
       throughSlot: 16,
     },
   },
@@ -156,7 +165,36 @@ export const ATTACK_LIBRARY: readonly LibraryAttack[] = [
       initialStakes: equalStakes(5),
       attackers: [1],
       params: { maxDelay: 2 },
+      seed: DEFAULT_SEED,
       throughSlot: 16,
+    },
+  },
+  {
+    id: "A05",
+    name: "バウンシング(競合 justified 間の跳ね)",
+    source: `${REPORT}#A05`,
+    premise: {
+      preset: "merge",
+      overrides: { checkpointSwitch: "off", committee: { kind: "epoch-split" } },
+    },
+    attackers: ATTACK_A05.attackers,
+    capabilities: ["withhold", "propose-parent", "vote-target", "delay-honest"],
+    goal: ATTACK_A05.goal,
+    strategySummary:
+      "攻撃者はスロット 1 の自ブロックを根とする枝 Y を正直チェーン X の隣に立て、直近ブロックの" +
+      "遅延で正直者 2 名をエポック 3 の投票前に Y へ移す。以後毎エポック、自分の提案ブロックを" +
+      "もう一方の枝に建てて前エポックの保留票を取り込ませ、正直 2 票と合わせて古い方の枝の" +
+      "チェックポイントを justify する。fork choice の起点が競合 justified 間を跳ね、エポックに" +
+      "1 回しか投票しない正直者は跳ねた先の target に投じ直せず、justify のリンクが常に 2 エポック" +
+      "離れて finalize が起きない(活性停止)。",
+    strategy: ATTACK_A05.strategy,
+    defaultRun: {
+      validatorCount: 4,
+      initialStakes: equalStakes(4),
+      attackers: [1],
+      params: { maxDelay: 5 },
+      seed: DEFAULT_SEED,
+      throughSlot: 24,
     },
   },
   {
@@ -179,6 +217,7 @@ export const ATTACK_LIBRARY: readonly LibraryAttack[] = [
       initialStakes: equalStakes(5),
       attackers: [1],
       params: { maxDelay: 4 },
+      seed: DEFAULT_SEED,
       throughSlot: 16,
     },
   },
@@ -201,6 +240,7 @@ export const ATTACK_LIBRARY: readonly LibraryAttack[] = [
       initialStakes: equalStakes(4),
       attackers: [1],
       params: { maxDelay: 5 },
+      seed: DEFAULT_SEED,
       throughSlot: 10,
     },
   },
@@ -222,6 +262,7 @@ export const ATTACK_LIBRARY: readonly LibraryAttack[] = [
       initialStakes: equalStakes(4),
       attackers: [2, 3],
       params: { maxDelay: 2 },
+      seed: DEFAULT_SEED,
       throughSlot: 16,
     },
   },
@@ -245,6 +286,7 @@ export const ATTACK_LIBRARY: readonly LibraryAttack[] = [
       initialStakes: equalStakes(4),
       attackers: [2, 3],
       params: { maxDelay: 2 },
+      seed: DEFAULT_SEED,
       throughSlot: 12,
     },
   },
@@ -266,6 +308,7 @@ export const ATTACK_LIBRARY: readonly LibraryAttack[] = [
       initialStakes: equalStakes(4),
       attackers: [0, 1, 2],
       params: { maxDelay: 2 },
+      seed: DEFAULT_SEED,
       throughSlot: 8,
     },
   },
@@ -288,6 +331,7 @@ export const ATTACK_LIBRARY: readonly LibraryAttack[] = [
       initialStakes: equalStakes(4),
       attackers: [0, 1, 2],
       params: { maxDelay: 2 },
+      seed: DEFAULT_SEED,
       throughSlot: 20,
     },
   },
@@ -311,6 +355,7 @@ export const ATTACK_LIBRARY: readonly LibraryAttack[] = [
       initialStakes: equalStakes(4),
       attackers: [3],
       params: { maxDelay: 2 },
+      seed: DEFAULT_SEED,
       throughSlot: 44,
     },
   },

@@ -2,7 +2,8 @@
 // its declared premise and default run (成功条件 19), the mitigation-sensitive
 // attacks (A01, A03, A04, A07) miss under the merge preset with the overrides
 // removed, and a saved attack round-trips through the codec and replays
-// identically (成功条件 20).
+// identically (成功条件 20). A05's behaviour under the switching mitigations
+// (window / unrealized) is not pinned here: see the inspection record.
 
 import { describe, expect, it } from "vitest";
 import {
@@ -27,7 +28,7 @@ import {
 function configFor(a: LibraryAttack, params: ProtocolParams): SimulationConfig {
   return {
     validatorCount: a.defaultRun.validatorCount,
-    seed: 0,
+    seed: a.defaultRun.seed,
     params,
     initialStakes: a.defaultRun.initialStakes,
   };
@@ -123,6 +124,34 @@ describe("attack library", () => {
     // The honest run finalizes at slot 9, below the threshold L = 10.
     const { attack: _attack, ...honestScenario } = scenarioFor(a06);
     expect(firstFinalization(runScenario(honestScenario, 16).states)).toBe(9);
+  });
+
+  it("the bouncing (A05) alternates the justified checkpoint between two branches and finalizes nothing", () => {
+    const a05 = ATTACK_LIBRARY.find((a) => a.id === "A05")!;
+    const params = premiseParams(a05.premise);
+    expect(params.checkpointSwitch).toBe("off");
+    expect(params.committee.kind).toBe("epoch-split");
+    const run = runScenario(scenarioFor(a05), 36);
+    expect(run.generated.every((g) => g.discarded === undefined)).toBe(true);
+    // The two branches fork at the anchor: Y under the attacker's slot-1
+    // block B1, X under the honest slot-2 block B2.
+    const last = run.states[run.states.length - 1]!;
+    expect(last.tree.blocks.get(1)!.parent).toBe(0);
+    expect(last.tree.blocks.get(2)!.parent).toBe(0);
+    // From the first bounce on, each epoch's justified checkpoint (the
+    // highest over the god view) lies on the other branch than the last.
+    const highest = (s: (typeof run.states)[number]) =>
+      [...s.chainStates.values()].reduce(
+        (best, c) => (s.tree.blocks.get(c.justified)!.slot > s.tree.blocks.get(best)!.slot ? c.justified : best),
+        0,
+      );
+    const sequence = [13, 17, 21, 25, 29, 33].map((slot) => highest(run.states[slot]!));
+    expect(sequence).toEqual([8, 12, 16, 20, 24, 28]);
+    const branchOf = (b: number) => (isAncestor(last.tree, 1, b) ? "Y" : "X");
+    expect(sequence.map(branchOf)).toEqual(["X", "Y", "X", "Y", "X", "Y"]);
+    // Every state keeps the anchor as the latest finalized block.
+    for (const s of run.states) expect(latestFinalized(s.tree, s.chainStates)).toBe(0);
+    expect(goalAchievedAt(run.goal!)).toBe(12);
   });
 
   it("the safety violations (A10, A12) finalize two conflicting checkpoints", () => {

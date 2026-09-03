@@ -18,10 +18,16 @@
 import type { Action } from "./action";
 import type { Attack, AttackerObservation, ProposerSchedule, Strategy } from "./attack";
 import type { AttackGoal } from "./attackGoal";
-import { leavesUnder, type BlockTree } from "./blockTree";
+import { childrenOf, isAncestor, leavesUnder, type BlockTree } from "./blockTree";
 import { validatorIndices, type SimulationConfig } from "./config";
-import { SLOTS_PER_EPOCH, slotsSinceEpochStart } from "./finality";
-import type { BlockIndex, SlotIndex, ValidatorIndex } from "./types";
+import {
+  SLOTS_PER_EPOCH,
+  checkpointFor,
+  epochBoundarySlot,
+  epochOf,
+  slotsSinceEpochStart,
+} from "./finality";
+import { ANCHOR_BLOCK_INDEX, type BlockIndex, type SlotIndex, type ValidatorIndex } from "./types";
 
 /** The validators that are not attackers, in index order. */
 function honestOf(
@@ -328,6 +334,273 @@ export const ATTACK_A06: Attack = {
   attackers: { kind: "count", atLeast: 1 },
   goal: [FINALITY_DELAY],
   strategy: boundaryDelayA06,
+};
+
+// ── A05 bouncing (バウンシング: 競合 justified 間の跳ね) ─────────────────────
+// Premise merge + checkpointSwitch off + committee epoch-split, one attacker
+// among four validators: three votes justify, so a checkpoint with two
+// honest votes is justified exactly when the attacker adds its own. Every
+// validator attests once per epoch, so a validator that has voted cannot
+// vote again for a checkpoint that appears later in the same epoch.
+//
+// Two branches X and Y grow from the fork the opening creates. In each
+// epoch k from the first bounce on, the honest validators start on one
+// branch (old) with the fork-choice root r on it; two of them attest before
+// the attacker's proposal of the epoch and vote (r → cp_k(old)); the
+// attacker's proposal — the bounce block — builds on the other branch (new)
+// and includes the vote the attacker cast and withheld in epoch k−1,
+// (r' → cp_{k−1}(new)): with the two honest votes of that epoch it
+// justifies cp_{k−1}(new), the newest justified checkpoint, so every honest
+// validator that receives the block moves its root — and its head — to new.
+// The block is withheld from the two early attesters until they have voted;
+// the third honest validator attests after it, on new. The attacker itself
+// votes (r → cp_k(old)) in its committee slot and withholds that vote until
+// its next proposal, on old, where it justifies cp_k(old) — the next bounce.
+// Justified checkpoints thus alternate X, Y, X, … and every justifying link
+// spans two epochs, so no checkpoint is ever finalized: 活性停止.
+//
+// The opening (epochs 1–3) plants the fork and the first split without a
+// justified checkpoint to bounce from, by delaying honest blocks: a
+// validator that has not received a block weighs every vote for that block
+// or its descendants at 0 (their heads are unknown to it), so withholding a
+// chain's newest blocks from a validator moves it to the other chain. The
+// epoch-1 boundary block is delayed to the splitter — the honest validator
+// that proposes and attests in the same later slot of epoch 1 — which
+// therefore builds beside it (the fork: X with the boundary block, Y with
+// the splitter's block) and votes for the fork point; the two other honest
+// validators (the flipper, who proposes the epoch-2 and epoch-3 boundary
+// blocks, and the holdout) vote (anchor → cp_1(X)), two votes the attacker
+// never completes. In epoch 2 the epoch-2 boundary block is delayed to the
+// splitter, so it stays on Y, extends it and votes Y; the flipper and the
+// holdout vote (anchor → cp_2(X)); the attacker's vote of the epoch — head
+// on Y, target cp_2(X) — reaches everyone at once. In epoch 3 the holdout's
+// epoch-2 block is delayed to the flipper, which therefore weighs its own
+// last vote at 0 and moves to Y: it proposes the epoch-3 boundary block on
+// Y (cp_3(Y)) and votes (anchor → cp_3(Y)); the holdout, attesting in the
+// same slot, sees that timely proposal boosted and votes Y too. The first
+// bounce block (epoch 3, on X) then justifies cp_2(X) with the attacker's
+// epoch-2 vote, and the pattern runs from there. d = 5 (the attacker's vote
+// is held from its committee slot to its next proposal, at most five
+// slots).
+//
+// The switching window (merge) and unrealized justification (current) are
+// the mitigations this attack is judged against (成功条件 19): with the
+// window the root moves only in the first slot of an epoch.
+
+/** The slot of `epoch` in which `validator` attests, if any. */
+function attestationSlotOf(
+  schedule: ProposerSchedule,
+  validator: ValidatorIndex,
+  epoch: number,
+): SlotIndex | undefined {
+  const start = epochBoundarySlot(epoch);
+  for (let slot = start; slot < start + SLOTS_PER_EPOCH; slot++) {
+    if (schedule.committeeOf(slot).has(validator)) return slot;
+  }
+  return undefined;
+}
+
+/** The first slot of `epoch` proposed by one of `proposers`, if any. */
+function proposalSlotIn(
+  schedule: ProposerSchedule,
+  proposers: readonly ValidatorIndex[],
+  epoch: number,
+): SlotIndex | undefined {
+  const start = epochBoundarySlot(epoch);
+  for (let slot = start; slot < start + SLOTS_PER_EPOCH; slot++) {
+    if (proposers.includes(schedule.proposerOf(slot))) return slot;
+  }
+  return undefined;
+}
+
+/** The two branches of a tree forked once: the children of the first block
+ * with two children, in index order; undefined before the fork exists. */
+function branchesOf(tree: BlockTree): readonly [BlockIndex, BlockIndex] | undefined {
+  for (const block of [...tree.blocks.values()].sort((a, b) => a.index - b.index)) {
+    const children = childrenOf(tree, block.index);
+    if (children.length >= 2) return [children[0]!, children[1]!];
+  }
+  return undefined;
+}
+
+/** The branch root that is an ancestor of `block`, if any. */
+function branchOf(
+  tree: BlockTree,
+  branches: readonly [BlockIndex, BlockIndex],
+  block: BlockIndex,
+): BlockIndex | undefined {
+  return branches.find((root) => isAncestor(tree, root, block));
+}
+
+export const bouncingA05: Strategy = (observation) => {
+  const { slot, attackers, view, schedule, config } = observation;
+  const attacker = attackers[0];
+  if (attacker === undefined) return [];
+  const honest = honestOf(attackers, config);
+  const tree = view.blockTree;
+  const next = slot + 1;
+  const epoch = epochOf(next);
+  const attest = (v: ValidatorIndex, e: number): SlotIndex | undefined =>
+    attestationSlotOf(schedule, v, e);
+  const proposalOf = (proposer: ValidatorIndex, at: SlotIndex) =>
+    ({ kind: "proposal", proposer, slot: at }) as const;
+  const attestationOf = (validator: ValidatorIndex, at: SlotIndex) =>
+    ({ kind: "attestation", validator, slot: at }) as const;
+  const boundary1 = epochBoundarySlot(1);
+  const rootSlot = 1;
+  // Roles of the opening: the boundary proposer (F) proposes the epoch-1
+  // boundary block; the splitter (S) proposes and attests in the last
+  // honest slot of epoch 1 and is moved to Y there; the holdout (H) is the
+  // third honest validator. The attacker must propose Y's root at slot 1.
+  const boundaryProposer = schedule.proposerOf(boundary1);
+  const splitSlot = Math.max(
+    ...honest.map((v) => attest(v, 1) ?? -1).filter((s) => s > boundary1),
+  );
+  const splitter = honest.find(
+    (v) => attest(v, 1) === splitSlot && schedule.proposerOf(splitSlot) === v,
+  );
+  const holdout = honest.find((v) => v !== splitter && v !== boundaryProposer);
+  if (
+    schedule.proposerOf(rootSlot) !== attacker ||
+    attackers.includes(boundaryProposer) ||
+    splitter === undefined ||
+    splitter === boundaryProposer ||
+    holdout === undefined
+  ) {
+    return [];
+  }
+  const actions: Action[] = [];
+
+  if (slot === 0) {
+    const a1 = attest(attacker, 1);
+    const a2 = attest(attacker, 2);
+    const f1 = attest(boundaryProposer, 1);
+    const f2 = attest(boundaryProposer, 2);
+    const h1 = attest(holdout, 1);
+    const p1 = proposalSlotIn(schedule, attackers, 1);
+    const p3 = proposalSlotIn(schedule, attackers, 3);
+    const fProposal2 = proposalSlotIn(schedule, [boundaryProposer], 2);
+    const hProposal2 = proposalSlotIn(schedule, [holdout], 2);
+    if (
+      [a1, a2, f1, f2, h1, p1, p3, fProposal2, hProposal2].includes(undefined) ||
+      a1! <= rootSlot
+    ) {
+      return [];
+    }
+    actions.push(
+      // Y's root is withheld until the honest chain X has started beside it.
+      { kind: "delay", message: proposalOf(attacker, rootSlot), untilSlot: boundary1 },
+      // The attacker's epoch-1 vote (head on Y) reaches F and H only after
+      // they have voted X; its epoch-1 block is not boosted for F.
+      { kind: "delay", message: attestationOf(attacker, a1!), untilSlot: f1! + 1, observers: [boundaryProposer] },
+      { kind: "delay", message: attestationOf(attacker, a1!), untilSlot: h1! + 1, observers: [holdout] },
+      { kind: "delay", message: proposalOf(attacker, p1!), untilSlot: f1! + 1, observers: [boundaryProposer] },
+      // The boundary block reaches S after its slot: S weighs the X votes
+      // of the epoch at 0 and, tied, moves to Y.
+      { kind: "delay", message: proposalOf(boundaryProposer, boundary1), untilSlot: splitSlot + 1, observers: [splitter] },
+      // S's Y vote reaches F and H after their epoch-2 proposals, on X.
+      { kind: "delay", message: attestationOf(splitter, splitSlot), untilSlot: fProposal2!, observers: [boundaryProposer] },
+      { kind: "delay", message: attestationOf(splitter, splitSlot), untilSlot: hProposal2!, observers: [holdout] },
+      // The attacker's epoch-2 vote (head on Y, target cp_2(X)) reaches F
+      // after its epoch-2 vote and the others with the first bounce block.
+      { kind: "delay", message: attestationOf(attacker, a2!), untilSlot: f2! + 1, observers: [boundaryProposer] },
+      { kind: "delay", message: attestationOf(attacker, a2!), untilSlot: p3!, observers: [holdout, splitter] },
+    );
+  }
+
+  const boundaryBlock = blockBy(tree, boundaryProposer, boundary1);
+  const branches = branchesOf(tree);
+  const mine = attest(attacker, epoch);
+  const proposal = proposalSlotIn(schedule, attackers, epoch);
+  const tip = (root: BlockIndex): BlockIndex => tipUnder(tree, root);
+
+  const yRoot = blockBy(tree, attacker, rootSlot);
+  // The attacker's epoch-1 proposal extends Y's root.
+  if (epoch === 1 && proposal === next && yRoot !== undefined) {
+    actions.push({ kind: "propose-parent", slot: proposal, parent: yRoot });
+  }
+
+  // The attacker's vote of this epoch, decided at the boundary before it.
+  if (mine === next) {
+    if (epoch === 0) {
+      // Weightless: head and target at the anchor.
+      actions.push({
+        kind: "vote-target",
+        slot: mine,
+        validator: attacker,
+        head: ANCHOR_BLOCK_INDEX,
+        target: ANCHOR_BLOCK_INDEX,
+      });
+    } else if (epoch === 1) {
+      // Head on Y's root, target the anchor (an inert link).
+      if (yRoot === undefined) return actions;
+      actions.push({ kind: "vote-target", slot: mine, validator: attacker, head: yRoot, target: ANCHOR_BLOCK_INDEX });
+    } else if (epoch === 2) {
+      // Head on Y (weight for the split), target cp_2(X): the vote that
+      // the first bounce block includes. It reaches everyone at once — no
+      // honest block on X includes all three votes before the bounce.
+      const x = boundaryBlock === undefined || branches === undefined ? undefined : branchOf(tree, branches, boundaryBlock);
+      const y = branches?.find((b) => b !== x);
+      if (x === undefined || y === undefined) return actions;
+      actions.push({
+        kind: "vote-target",
+        slot: mine,
+        validator: attacker,
+        head: tip(y),
+        source: ANCHOR_BLOCK_INDEX,
+        target: checkpointFor(tree, tip(x), epoch),
+      });
+    } else {
+      const previous = view.votes.find(
+        (v) => v.validator === attacker && epochOf(v.slot) === epoch - 1,
+      );
+      const newBranch =
+        previous === undefined || branches === undefined ? undefined : branchOf(tree, branches, previous.target);
+      const oldBranch = branches?.find((b) => b !== newBranch);
+      const release = proposalSlotIn(schedule, attackers, epoch + 1);
+      if (oldBranch === undefined || release === undefined) return actions;
+      if (mine !== epochBoundarySlot(epoch) || epoch === 3) {
+        actions.push({ kind: "vote-target", slot: mine, validator: attacker, head: tip(oldBranch) });
+      }
+      actions.push({
+        kind: "delay",
+        message: { kind: "attestation", validator: attacker, slot: mine },
+        untilSlot: release,
+      });
+    }
+  }
+
+  // The bounce block, decided at the boundary before the attacker's proposal.
+  if (epoch >= 3 && proposal === next) {
+    const previous = view.votes.find(
+      (v) => v.validator === attacker && epochOf(v.slot) === epoch - 1,
+    );
+    const newBranch =
+      previous === undefined || branches === undefined ? undefined : branchOf(tree, branches, previous.target);
+    if (newBranch === undefined) return actions;
+    actions.push({ kind: "propose-parent", slot: proposal, parent: tip(newBranch) });
+    const slots = honest
+      .map((v) => [v, attest(v, epoch)] as const)
+      .filter((pair): pair is readonly [ValidatorIndex, SlotIndex] => pair[1] !== undefined)
+      .sort((a, b) => a[1] - b[1]);
+    const late = slots[slots.length - 1];
+    for (const [v, at] of slots) {
+      if (v === late?.[0] || at < proposal) continue;
+      actions.push({
+        kind: "delay",
+        message: { kind: "proposal", proposer: attacker, slot: proposal },
+        untilSlot: at + 1,
+        observers: [v],
+      });
+    }
+  }
+  return actions;
+};
+
+export const ATTACK_A05: Attack = {
+  attackers: { kind: "count", atLeast: 1 },
+  goal: [STALL],
+  strategy: bouncingA05,
 };
 
 // ── A09 finality stall by ≥1/3 abstention (1/3 超の棄権) ───────────────────

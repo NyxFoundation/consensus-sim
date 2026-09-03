@@ -1641,7 +1641,7 @@
     {
       "id": "T-047",
       "title": "攻撃ライブラリ(A05 バウンシング: 競合 justified 間の跳ね; 前提 merge + 切替 off + committee = エポック分割; 活性停止)の定義と、既定構成で達成・committee = エポック分割の上書きを保ったまま切替の上書きだけを外した merge(window)/ current(unrealized)で未達のテスト",
-      "status": "pending",
+      "status": "blocked",
       "priority": "must",
       "spec": [
         "S-043",
@@ -1655,7 +1655,38 @@
       "batch_group": "e3-library",
       "context_cost": 4,
       "risk_level": "normal",
-      "notes": "T-045 から分離(R-006 選択肢 D の再挑戦で A03/A04/A06 は成立、A05 のみ不成立)。跳ねの本質 = 攻撃者が保留票で justified チェックポイントを遅れて出現させ、正直者の fork choice の起点(root)が競合枝の間を跳ね続けて、どのエポックも隣接 justify(= finalize)に至らないこと。本モデルでの壁は R-008 参照。 2026-09-03 09:36 resume: R-008 は A'(エポック分割 committee の追加 = 骨格追加を人間承認)で解決。T-048 の完了後、A05 は committee = エポック分割の前提で組む: 各バリデータがエポックに 1 回しか投票しないので、跳ねた先の target に投じ直せず隣接 justify(= finalize)が起きず、次エポックで反対枝へ跳ね続ける。window / unrealized は起点の切替を抑えて緩和する。"
+      "notes": "T-045 から分離(R-006 選択肢 D の再挑戦で A03/A04/A06 は成立、A05 のみ不成立)。R-008 は A'(エポック分割 committee の追加)で解決し、T-048 の完了後に本 Todo で A05 を実装した。【機構】4 体・攻撃者 V1(提案は slot 4k+1)・seed 0・d = 5。攻撃者の slot 1 ブロック B1 を枝 Y の根(index 最小 → 同点は Y 側)とし、正直者には B1 を slot 4 まで隠して錨上に X(B2 → B3 → B4 …)を作らせる。開幕(エポック 1〜3)は直近ブロックの遅延で票の重みを 0 にする誘導(隠したブロックとその子孫を head とする票は重み 0)で、エポック 1 に V3 を、エポック 3 にV2・V0 を Y へ移す(V0 のエポック 3 境界ブロック B12 が Y に建ち、V2 は boost 付きの B12 を見てY に投票)。以後毎エポック k、攻撃者は自分の提案 B_{4k+1} を「もう一方の枝」に建てて前エポックの保留票(committee スロットで投じ、次の自提案まで保留 ≤ 5)を取り込ませ、正直 2 票と合わせて古い枝のチェックポイントを justify する。ブロックは先に投票する正直 2 名には投票後まで隠し、3 人目は跳ねた後に投票する。エポックに 1 回しか投票できないので、justify のリンクは常に 2 エポック離れ(B8@13 → B12@17 → B16@21 → B20@25 …)finalize が起きず、活性停止(L = 12)を slot 12 で達成。生成行動の破棄 0。既定実行構成に seed(0)を追加した(AttackDefaultRun.seed。他の攻撃はcommittee = 全員のため seed 非依存)。【緩和策との関係(R-009)】unrealized(current)は本モデル(R-004)では起点を変えず候補を刈るだけなので off と同一の実行になり未達にならない(構造的)。window は起点切替をエポック先頭に限るが、エポック末スロットの正直票は境界ブロック(切替後の枝)にしか取り込まれず、正直者の枝は自力で justify を実現できないまま攻撃者が 1 エポック遅れで完成させて跳ねが境界ごとに続く(seed 0: 最初の finalized は slot 48)。1 票 = 1/4 の粒度で最後の 1 票が 2/3 を左右するため。window / current の未達テストは人間の判断後に追加する。",
+      "blocked_reason": "A05 は前提(merge + 切替 off + committee = エポック分割)で成立し実装・テスト済だが、人間が了承済みの緩和策意味論(R-004)のもとでは window / unrealized が跳ねを止められず、成功条件 19・必須 23 の「window / current で未達」のテストが書けない。緩和策の忠実度・既定実行構成・要件のいずれを動かすかは人間判断(R-009)。",
+      "evidence": [
+        {
+          "type": "diff",
+          "summary": "src/domain/model/attackLibrary.ts: bouncingA05 (reactive strategy: opening roles read from the schedule — boundary proposer / splitter / holdout —, per-epoch withheld vote with head on the old branch, bounce block on the new branch with per-attester delays; helpers attestationSlotOf / proposalSlotIn / branchesOf / branchOf) + ATTACK_A05 (count ≥ 1, liveness-stall L = 12). src/domain/sim/attackLibrary.ts: A05 row (premise merge + checkpointSwitch off + committee epoch-split, capabilities withhold / propose-parent / vote-target / delay-honest, 4 validators, attacker [1], maxDelay 5, throughSlot 24); AttackDefaultRun.seed added to every default run (0). tests/domain/attackLibrary.test.ts: configFor uses the default run's seed; new A05 test (fork at the anchor, justified sequence 8/12/16/20/24/28 alternating X/Y, anchor stays finalized through slot 36, goal at 12, no discarded action). docs/INSPECTION.md: known limit recorded. git diff --stat: 3 files changed, 352 insertions(+), 5 deletions(-) plus docs/INSPECTION.md."
+        },
+        {
+          "type": "command",
+          "command": "npx vitest run tests/domain/probe.test.ts --silent=false --disableConsoleIntercept",
+          "exit_code": 0,
+          "summary": "一時 probe(撤去済)で推移を確認: off(前提)= justified が X/Y 交互(B8@13, B12@17, B16@21, B20@25, B24@29, B28@33 …)、finalized は slot 48 まで錨のまま、活性停止 @ s12、生成 49 行動・破棄 0。window(merge + エポック分割)= 同じ跳ねがエポック境界で続き、最初の finalized は slot 48(stall 47)。unrealized(current + エポック分割)= off と同一(finalized なし)。正直実行(エポック分割)は slot 11 に最初の finalized(最大 stall 10)。seed 走査(0〜59): 開幕の誘導は seed 0 の committee 順序に合わせてあり、他 seed では既定 L に達しない。"
+        },
+        {
+          "type": "command",
+          "command": "npm run typecheck",
+          "exit_code": 0,
+          "summary": "tsc --noEmit exits 0."
+        },
+        {
+          "type": "command",
+          "command": "npx vitest run",
+          "exit_code": 0,
+          "summary": "28 files / 344 tests pass (343 → 344: +1 A05). 受け入れ確認(成功条件 19 の達成側・20): ATTACK_LIBRARY は 12 件(A01/A02/A03/A04/A05/A06/A07/A09/A10/A11/A12/A14)となり、全件が既定実行構成で攻撃目標が「達成」と判定されるスロットに到達(A05 活性停止 s12); A05 は生成行動の破棄なしで 2 枝(錨で分岐: Y = B1 の下、X = B2 の下)の justified を交互に進め(8/12/16/20/24/28)、slot 36 まで finalized は錨のまま; 12 攻撃の codec 往復で同一 generated・同一 goalAchievedAt; registry キー = ライブラリ id; purity / typeGraph 不変。"
+        },
+        {
+          "type": "command",
+          "command": "npm run build",
+          "exit_code": 0,
+          "summary": "vite build emits the static dist/ bundle (408.4 kB js) with exit 0."
+        }
+      ]
     },
     {
       "id": "T-046",
@@ -1817,7 +1848,7 @@
       "batch_group": "e3-final",
       "context_cost": 5,
       "risk_level": "normal",
-      "notes": "遂行順序 9。最後の必須。他のすべての must Todo 完了後に実施する。点検項目に次を含める(2026-09-03 resume で人間が現状のまま了承した裁量簡約 4 件と、このサイクルの語彙拡張): (1) R-003 fork choice の投票重みは投票 head のチェーン状態のステーク; (2) R-004 justified の即時集計(エポック末を待たない)と、window 切替でブロックの slot を到着時刻の代理にする純関数化(遅延配送された justify ブロックは緩和されない); (3) R-005 空のエポック境界スロットにフォールバックしたチェックポイントは finalize されず 1 エポック遅れる(隣接判定がブロック slot のエポックを使う); (4) R-007 A10/A14 のスロット分割 FFG 二重投票は本モデルの証拠(同一スロットの相反)に当たらずスラッシングされない; (5) T-045 の拡張: DoubleVoteAction.head(2 票目の投票先。未指定なら親)と、攻撃者が自票を vote 参照(validator/slot/head)で保留・選択配送できる capability 判定(正直票の vote 参照は範囲外のまま) — 意味論変更でないこと、UI の手動二重投票が不変であること、型カタログ・codec・介入一覧の表示が追随していることを点検する; (6) A03/A04 の swing 票が枝の根(B1/B2)を head にする理由(証拠を含まないチェーン状態から重みを読む)と、A06 の L=10 が正直基準(s9)の 1 上であることの妥当性。 (7) committee 第 3 方式『エポック分割』(T-048)が View / Vote / Block を変えず、boost の基準(スロット committee 重み)と codec・UI・型カタログが追随していること、A05(T-047)の成立/未達がこの方式に依存する理由が記録されていること; (8) UI 刷新(T-049〜T-051)後に成功条件 26 (a)〜(f) の機械検査がテストとして残り、人間承認の記録(resume)が evidence にあること。"
+      "notes": "遂行順序 9。最後の必須。他のすべての must Todo 完了後に実施する。点検項目に次を含める(2026-09-03 resume で人間が現状のまま了承した裁量簡約 4 件と、このサイクルの語彙拡張): (1) R-003 fork choice の投票重みは投票 head のチェーン状態のステーク; (2) R-004 justified の即時集計(エポック末を待たない)と、window 切替でブロックの slot を到着時刻の代理にする純関数化(遅延配送された justify ブロックは緩和されない); (3) R-005 空のエポック境界スロットにフォールバックしたチェックポイントは finalize されず 1 エポック遅れる(隣接判定がブロック slot のエポックを使う); (4) R-007 A10/A14 のスロット分割 FFG 二重投票は本モデルの証拠(同一スロットの相反)に当たらずスラッシングされない; (5) T-045 の拡張: DoubleVoteAction.head(2 票目の投票先。未指定なら親)と、攻撃者が自票を vote 参照(validator/slot/head)で保留・選択配送できる capability 判定(正直票の vote 参照は範囲外のまま) — 意味論変更でないこと、UI の手動二重投票が不変であること、型カタログ・codec・介入一覧の表示が追随していることを点検する; (6) A03/A04 の swing 票が枝の根(B1/B2)を head にする理由(証拠を含まないチェーン状態から重みを読む)と、A06 の L=10 が正直基準(s9)の 1 上であることの妥当性。 (7) committee 第 3 方式『エポック分割』(T-048)が View / Vote / Block を変えず、boost の基準(スロット committee 重み)と codec・UI・型カタログが追随していること、A05(T-047)の成立/未達がこの方式に依存する理由が記録されていること; (8) UI 刷新(T-049〜T-051)後に成功条件 26 (a)〜(f) の機械検査がテストとして残り、人間承認の記録(resume)が evidence にあること。 (9) A05 バウンシング(T-047)と切替の緩和策: R-009 の人間判断の結果(意味論拡張 / 既定実行構成の粒度変更 / 要件緩和 / 延期)が ESSENCE・仕様・実装・テスト・docs/INSPECTION.md の「残る既知の制約」で一致していること、AttackDefaultRun.seed(既定 0)が codec・攻撃 UI の既定実行構成提案に追随していること、A05 の開幕誘導が seed 0 の committee 順序に依存することが記録されていることを点検する。"
     }
   ]
 }
