@@ -1,23 +1,22 @@
-// Attack (攻撃) — the formal system: an attack is the triple
-// (attacker set, attack goal, strategy) (必須 17).
+// 攻撃 — 形式的な体系: 攻撃とは (攻撃者集合の条件, 攻撃目標,
+// 戦略) の 3 つ組である(必須 17)。
 //
-// - The attacker set (攻撃者集合) is a non-empty subset of the validators. A
-//   library attack fixes it up to a condition (攻撃者集合の条件); a scenario
-//   binds one concrete set, which may fall short of the condition.
-// - The attack goal (攻撃目標) is a non-empty sequence of predicates
-//   (attackGoal.ts), judged stage by stage.
-// - The strategy (戦略) is a rule that, at every slot boundary, maps what the
-//   attackers observe — the merge of their views (attackers share everything
-//   instantly and completely) and the schedule — to their actions for the
-//   slots ahead, within the capability range (必須 18). A fixed action list
-//   is the special case of a strategy that ignores its input.
+// - 攻撃者集合はバリデータの空でない部分集合である。ライ
+//   ブラリの攻撃は条件(攻撃者集合の条件)までを固定し、シナリオは条件を
+//   満たさない場合もある具体的な 1 集合を束縛する。
+// - 攻撃目標は述語の空でない列(attackGoal.ts)で、段ごと
+//   に判定される。
+// - 戦略は、すべてのスロット境界において攻撃者の観測 — 攻撃
+//   者の View の併合(攻撃者は即座かつ完全にすべてを共有する)と予定表
+//   — を、能力範囲(必須 18)の中でこの先のスロットの行動へ写す規則であ
+//   る。入力を無視する戦略が固定行動リストという特殊ケースになる。
 //
-// An attack declares its premise (前提): the protocol parameters it holds
-// under (a preset plus overrides) and the network assumption d, the bound
-// on how long an honest message may be held back.
+// 攻撃はその前提を宣言する: 保持するプロトコルパラメータ(プロト
+// コルプリセットと上書き)と、正直なメッセージがどれだけ保留されうるか
+// の上限であるネットワーク前提 d である。
 //
-// Changing the triple, the capability range or the predicates' semantics is
-// a human decision (ESSENCE 思想 (c)); this module states them as they are.
+// 3 つ組・能力範囲・述語の意味論を変更することは人間の決定であり(ESSENCE
+// 思想 (c))、本モジュールはそれらをあるがままに記述する。
 
 import type { Action } from "./action";
 import type { AttackGoal } from "./attackGoal";
@@ -31,10 +30,10 @@ import type { Block, SlotIndex, ValidatorIndex, Vote } from "./types";
 import type { View } from "./view";
 
 /**
- * The premise (前提) an attack holds under: the protocol parameters as a
- * preset name plus field overrides, and the delay bound d (`maxDelay`) —
- * the network assumption that an honest message reaches every receiver at
- * most d slots after its publication.
+ * 攻撃が保持する前提: プロトコルプリセット名とフィールド単位の上
+ * 書きとして表すプロトコルパラメータ、および遅延上限 d(`maxDelay`)—
+ * 正直なメッセージが公開から高々 d スロット後にはすべての受信者に届くと
+ * いうネットワーク前提。
  */
 export interface AttackPremise {
   readonly preset: PresetName;
@@ -43,23 +42,23 @@ export interface AttackPremise {
 }
 
 /**
- * Attack parameters (攻撃パラメータ): per-attack numbers the strategy and the
- * default configuration read. `maxDelay` (d) is common to every attack — the
- * premise's delay bound, which the capability range enforces on the
- * attackers' delays of honest messages (必須 18).
+ * 攻撃パラメータ: 戦略と既定実行構成が読み取
+ * る、攻撃ごとの数値。`maxDelay`(d)はすべての攻撃に共通する — 前提の遅
+ * 延上限であり、能力範囲が攻撃者による正直なメッセージの遅延に対して強
+ * 制する(必須 18)。
  */
 export interface AttackParams {
   readonly maxDelay: number;
   readonly [name: string]: number;
 }
 
-/** The condition an attacker set must satisfy: at least `atLeast`
- * validators, or at least the fraction `atLeast` of the total initial stake. */
+/** 攻撃者集合が満たすべき条件: 少なくとも `atLeast` 人のバリデータ、
+ * または初期ステーク総量の少なくとも `atLeast` の割合。 */
 export type AttackerCondition =
   | { readonly kind: "count"; readonly atLeast: number }
   | { readonly kind: "stake-ratio"; readonly atLeast: number };
 
-/** The attackers' share of the total initial stake. */
+/** 攻撃者が占める初期ステーク総量に対する割合。 */
 export function attackerStakeRatio(
   attackers: readonly ValidatorIndex[],
   config: InitialConditions,
@@ -84,25 +83,25 @@ export function satisfiesCondition(
 }
 
 /**
- * What the attackers observe at a slot boundary (攻撃者の観測状態): the end
- * of `slot`, the merge of every attacker's view at that instant, and the
- * schedule. `config` carries the protocol parameters and the initial stakes
- * the attackers reason about (thresholds, presets).
+ * スロット境界で攻撃者が観測するもの(攻撃者の観測状態): `slot` の終わ
+ * り、その時点でのすべての攻撃者の View の併合、そして予定表。`config`
+ * は攻撃者が推論に用いるプロトコルパラメータと初期ステーク(閾値、プリ
+ * セット)を運ぶ。
  */
 export interface AttackerObservation {
   readonly slot: SlotIndex;
   readonly attackers: readonly ValidatorIndex[];
-  /** The merged view: every block and vote any attacker holds. */
+  /** 併合された View: いずれかの攻撃者が保持するすべてのブロックと投票。 */
   readonly view: View;
   readonly schedule: Schedule;
   readonly config: InitialConditions;
 }
 
 /**
- * The merge of views taken at one instant: the union of their blocks (a
- * block whose parent no view holds stays out, as in any view) and of their
- * votes (deduplicated, first occurrence kept). A View like any other — the
- * merge has no coordinate of its own.
+ * ある1つの時点で取った複数の View の併合: それらのブロックの和集合
+ * (どの View も parent を保持しないブロックは、他の View と同様に除外さ
+ * れる)と投票の和集合(重複除去し、最初に現れたものを残す)。併合結果
+ * も他と同じ 1 つの View であり、それ自身の座標は持たない。
  */
 export function mergeViews(views: readonly View[]): View {
   if (views.length === 0) throw new Error("mergeViews needs at least one view");
@@ -129,8 +128,8 @@ export function mergeViews(views: readonly View[]): View {
   return { blockTree, votes };
 }
 
-/** The attackers' observation at the end of `slot` from their individual
- * views at that instant (one per attacker, in attacker order). */
+/** その時点での各攻撃者個別の View(攻撃者ごとに 1 つ、攻撃者の順序で)
+ * から得られる、`slot` の終わりにおける攻撃者の観測。 */
 export function observeAsAttackers(
   attackers: readonly ValidatorIndex[],
   views: readonly View[],
@@ -145,40 +144,40 @@ export function observeAsAttackers(
   return { slot, attackers, view: mergeViews(views), schedule, config };
 }
 
-/** A strategy: the attackers' actions for the slots after the observed
- * boundary. Pure — the same observation and parameters always yield the
- * same actions, which is what makes an attack replay identically. */
+/** 戦略: 観測した境界より後のスロットに対する攻撃者の行動を返す。純
+ * 粋関数であり、同じ観測と同じパラメータからは常に同じ行動が得られる —
+ * これにより攻撃は同一に再現できる。 */
 export type Strategy = (
   observation: AttackerObservation,
   params: AttackParams,
 ) => readonly Action[];
 
-/** The triple (攻撃者集合の条件, 攻撃目標, 戦略). */
+/** 3 つ組 (攻撃者集合の条件, 攻撃目標, 戦略)。 */
 export interface Attack {
   readonly attackers: AttackerCondition;
-  /** Non-empty; judged from the first stage on. */
+  /** 空でない列。最初の段から判定される。 */
   readonly goal: readonly AttackGoal[];
   readonly strategy: Strategy;
 }
 
-// ── The two bases of an attacker's action (行動の 2 基底, 必須 18) ─────────
+// ── 攻撃者の行動の 2 基底(必須 18) ────────────────────────────────
 
-/** Messages named as a set: everything `senders` publish in a slot span —
- * the shape a partition or a silence refers to. */
+/** 集合として名指しされるメッセージ: スロット区間の中で `senders` が公開
+ * するすべて — partition や silence が参照する形である。 */
 export interface MessageSpan {
   readonly senders: readonly ValidatorIndex[];
   readonly fromSlot: SlotIndex;
-  /** Inclusive; absent = open-ended. */
+  /** 両端を含む。無指定なら無期限。 */
   readonly toSlot?: SlotIndex;
 }
 
 /**
- * 公開 (i): a message of the attacker's own, named ahead of its publication
- * (by sender, slot and kind — or as a span), and what the action decides
- * about it: its content (from the attacker's observation only — a block's
- * parent and body, a vote's head / source / target: forgery is impossible),
- * its timing (withheld until a later slot), its receiver set (selective
- * delivery), or silence (not published at all).
+ * 公開 (i): 公開前に(送信者・スロット・種別で、または span として)名指
+ * しされる攻撃者自身のメッセージと、それについて行動が決めること: その
+ * 内容(攻撃者の観測のみに基づく — ブロックの parent と body、投票の
+ * head / source / target: 偽造は不可能)、そのタイミング(後のスロット
+ * まで保留する)、その受信者集合(選択配送)、あるいは沈黙(一切公開し
+ * ない)。
  */
 export interface PublishBase {
   readonly base: "publish";
@@ -187,10 +186,9 @@ export interface PublishBase {
 }
 
 /**
- * 配送 (ii): an honest validator's message, named ahead of its publication
- * (or as a span), whose arrival at `observers` (absent = everyone but the
- * sender) is held back `hold` slots past its publication — at most d — or
- * dropped.
+ * 配送 (ii): 公開前に(または span として)名指しされる正直バリデータの
+ * メッセージ。`observers`(無指定なら送信者以外の全員)への到達は、公開
+ * から `hold` スロット — 高々 d — 遅らせるか、あるいは欠落させる。
  */
 export interface DeliverBase {
   readonly base: "deliver";
@@ -199,6 +197,7 @@ export interface DeliverBase {
   readonly observers?: readonly ValidatorIndex[];
 }
 
+/** 行動の 2 基底: publish(公開)と deliver(配送)の総称。 */
 export type ActionBase = PublishBase | DeliverBase;
 
 const isSpan = (m: MessageRef | MessageSpan): m is MessageSpan => "senders" in m;
@@ -206,18 +205,18 @@ const isSpan = (m: MessageRef | MessageSpan): m is MessageSpan => "senders" in m
 const sendersOf = (m: MessageRef | MessageSpan): readonly ValidatorIndex[] =>
   isSpan(m) ? m.senders : [m.sender];
 
-/** How long a closed span holds a message published inside it, at most. */
+/** 閉じた span がその内部で公開されたメッセージを高々どれだけ保留するか。 */
 const spanHold = (fromSlot: SlotIndex, toSlot: SlotIndex | undefined): number | "drop" =>
   toSlot === undefined ? "drop" : toSlot - fromSlot + 1;
 
 /**
- * The action vocabulary as sugar over the two bases: what an action does to
- * the attackers' own messages (publish) and to honest messages (deliver).
- * A delay or drop is a publish of the attackers' own message (its timing or
- * receivers) and a deliver of an honest one; a partition is the symmetric
- * set — a deliver of every honest message and a publish (receivers) of
- * every attacker's, over the span, held until it heals or dropped when it
- * never does. `attackers` decides which side a sender falls on.
+ * 行動語彙は 2 基底の上の糖衣構文である: ある行動が攻撃者自身のメッセー
+ * ジ(publish)と正直なメッセージ(deliver)に対して何を行うか。delay や
+ * drop は攻撃者自身のメッセージの publish(timing または receivers)と、
+ * 正直なメッセージの deliver である。partition は対称な集合である —
+ * span の間、すべての正直なメッセージの deliver と、すべての攻撃者の
+ * publish(receivers)を、分断が解消するまで保留し、解消しないなら欠落
+ * させる。`attackers` がある送信者をどちら側に分類するかを決める。
  */
 export function basesOf(
   action: Action,
@@ -291,12 +290,11 @@ export function basesOf(
 }
 
 /**
- * The attacker capabilities (攻撃者に必要な能力, 必須 18) — the names under
- * which the attack list shows what an attack needs — one per way an action
- * may fall inside the range: equivocation, parent designation, vote
- * designation and silence of an attacker's own validator; withholding and
- * selective delivery of its own messages; omitted inclusion in its own
- * proposal; delay, drop and partition of honest validators' messages.
+ * 攻撃者に必要な能力(必須 18) — 攻撃一覧がその攻撃に何が必要かを示す名
+ * 前であり、行動が能力範囲に収まりうる各様式に 1 つずつ対応する: 攻撃者
+ * 自身のバリデータのエクイボケーション・parent 指定・投票先指定・沈黙、
+ * 自身のメッセージの保留と選択配送、自身の提案での取り込みの省略、正直
+ * バリデータのメッセージの delay・drop・partition。
  */
 export type Capability =
   | "equivocation"
@@ -309,11 +307,11 @@ export type Capability =
   | "drop-honest"
   | "partition";
 
-/** Whether every base of an action lies inside the capability range:
- * a publish must be of the attackers' own messages; a deliver must name an
- * honest message ahead of its publication (never by its individual — its
- * content is not the attacker's to know in advance) and hold it at most
- * `maxDelay` slots, or drop it. */
+/** ある行動のすべての基底が能力範囲に収まっているかどうか: publish は攻
+ * 撃者自身のメッセージでなければならない。deliver は正直なメッセージを
+ * 公開前に(個体によってではなく — その内容を攻撃者が事前に知ることはで
+ * きない)名指しし、高々 `maxDelay` スロットの保留、あるいは欠落でなけれ
+ * ばならない。 */
 export function withinRange(
   bases: readonly ActionBase[],
   attackers: readonly ValidatorIndex[],
@@ -328,13 +326,13 @@ export function withinRange(
 }
 
 /**
- * The capability `action` exercises for these attackers, or undefined when
- * the action lies outside the range (`withinRange` over its bases): acting
- * as a validator that is not an attacker, proposing (parent / omission) in a
- * slot an honest validator proposes, naming an honest message by its
- * individual, or holding honest messages back more than `maxDelay` slots —
- * by a delay, or by a partition that heals later than that. The attackers'
- * own messages they may withhold for any length of time and name either way.
+ * これらの攻撃者に対して `action` が行使する能力、または行動がその基底
+ * について範囲外(`withinRange` が偽)のとき undefined: 攻撃者でないバリ
+ * データとして振る舞う、正直バリデータが提案するスロットで提案する
+ * (parent / omission)、正直なメッセージをその個体によって名指しする、
+ * あるいは正直なメッセージを `maxDelay` スロットを超えて保留する — delay
+ * によるものでも、それより遅く解消する partition によるものでも同様。攻
+ * 撃者自身のメッセージはどちらの方法でも、任意の長さ保留・名指しできる。
  */
 export function capabilityOf(
   action: Action,

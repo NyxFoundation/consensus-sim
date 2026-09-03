@@ -58,13 +58,19 @@ async function advance(times: number) {
   for (let i = 0; i < times; i++) await click(buttonByText('＋1 スロット進める'))
 }
 
-/** Every non-blank text node under the app, with the path to its element. */
+/**
+ * Every non-blank text node under the app, with the path to its element.
+ * Text inside `<pre>` is quoted source, not UI prose: the type catalog's
+ * focus pane shows a declaration verbatim from the implementation, whose
+ * doc comment is Japanese by design (必須 32) and therefore carries 。.
+ */
 function textNodes(scope: Element): { text: string; where: string }[] {
   const out: { text: string; where: string }[] = []
   const walker = document.createTreeWalker(scope, NodeFilter.SHOW_TEXT)
   for (let n = walker.nextNode(); n; n = walker.nextNode()) {
     const text = n.textContent?.trim() ?? ''
     if (text === '') continue
+    if (n.parentElement?.closest('pre')) continue
     const el = n.parentElement
     const where = el
       ? `${el.tagName.toLowerCase()}${el.className ? `.${String(el.className).split(' ').join('.')}` : ''}`

@@ -1,32 +1,32 @@
-// Schedule (予定表) — who proposes and who attests in a slot, derived from
-// the initial conditions. Public information: every validator, attackers
-// included, computes the same schedule from the same inputs.
+// 予定表 — あるスロットで誰が提案し誰が投票するか、初期条件から
+// 導出される。公開情報である: 攻撃者を含む全バリデータが同じ入力から同じ
+// 予定表を計算する。
 //
-// The essential specification fixes the proposer rule (round robin — a rule
-// of the skeleton, not a parameter) and, per committee assignment, the
-// structure of the committees; the concrete seeded permutation they are
-// drawn with is the simulator's business (sim/schedule.ts), so the model
-// only requires a `Permutation`.
+// 本質的仕様はプロポーザー規則(ラウンドロビン — パラメータではなく骨格の
+// 規則)と、committee 割当方式ごとの committee の構造を固定する。それらを
+// 実際にどのシードで並べ替えて引くかはシミュレータの仕事(sim/schedule.ts)
+// であり、モデルは `Permutation` のみを要求する。
 
 import { SLOTS_PER_EPOCH, epochOf, slotsSinceEpochStart } from "./finality";
 import { validatorIndices, type InitialConditions } from "./initialConditions";
 import type { SlotIndex, ValidatorIndex } from "./types";
 
-/** Reference type from ESSENCE.md: Schedule = {proposerOf, committeeOf}. */
+/** ESSENCE.md の参照型: Schedule = {proposerOf, committeeOf}。 */
 export interface Schedule {
   proposerOf(slot: SlotIndex): ValidatorIndex;
   committeeOf(slot: SlotIndex): ReadonlySet<ValidatorIndex>;
 }
 
-/** A deterministic reordering of the validators keyed by (seed, key): the
- * same inputs always yield the same permutation. */
+/** (seed, key) で決まる、バリデータの決定的な並べ替え: 同じ入力は常に
+ * 同じ並べ替えを生む。 */
 export type Permutation = (
   validators: readonly ValidatorIndex[],
   seed: number,
   key: number,
 ) => readonly ValidatorIndex[];
 
-/** Round-robin proposer schedule: slot s is proposed by validator s mod n. */
+/** ラウンドロビンのプロポーザー予定表: スロット s はバリデータ s mod n
+ * が提案する。 */
 export function proposerForSlot(
   slot: SlotIndex,
   config: InitialConditions,
@@ -36,13 +36,14 @@ export function proposerForSlot(
 }
 
 /**
- * The committee of `slot`, in ascending index order:
- * - `all`: everyone;
- * - `sized`: `size` distinct validators — the first `size` of the
- *   permutation keyed by the slot;
- * - `epoch-split`: the permutation keyed by the epoch is dealt round-robin
- *   over the epoch's slots, so every validator attests in exactly one slot
- *   per epoch and the slot committees differ in size by at most one.
+ * `slot` の committee を、識別子の昇順で返す:
+ * - `all`: 全員;
+ * - `sized`: 相異なる `size` 人のバリデータ — スロットをキーとする
+ *   並べ替えの先頭 `size` 人;
+ * - `epoch-split`: エポックをキーとする並べ替えをそのエポックの各スロット
+ *   にラウンドロビンで配るため、各バリデータはエポックごとにちょうど
+ *   1 スロットで投票し、各スロットの committee のサイズの差は高々 1 と
+ *   なる。
  */
 export function committeeForSlot(
   slot: SlotIndex,
@@ -69,7 +70,7 @@ export function committeeForSlot(
   return new Set([...drawn].sort((a, b) => a - b));
 }
 
-/** The schedule the initial conditions determine, given the permutation. */
+/** 並べ替え方式を与えたとき、初期条件が定める予定表。 */
 export function deriveSchedule(
   config: InitialConditions,
   permute: Permutation,

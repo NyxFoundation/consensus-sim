@@ -1,51 +1,53 @@
-// Protocol parameters (プロトコルパラメータ) and presets (プロトコルプリセット).
-// Reference type from ESSENCE.md:
+// プロトコルパラメータとプロトコルプリセット。
+// ESSENCE.md の参照型:
 //   ProtocolParams = {committee, boost, forkChoice, equivocationDiscount,
 //                     checkpointSwitch: {window, unrealized}, slashing,
 //                     inactivityLeak: {delayEpochs, rate} | off}
-// A preset is a named bundle corresponding to a real point in Ethereum's
-// history; an attack declares its premise as a preset name plus overrides.
-// The default is `merge`.
+// プロトコルプリセットは Ethereum の実在時点に対応する名前付きの束であり、
+// 攻撃はその前提をプリセット名+個別上書きとして宣言する。既定は `merge`。
 
-/** Who attests in a slot: everyone; `size` validators drawn per slot
- * deterministically from the seed; or an epoch split (エポック分割) —
- * Ethereum's committee structure, where every validator attests in exactly
- * one seed-assigned slot of each epoch (schedule.ts). */
+/** あるスロットで誰が投票するか: 全員;シードから決定的にスロットごとに
+ * 引かれる `size` 人のバリデータ;またはエポック分割 — Ethereum の
+ * committee 構造であり、各バリデータがエポックごとにシードで決まる
+ * ちょうど 1 スロットで投票する(schedule.ts)。 */
 export type CommitteeAssignment =
   | { readonly kind: "all" }
   | { readonly kind: "sized"; readonly size: number }
   | { readonly kind: "epoch-split" };
 
-/** GHOST counts every vote; LMD-GHOST only each validator's latest. */
+/** GHOST はすべての投票を数え、LMD-GHOST は各バリデータの最新のみを
+ * 数える。 */
 export type ForkChoiceRule = "GHOST" | "LMD-GHOST";
 
-/** Justified-checkpoint switching (justified チェックポイント切替): two
- * independent switches on the fork-choice root. `window`: the root may move
- * to a conflicting justified checkpoint only in the head section of an
- * epoch. `unrealized`: branches whose included votes can only justify a
- * checkpoint older than the root are excluded from the candidates.
- * Ethereum introduced the former first and the latter later, both against
- * bouncing. */
+/** justified チェックポイント切替: fork choice の起点に対する 2 つの
+ * 独立したスイッチ。`window`: 起点はエポックの先頭区間に限り、競合する
+ * justified チェックポイントへ移動できる。`unrealized`: 取り込まれた
+ * 投票が起点より古いチェックポイントしか justify できない枝を候補から
+ * 除外する。Ethereum は前者を先に、後者を後に導入し、いずれも
+ * バウンシングへの対策である。 */
 export interface CheckpointSwitch {
   readonly window: boolean;
   readonly unrealized: boolean;
 }
 
-/** The inactivity leak's schedule: once finality lags by more than
- * `delayEpochs` epochs (N), every validator without a target vote of an
- * epoch included on the branch loses the fraction `rate` (r) of its stake
- * for that epoch. */
+/** inactivity leak の発動条件: finality が `delayEpochs` エポック(N)
+ * を超えて遅れると、その枝に取り込まれたそのエポックの target 投票を
+ * 持たない各バリデータは、そのエポック分のステークの `rate`(r)の
+ * 割合を失う。 */
 export interface LeakSchedule {
   readonly delayEpochs: number;
   readonly rate: number;
 }
 
-/** Inactivity leak (inactivity leak): its schedule, or off. */
+/** inactivity leak: その発動条件、または off。 */
 export type InactivityLeak = LeakSchedule | "off";
 
+/** プロトコルパラメータ: committee 割当方式・サイズ、proposer boost、
+ * fork choice 規則、エクイボケーション割引、justified チェックポイント
+ * 切替、スラッシング、inactivity leak。初期条件の一部。 */
 export interface ProtocolParams {
   readonly committee: CommitteeAssignment;
-  /** Proposer boost as a fraction of the slot committee's total weight (0–1). */
+  /** proposer boost。スロットの committee の総重みに対する割合(0–1)。 */
   readonly boost: number;
   readonly forkChoice: ForkChoiceRule;
   readonly equivocationDiscount: boolean;
@@ -54,21 +56,24 @@ export interface ProtocolParams {
   readonly inactivityLeak: InactivityLeak;
 }
 
+/** プロトコルプリセットの名前。Ethereum の実在時点に対応する。 */
 export type PresetName = "phase0" | "merge" | "current";
 
 export const PRESET_NAMES: readonly PresetName[] = ["phase0", "merge", "current"];
 
 export const DEFAULT_PRESET: PresetName = "merge";
 
-/** Leak defaults: N = 4 epochs (ESSENCE), r = 1/4 per epoch (discretion —
- * coarse enough to be visible within a few epochs of a stalled branch). */
+/** inactivity leak の既定値: N = 4 エポック(ESSENCE 準拠)、r = エポック
+ * 当たり 1/4(裁量による設定 — 枝が停滞したときに数エポックのうちに
+ * 可視になる程度に粗くしてある)。 */
 export const DEFAULT_INACTIVITY_LEAK: LeakSchedule = {
   delayEpochs: 4,
   rate: 0.25,
 };
 
 export const PRESETS: Readonly<Record<PresetName, ProtocolParams>> = {
-  /** Beacon chain genesis (2020-12): no boost, no discount, the window. */
+  /** Beacon chain のジェネシス(2020-12): boost なし、割引なし、window
+   * のみ。 */
   phase0: {
     committee: { kind: "all" },
     boost: 0,
@@ -78,7 +83,7 @@ export const PRESETS: Readonly<Record<PresetName, ProtocolParams>> = {
     slashing: true,
     inactivityLeak: DEFAULT_INACTIVITY_LEAK,
   },
-  /** The Merge (2022-09): proposer boost 0.4 and equivocation discount. */
+  /** The Merge(2022-09): proposer boost 0.4 とエクイボケーション割引。 */
   merge: {
     committee: { kind: "all" },
     boost: 0.4,
@@ -88,8 +93,8 @@ export const PRESETS: Readonly<Record<PresetName, ProtocolParams>> = {
     slashing: true,
     inactivityLeak: DEFAULT_INACTIVITY_LEAK,
   },
-  /** After the 2023 fork-choice fixes: unrealized justification replaces
-   * the window. */
+  /** 2023 年の fork choice 修正以降: unrealized justification が window
+   * に置き換わる。 */
   current: {
     committee: { kind: "all" },
     boost: 0.4,
@@ -107,7 +112,8 @@ export function presetParams(name: PresetName): ProtocolParams {
 
 export const DEFAULT_PARAMS: ProtocolParams = PRESETS[DEFAULT_PRESET];
 
-/** The preset `params` equals field by field, if any. */
+/** `params` とフィールドごとに等しいプロトコルプリセット。なければ
+ * undefined。 */
 export function presetOf(params: ProtocolParams): PresetName | undefined {
   return PRESET_NAMES.find((name) => sameParams(PRESETS[name], params));
 }

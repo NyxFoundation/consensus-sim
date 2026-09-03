@@ -69,7 +69,10 @@ unified components. The header tabs switch between the two pages:
   and the types that depend on it; selecting any of those, or a node of the
   graph, moves the focus. The catalog is extracted from the domain source
   bundled verbatim into the app, so what it shows is exactly what the
-  implementation defines. There is no network or overview display: every
+  implementation defines. The essential specification (`src/domain/model`)
+  is commented in Japanese — identifiers stay English — so every type on
+  the page reads with its Japanese description; the rest of the code base
+  keeps English comments. There is no network or overview display: every
   validator's own state and view is observed through the state table's
   cell expansion.
 

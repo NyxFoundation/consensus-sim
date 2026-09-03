@@ -1,11 +1,10 @@
-// Attack goal (攻撃目標) — the observable predicates an attack is judged by
-// (必須 19), and their evaluation. A goal is a non-empty sequence of
-// predicates evaluated from the god view (神視点: every published block and
-// vote, and each branch's chain state) at every slot boundary, stage by
-// stage from the first: a stage is judged only once the stage before it has
-// been achieved, and the goal is achieved once the last stage is. Every
-// verdict carries its evidence, so the trace can show why a stage holds or
-// does not at each slot.
+// 攻撃目標 — 攻撃を判定する観測可能な述語(必須 19)とその
+// 評価。攻撃目標は述語の空でない列であり、すべてのスロット境界において god
+// view(神視点: 公開されたすべてのブロックと投票、および各枝の
+// チェーン状態)から、最初の段から順に段ごとに評価される: ある段は、その
+// 一つ前の段が達成されて初めて判定され、攻撃目標は最後の段が達成されたとき
+// に達成される。すべての判定 (verdict) はその証拠を伴うので、trace は各
+// スロットにおいてある段がなぜ成立する／しないかを示すことができる。
 
 import { isAncestor, type BlockTree } from "./blockTree";
 import {
@@ -19,16 +18,17 @@ import { compareBlockIndex, sameCheckpoint } from "./order";
 import type { BlockIndex, Checkpoint, SlotIndex, ValidatorIndex } from "./types";
 
 /**
- * - 安全性違反: two checkpoints of the published block tree, neither an
- *   ancestor of the other, each finalized in the chain state of its own
- *   branch.
- * - 活性停止: on no branch of the published tree has finalized advanced
- *   during the last `slots` slots (L).
- * - リオーグ: an honest validator's head moving to a block that does not
- *   descend from its previous slot's head counts one event; some honest
- *   validator accumulates `count` events (k, default 1).
- * - 攻撃者ステーク比率: in the chain state of some honest validator's head,
- *   the attackers' total stake ÷ everyone's total stake reaches `threshold` (θ).
+ * - 安全性違反: 公開されたブロック木の 2 つのチェックポイントが、互いに
+ *   祖先の関係になく、それぞれ自身の枝の チェーン状態 で finalized
+ *   になっている。
+ * - 活性停止: 公開された木のどの枝においても、直近 `slots` スロッ
+ *   ト(L)の間 finalized が進んでいない。
+ * - リオーグ: 正直バリデータの head が、その 1 つ前のスロットの head の
+ *   子孫でないブロックへ移ることを 1 イベントとして数える。何らかの正直
+ *   バリデータが `count` 個(k、既定 1)のイベントを累積する。
+ * - 攻撃者ステーク比率: 何らかの正直バリデータの head の チェーン状態 に
+ *   おいて、攻撃者の総ステーク ÷ 全員の総ステークが `threshold`(θ)に達
+ *   する。
  */
 export type AttackGoal =
   | { readonly kind: "safety-violation" }
@@ -36,11 +36,11 @@ export type AttackGoal =
   | { readonly kind: "reorg"; readonly count: number }
   | { readonly kind: "attacker-stake-ratio"; readonly threshold: number };
 
-/** The default k of the reorg predicate. */
+/** リオーグ述語の既定の k。 */
 export const DEFAULT_REORG_COUNT = 1;
 
-/** The god view at the end of a slot, as the predicates read it: every
- * published block with its chain state, and every validator's head. */
+/** 述語が読み取る、あるスロット終了時点での 神視点: 公開されたすべての
+ * ブロックとその チェーン状態、およびすべてのバリデータの head。 */
 export interface GodView {
   readonly slot: SlotIndex;
   readonly tree: BlockTree;
@@ -48,28 +48,30 @@ export interface GodView {
   readonly heads: ReadonlyMap<ValidatorIndex, BlockIndex>;
 }
 
-/** Why a predicate holds or does not at a slot. */
+/** ある述語がそのスロットで成立する／しない理由。 */
 export type GoalEvidence =
   | {
       readonly kind: "safety-violation";
       readonly holds: boolean;
-      /** Two finalized checkpoints in conflict, when there are any. */
+      /** 矛盾する finalized な 2 つのチェックポイント(あれば)。 */
       readonly conflicting?: readonly [BlockIndex, BlockIndex];
     }
   | {
       readonly kind: "liveness-stall";
       readonly holds: boolean;
-      /** The latest finalized checkpoint of the god view. */
+      /** 神視点 における最新の finalized チェックポイント。 */
       readonly finalized: Checkpoint;
-      /** Slots since it last advanced (the anchor counts as finalized at slot 0). */
+      /** 最後に finalized が進んでからのスロット数(錨ブロックはスロット 0
+       * で finalized とみなす)。 */
       readonly stalledSlots: number;
     }
   | {
       readonly kind: "reorg";
       readonly holds: boolean;
-      /** The largest cumulative event count over the honest validators. */
+      /** 正直バリデータ全体での最大の累積イベント数。 */
       readonly count: number;
-      /** The most recent event so far (the lowest validator index at that slot). */
+      /** これまでで最も新しいイベント(同一スロットでは最小のバリデータ
+       * インデックス)。 */
       readonly latest?: {
         readonly validator: ValidatorIndex;
         readonly slot: SlotIndex;
@@ -80,9 +82,9 @@ export type GoalEvidence =
   | {
       readonly kind: "attacker-stake-ratio";
       readonly holds: boolean;
-      /** The largest ratio over the honest validators' heads. */
+      /** 正直バリデータの head 全体での最大の比率。 */
       readonly ratio: number;
-      /** The honest validator (and its head) that ratio is read at. */
+      /** その比率を読み取った正直バリデータ(とその head)。 */
       readonly validator?: ValidatorIndex;
       readonly head?: BlockIndex;
     };
@@ -94,8 +96,8 @@ const honestValidators = (
   validatorIndices(config.validatorCount).filter((v) => !attackers.includes(v));
 
 /**
- * Evaluate one predicate at `history[at]` (`history[i]` is the god view at
- * the end of slot i; the predicates on progress read the slots before).
+ * `history[at]` において 1 つの述語を評価する(`history[i]` はスロット i
+ * 終了時点の 神視点。進行を見る述語はそれ以前のスロットを読む)。
  */
 export function evaluatePredicate(
   goal: AttackGoal,
@@ -185,27 +187,27 @@ export function evaluatePredicate(
   }
 }
 
-/** A stage is pending until the stage before it is achieved, active while
- * it is being judged, and achieved from the first slot it holds at. */
+/** ある段は、その一つ前の段が達成されるまで pending、判定中は active、
+ * 初めて成立したスロットから achieved となる。 */
 export type StageStatus = "pending" | "active" | "achieved";
 
+/** ある段の、あるスロットにおける判定結果。 */
 export interface StageVerdict {
   readonly stage: number;
   readonly status: StageStatus;
   readonly evidence: GoalEvidence;
-  /** The slot the stage was achieved at, once it is. */
+  /** 達成された場合、その段が達成されたスロット。 */
   readonly achievedAt?: SlotIndex;
 }
 
-/** `trace[slot][stage]`: every stage's verdict at every slot of the history. */
+/** `trace[slot][stage]`: history の各スロットにおける各段の判定。 */
 export type GoalTrace = readonly (readonly StageVerdict[])[];
 
 /**
- * Judge the goal over the whole history, stage by stage: stage 0 is judged
- * from slot 0; stage i + 1 from the slot stage i is achieved at (the same
- * slot may achieve several stages). The evidence of every stage is
- * reported at every slot, so a pending stage's measure is visible before
- * it comes into judgment.
+ * history 全体にわたって 攻撃目標を段ごとに判定する: 段 0 はスロット 0 から
+ * 判定され、段 i + 1 は段 i が達成されたスロットから判定される(同じス
+ * ロットで複数の段が達成されることもある)。すべての段の証拠がすべての
+ * スロットで報告されるので、pending の段の指標も判定に入る前から見える。
  */
 export function evaluateGoal(
   goal: readonly AttackGoal[],
@@ -235,7 +237,7 @@ export function evaluateGoal(
   );
 }
 
-/** The slot the whole goal — its last stage — was achieved at, if any. */
+/** 攻撃目標全体 — その最後の段 — が達成されたスロット(あれば)。 */
 export function goalAchievedAt(trace: GoalTrace): SlotIndex | undefined {
   const last = trace[trace.length - 1];
   const final = last?.[last.length - 1];

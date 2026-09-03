@@ -1,31 +1,32 @@
-// Chain state (チェーン状態) — the per-branch state derived deterministically
-// from what the branch's blocks have included (取り込み) plus the initial
-// stakes. Reference type from ESSENCE.md:
+// チェーン状態 — 枝のブロックが取り込んだもの(取り
+// 込み)と初期ステークから決定的に導かれる、枝ごとの状態。
+// ESSENCE.md の参照型:
 //   ChainState(block) = {stakes, justified, finalized}
 //
-// The branch is replayed block by block from the anchor. Each block first
-// applies the penalties (罰則) its evidence triggers, then adds its included
-// votes, then re-evaluates finality with the stakes as they stand:
+// 枝は錨ブロックからブロックごとに再生される。各ブロックはまずその証
+// 拠が引き起こす罰則を適用し、次に取り込んだ投票を加え、その時点のステー
+// クで finality を再評価する:
 //
-// - Finality is FFG over included votes. A vote counts as a link of this
-//   branch only when its source and target are the branch's own checkpoints
-//   of their epochs (取り込み妥当性; the same block standing for consecutive
-//   epochs is a valid link too). A link is supermajority when the current
-//   stake of the distinct validators voting it reaches 2/3 of the branch's
-//   current total; justification is the monotone fixpoint from the anchor;
-//   a justified source whose target of the very next epoch (by epoch
-//   number) gets justified is finalized.
-// - Slashing (スラッシング, on/off): from the block that includes evidence of
-//   an equivocation (any of its three forms) onward, the equivocator's stake
-//   on this branch is 0, so it drops out of every weight and threshold from
-//   then on.
-// - Inactivity leak ({N, r} | off): once an epoch ends on the branch, if
-//   finalized lags that epoch by more than N epochs (Ethereum's finality
-//   delay), every validator without a target vote of that epoch included on
-//   the branch loses the fraction r of its stake. An epoch is processed at
-//   the first block of a later epoch, after that block's inclusions, so the
-//   votes of the epoch's last slot (included one block later) count.
-// Ethereum's quadratic penalties and rewards are deliberately absent.
+// - finality は取り込まれた投票に対する FFG である。投票がこの枝の
+//   リンクとして数えられるのは、その source と target が、それぞれの
+//   epoch についてこの枝自身のチェックポイントであるときのみ(取り
+//   込み妥当性; 同じブロックが連続する 2 つの epoch を代表する場合も有効
+//   なリンクとなる)。リンクは、それに投票する相異なるバリデータの現在の
+//   ステークが枝の現在の総量の 2/3 に達したとき supermajority とな
+//   る。justification は錨ブロックからの単調な不動点であり、justified な
+//   source のうち、その真次の epoch(epoch 番号による)の target が
+//   justified になったものが finalized となる。
+// - スラッシング(on / off): エクイボケーション(その 3 つの形式のいずれ
+//   か)の証拠を取り込んだブロック以降、この枝上でエクイボケータの
+//   ステークは 0 になり、以後すべての重みと閾値から外れる。
+// - inactivity leak({N, r} | off): 枝上であるエポックが終わった時
+//   点で、finalized がそのエポックより N エポック(Ethereum の finality
+//   delay)以上遅れているなら、そのエポックの target 投票が枝に取
+//   り込まれていないすべてのバリデータは、そのステークの割合 r を失う。
+//   エポックは、より後のエポックの最初のブロックにおいて、そのブロック
+//   の取り込み処理の後で処理される。そのため、そのエポックの最後のスロ
+//   ットの投票(1 ブロック後に取り込まれる)も数えられる。
+// Ethereum の quadratic penalties と rewards は意図的に含まれていない。
 
 import {
   childrenOf,
@@ -58,19 +59,22 @@ import {
   type ValidatorIndex,
 } from "./types";
 
+/** ChainState(block) = {stakes, justified, finalized}: ある枝のチェ
+ * ーン状態。 */
 export interface ChainState {
   readonly stakes: ReadonlyMap<ValidatorIndex, Stake>;
-  /** The highest justified checkpoint on this branch. */
+  /** この枝における最も高い justified チェックポイント。 */
   readonly justified: Checkpoint;
-  /** The highest finalized checkpoint on this branch. */
+  /** この枝における最も高い finalized チェックポイント。 */
   readonly finalized: Checkpoint;
 }
 
-/** Chain state of every block of a tree, keyed by block index. */
+/** tree のすべてのブロックの チェーン状態 を、ブロックインデックスをキー
+ * として持つもの。 */
 export type ChainStateIndex = ReadonlyMap<BlockIndex, ChainState>;
 
-/** Blocks standing as a justified / finalized checkpoint on some branch of
- * a tree (what the J / F badges mark). */
+/** tree のいずれかの枝において justified / finalized チェックポイ
+ * ントとして立っているブロック(J / F バッジが示すもの)。 */
 export interface CheckpointStatus {
   readonly justified: ReadonlySet<BlockIndex>;
   readonly finalized: ReadonlySet<BlockIndex>;
@@ -82,7 +86,7 @@ export function totalStake(stakes: ReadonlyMap<ValidatorIndex, Stake>): Stake {
   return total;
 }
 
-/** Whether `weight` reaches the 2/3 supermajority of `total`. */
+/** `weight` が `total` の 2/3 の超過半数に達しているかどうか。 */
 export function isSupermajority(weight: Stake, total: Stake): boolean {
   return total > 0 && weight * 3 >= total * 2;
 }
@@ -98,7 +102,7 @@ interface Link {
   readonly voters: Set<ValidatorIndex>;
 }
 
-/** Replay the branch anchor → … → `tip` and derive its state at the tip. */
+/** 枝 錨ブロック → … → `tip` を再生し、tip における状態を導出する。 */
 function deriveBranch(
   tree: BlockTree,
   branch: readonly Block[],
@@ -106,7 +110,8 @@ function deriveBranch(
 ): BranchState {
   const { slashing, inactivityLeak } = config.params;
   const tip = branch[branch.length - 1]!.index;
-  // The branch's own checkpoint of each epoch, memoized per epoch.
+  // 各 epoch についてのこの枝自身のチェックポイント。epoch ごとに
+  // メモ化する。
   const checkpoints = new Map<EpochIndex, BlockIndex>();
   const isOwnCheckpoint = (c: Checkpoint): boolean => {
     let block = checkpoints.get(c.epoch);
@@ -120,11 +125,12 @@ function deriveBranch(
   const stakes = new Map<ValidatorIndex, Stake>(
     config.initialStakes.map((s, v) => [v, s]),
   );
-  // Distinct voters per source→target link, over the whole branch, so a link
-  // spread across several blocks still completes. Only links between
-  // checkpoints of this branch are kept.
+  // 枝全体にわたる source→target リンクごとの相異なる投票者。これ
+  // により、複数のブロックにまたがるリンクでも完成する。この枝の
+  // チェックポイント間のリンクのみを保持する。
   const links = new Map<string, Link>();
-  // Validators with a target vote of each epoch included on this branch.
+  // 各 epoch について、target 投票がこの枝に取り込まれているバリ
+  // データ。
   const participation = new Map<EpochIndex, Set<ValidatorIndex>>();
   const justifiedCheckpoints = new Map<string, Checkpoint>([
     [checkpointKey(ANCHOR_CHECKPOINT), ANCHOR_CHECKPOINT],
@@ -221,7 +227,7 @@ function deriveAll(
   return out;
 }
 
-/** ChainState(block) for every block of the tree. */
+/** tree のすべてのブロックについての ChainState(block)。 */
 export function chainStatesOf(
   tree: BlockTree,
   config: InitialConditions,
@@ -233,7 +239,7 @@ export function chainStatesOf(
   return out;
 }
 
-/** The chain state of one block (its branch's derivation). */
+/** 1 つのブロックの チェーン状態(その枝の導出結果)。 */
 export function chainStateOf(
   tree: BlockTree,
   block: BlockIndex,
@@ -245,9 +251,10 @@ export function chainStateOf(
 }
 
 /**
- * Which blocks stand as a justified or finalized checkpoint on some branch
- * of the tree. A finalized block is also every justified checkpoint's block
- * at or below a finalized one — finality never regresses along a branch.
+ * tree のいずれかの枝において justified または finalized チェック
+ * ポイントとして立っているブロック。finalized なブロックは、あるブロッ
+ * クが finalized な位置以下にあるすべての justified チェックポイントの
+ * ブロックでもある — finality は枝に沿って決して後退しない。
  */
 export function checkpointStatus(
   tree: BlockTree,
@@ -271,8 +278,8 @@ export function checkpointStatus(
   return { justified, finalized };
 }
 
-/** The latest finalized checkpoint of the god view (最新の finalized):
- * the highest finalized checkpoint among the chain states of every block. */
+/** 神視点 における最新の finalized チェックポイント: すべてのブロック
+ * の チェーン状態 の中で最も高い finalized チェックポイント。 */
 export function latestFinalized(states: ChainStateIndex): Checkpoint {
   let latest: Checkpoint = ANCHOR_CHECKPOINT;
   for (const state of states.values()) {
@@ -282,22 +289,22 @@ export function latestFinalized(states: ChainStateIndex): Checkpoint {
 }
 
 /**
- * Fork count (フォーク数, 必須 10) of the god-view tree: the number of
- * leaves of the subtree rooted at the latest finalized block — 1 when that
- * block is itself a leaf. Finality advancing past a fork removes it from
- * the count; the tree itself only ever grows.
+ * 神視点の木 のフォーク数(必須 10): 最新の finalized ブロックを根と
+ * する部分木の葉の数 — そのブロック自身が葉ならば 1。finality があるフ
+ * ォークを越えて進むとそのフォークはカウントから外れる。tree 自体は増え
+ * ていく一方である。
  */
 export function forkCount(tree: BlockTree, states: ChainStateIndex): number {
   return forkCountAfter(tree, states, []);
 }
 
 /**
- * The fork count once proposals are built on `parents` (the parents of
- * pending fork designations, 未実行のフォーク作成指定, plus the one under
- * consideration). A proposal adds a fork only when its parent already has a
- * child — in the tree or from an earlier entry of `parents`; building on a
- * leaf merely extends it. Parents outside the finalized subtree, or not in
- * the tree yet, are outside the definition and add nothing.
+ * `parents`(未実行のフォーク作成指定の parent 群に、検討中の 1 つを加え
+ * たもの)の上に提案が構築されたとした場合のフォーク数。提案がフォーク
+ * を増やすのは、その parent がすでに子を持つ場合(tree の中で、または
+ * `parents` のより前のエントリにより)のみ。葉の上に構築する場合は単に
+ * それを延長するだけである。finalized 部分木の外にある parent や、まだ
+ * tree に無い parent は定義の対象外であり、何も加えない。
  */
 export function forkCountAfter(
   tree: BlockTree,
@@ -316,7 +323,7 @@ export function forkCountAfter(
   return count;
 }
 
-/** The highest justified checkpoint among the given chain states. */
+/** 与えられた チェーン状態 の中で最も高い justified チェックポイント。 */
 function highestJustified(states: Iterable<ChainState>): Checkpoint {
   let root: Checkpoint = ANCHOR_CHECKPOINT;
   for (const state of states) {
@@ -325,26 +332,26 @@ function highestJustified(states: Iterable<ChainState>): Checkpoint {
   return root;
 }
 
-/** Both switches off: the root is always the highest justified checkpoint
- * known and every block is a candidate. */
+/** 両方のスイッチが off: root は常に既知の最も高い justified チェックポ
+ * イントであり、すべてのブロックが候補となる。 */
 export const NO_SWITCHING: CheckpointSwitch = { window: false, unrealized: false };
 
 /**
- * The justified checkpoint a validator starts fork choice from, under the
- * window switch of justified-checkpoint switching (justified チェック
- * ポイント切替, 必須 27) as a fork choice computed at `atSlot`:
+ * `atSlot` で計算される fork choice として、justified チェックポイント切
+ * 替(必須 27)の window スイッチの下で、バリデータが fork choice を開始
+ * する justified チェックポイント:
  *
- * - window off: the highest justified checkpoint among the chain states of
- *   every block it knows (the unrealized switch does not move the root; it
- *   filters the candidates instead, see `viableBlocks`).
- * - window on: the same inside the head section of the epoch; outside it the
- *   root switches only along its own chain. A block's slot stands for its
- *   arrival, so "the root as of the window" is the highest justified among
- *   blocks proposed before the window closed, and a newer justified
- *   checkpoint is adopted only when it descends from that root (Ethereum's
- *   should_update_justified_checkpoint, simplified to a pure function of the
- *   view: a conflicting justification realized mid-epoch waits for the next
- *   epoch's window).
+ * - window off: 既知のすべてのブロックの チェーン状態 の中で最も高い
+ *   justified チェックポイント(unrealized スイッチは root を動かさな
+ *   い。代わりに候補を絞り込む。`viableBlocks` を参照)。
+ * - window on: epoch の head セクションの内側では同じ。外側では root は
+ *   自身のチェーンに沿ってのみ切り替わる。ブロックのスロットはその到着
+ *   を表すので、「window 時点の root」は window が閉じる前に提案された
+ *   ブロックの中で最も高い justified チェックポイントであり、より新しい
+ *   justified チェックポイントは、その root の子孫であるときにのみ採用
+ *   される(Ethereum の should_update_justified_checkpoint を、View の純
+ *   粋関数へ単純化したもの: epoch の途中で実現した矛盾する justification
+ *   は次の epoch の window を待つ)。
  */
 export function forkChoiceRoot(
   tree: BlockTree,
@@ -365,14 +372,14 @@ export function forkChoiceRoot(
 }
 
 /**
- * The blocks fork choice may descend into under the unrealized switch: the
- * leaves whose chain state realizes a justified checkpoint of an epoch as
- * recent as `root`'s, together with their ancestors. A branch whose
- * included votes can only justify something older is excluded even when it
- * carries more votes. In this model every block's chain state already
- * counts its included votes without waiting for the epoch's end, so a
- * branch's unrealized justified checkpoint is its tip's
- * `ChainState.justified`.
+ * unrealized スイッチの下で fork choice が降下してよいブロック: その
+ * チェーン状態 が `root` の epoch 以上に新しい epoch の justified チェッ
+ * クポイントを実現している葉と、その祖先。取り込んだ投票がそれより古い
+ * ものしか justify できない枝は、より多くの投票を運んでいても除外
+ * される。このモデルでは、各ブロックの チェーン状態 はすでに epoch の終
+ * わりを待たずに取り込んだ投票を数えるので、ある枝の unrealized
+ * justified チェックポイントはその tip の `ChainState.justified` であ
+ * る。
  */
 export function viableBlocks(
   tree: BlockTree,

@@ -1,11 +1,12 @@
-// Inclusion (取り込み) — how a proposer fills a block body, and how evidence
-// (証拠) of equivocation arises. Pure functions over a view.
+// 取り込み — プロポーザーがどうブロック body を満たすか、そ
+// してエクイボケーションの証拠がどう生じるか。View に対する純粋
+// 関数群。
 //
-// Rule (ESSENCE.md): an honest proposer includes every vote and every piece
-// of evidence in its view that no ancestor of the proposed parent has
-// included yet. There is no inclusion deadline: the abstract model keeps
-// only "not yet included on this branch". Strategies and the 取り込みの省略
-// intervention may leave items out.
+// ルール(ESSENCE.md): 正直なプロポーザーは、提案する parent のどの祖先
+// もまだ取り込んでいない、自身の View 上のすべての投票とすべての証拠を取
+// り込む。取り込み期限は存在しない: 抽象モデルが保つのは「この枝上
+// でまだ取り込まれていない」という状態のみである。戦略や取り込みの省略の
+// 介入は項目を除外してよい。
 
 import { pathToAnchor, type BlockTree } from "./blockTree";
 import { coversMessage, voteRef, type MessageRef } from "./messageRef";
@@ -20,7 +21,7 @@ import {
   type Vote,
 } from "./types";
 
-/** Identity of a vote: same validator, slot and content. */
+/** 投票の同一性: 同じバリデータ・スロット・内容。 */
 export function voteKey(vote: Vote): string {
   return `${vote.validator}@${vote.slot}:${vote.head}/${checkpointKey(vote.source)}/${checkpointKey(vote.target)}`;
 }
@@ -29,30 +30,30 @@ export function sameVote(a: Vote, b: Vote): boolean {
   return voteKey(a) === voteKey(b);
 }
 
-/** Identity of evidence: its kind and the conflicting pair it names. */
+/** 証拠の同一性: その種別と、それが名指しする矛盾するペア。 */
 export function equivocationKey(e: Equivocation): string {
   return e.kind === "double-proposal"
     ? `P${e.validator}@${e.slot}:${e.blocks[0]},${e.blocks[1]}`
     : `${e.kind === "double-vote" ? "V" : "S"}${voteKey(e.votes[0])}|${voteKey(e.votes[1])}`;
 }
 
-/** The validator the evidence is against (エクイボケータ). */
+/** その証拠が対象とするバリデータ(エクイボケータ)。 */
 export function equivocatorOf(e: Equivocation): ValidatorIndex {
   return e.kind === "double-proposal" ? e.validator : e.votes[0].validator;
 }
 
-/** The slot the evidence arises in: the later of its two messages' slots
- * (the slot itself for the same-slot forms). */
+/** その証拠が生じるスロット: 2 つのメッセージのうち後の方のスロット
+ * (同一スロット形式ではそのスロット自身)。 */
 export function evidenceSlotOf(e: Equivocation): SlotIndex {
   return e.kind === "double-proposal" ? e.slot : e.votes[1].slot;
 }
 
 /**
- * The form in which two votes of one validator conflict, if they do (the
- * vote forms of `Equivocation`): a double vote when they share a slot with
- * different content, or share the target epoch with different targets; a
- * surround vote when the later vote's source → target span strictly encloses
- * the earlier one's in epochs. `a` must precede `b` in the vote order.
+ * 1 人のバリデータの 2 つの投票が矛盾する場合、その形式(`Equivocation`
+ * の投票側の形式): 同じスロットで内容が異なれば 二重投票、同じ
+ * target の epoch で target が異なれば 二重投票、後の投票の source →
+ * target の区間が epoch において前の投票の区間を厳密に包含するなら
+ * 包囲投票。`a` は投票順序で `b` より前でなければならない。
  */
 export function voteConflict(a: Vote, b: Vote): "double-vote" | "surround-vote" | undefined {
   if (a.slot === b.slot) return sameVote(a, b) ? undefined : "double-vote";
@@ -67,12 +68,11 @@ export function voteConflict(a: Vote, b: Vote): "double-vote" | "surround-vote" 
 }
 
 /**
- * The votes of one validator that stand for its distinct FFG parts, and the
- * distinct votes of each slot: the same (source, target) cast again in a
- * later slot — how an honest validator votes through an epoch — conflicts
- * with nothing new, so evidence across slots is drawn between the earliest
- * vote of each FFG part only, while a slot's own conflicting votes are
- * evidence pair by pair.
+ * あるバリデータについて、異なる FFG 部分を代表する各投票と、各スロット
+ * 内で異なる投票: 同じ (source, target) を後のスロットで再び投じること
+ * (正直バリデータが epoch を通じてどう投票するか)は何も新しく矛盾させ
+ * ないため、スロットをまたぐ証拠は各 FFG 部分の最も早い投票同士でのみ抽
+ * 出し、あるスロット自身の中で矛盾する投票はペアごとに証拠とする。
  */
 function conflictCandidates(votes: readonly Vote[]): {
   readonly bySlot: ReadonlyMap<SlotIndex, readonly Vote[]>;
@@ -94,7 +94,7 @@ function conflictCandidates(votes: readonly Vote[]): {
 
 type VoteEvidence = Extract<Equivocation, { readonly votes: unknown }>;
 
-/** Every conflicting pair among one validator's votes, in canonical order. */
+/** あるバリデータの投票の中で矛盾するすべてのペアを、正準順序で。 */
 function voteEquivocations(votes: readonly Vote[]): VoteEvidence[] {
   const found: VoteEvidence[] = [];
   const { bySlot, byFfg } = conflictCandidates(votes);
@@ -119,7 +119,7 @@ function voteEquivocations(votes: readonly Vote[]): VoteEvidence[] {
   );
 }
 
-/** Votes grouped by validator, in validator order. */
+/** バリデータ順に、バリデータごとにまとめた投票。 */
 function votesByValidator(votes: readonly Vote[]): readonly (readonly Vote[])[] {
   const by = new Map<ValidatorIndex, Vote[]>();
   for (const vote of votes) by.set(vote.validator, [...(by.get(vote.validator) ?? []), vote]);
@@ -127,10 +127,10 @@ function votesByValidator(votes: readonly Vote[]): readonly (readonly Vote[])[] 
 }
 
 /**
- * Every equivocation visible in a view: two blocks of one proposer in one
- * slot, and every conflicting pair of one validator's votes (double votes
- * and surround votes). A validator with three conflicting messages yields
- * evidence per pair, all in a deterministic order.
+ * View 内で確認できるすべてのエクイボケーション: 同じスロットにおける同
+ * じプロポーザーの 2 つのブロック、およびあるバリデータの投票の中で矛盾
+ * するすべてのペア(二重投票 と 包囲投票)。矛盾するメッセージを
+ * 3 つ持つバリデータはペアごとに証拠を生み、すべて決定的な順序に並ぶ。
  */
 export function equivocationsIn(
   tree: BlockTree,
@@ -165,11 +165,11 @@ export function equivocationsIn(
 }
 
 /**
- * Validators whose vote evidence (a double vote or a surround vote) holds
- * among `votes` — the equivocation discount (エクイボケーション割引, 必須
- * 27) drops their votes from fork choice the moment a view holds the
- * conflicting pair: immediate, local to that view, and fork choice only
- * (chain state is untouched until a block includes the evidence).
+ * `votes` の中で投票の証拠(二重投票 または 包囲投票)が成立する
+ * バリデータ — エクイボケーション割引(必須 27)は、View が矛盾するペア
+ * を保持した瞬間にその投票を fork choice から除外する: 即座に、その
+ * View に局所的に、かつ fork choice にのみ働く(チェーン状態 は、ブロック
+ * が証拠を取り込むまでは影響を受けない)。
  */
 export function equivocatingVoters(
   votes: readonly Vote[],
@@ -181,7 +181,7 @@ export function equivocatingVoters(
   return found;
 }
 
-/** Keys of everything included on the branch from the anchor to `block`. */
+/** 錨ブロックから `block` までの枝上に取り込まれたすべてのもののキー。 */
 export function includedOn(
   tree: BlockTree,
   block: BlockIndex,
@@ -196,9 +196,9 @@ export function includedOn(
   return { votes, evidence };
 }
 
-/** Names evidence by the equivocator, the kind and the slot it arises in —
- * every pair of that validator's conflicting messages of that kind whose
- * later message is of that slot. */
+/** 証拠を、エクイボケータ・種別・それが生じるスロットで名指しする — 後
+ * の方のメッセージがそのスロットである、そのバリデータのその種別の矛盾
+ * するメッセージのすべてのペアを指す。 */
 export interface EvidenceRef {
   readonly kind: Equivocation["kind"];
   readonly validator: ValidatorIndex;
@@ -215,18 +215,19 @@ export function sameEvidenceRef(a: EvidenceRef, b: EvidenceRef): boolean {
   return a.kind === b.kind && a.validator === b.validator && a.slot === b.slot;
 }
 
-/** Items a proposer deliberately leaves out (取り込みの省略): votes by
- * message reference (exact, or every vote of a validator in a slot),
- * evidence by equivocator / kind / slot. */
+/** プロポーザーが意図的に除外する項目(取り込みの省略): メッセージ参照
+ * による投票(厳密な参照、またはあるバリデータのあるスロットのすべての
+ * 投票)、エクイボケータ／種別／スロットによる証拠。 */
 export interface Omission {
   readonly votes?: readonly MessageRef[];
   readonly evidence?: readonly EvidenceRef[];
 }
 
 /**
- * The body an honest proposer builds on `parent` from its view: all visible
- * votes and evidence not yet included on the parent's branch, minus any
- * explicit omission. Votes keep view order; evidence is canonical.
+ * 正直なプロポーザーがその View から `parent` の上に構築する body: parent
+ * の枝にまだ取り込まれていない、すべての可視な投票と証拠から、明
+ * 示的な省略を除いたもの。投票は View の順序を保ち、証拠は正準順序とす
+ * る。
  */
 export function buildBody(
   tree: BlockTree,

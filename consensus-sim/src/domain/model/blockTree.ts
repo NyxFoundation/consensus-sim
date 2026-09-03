@@ -1,6 +1,6 @@
-// Block tree (ブロック木) — the core value object of a validator's view.
-// Immutable: every mutation returns a new tree. Determinism (決定性) depends
-// on this layer being free of hidden state, clocks, and randomness.
+// ブロック木 — バリデータの View を構成する中核の値オブジェクト。
+// イミュータブル: あらゆる変更は新しい木を返す。決定性はこの層が隠れた状態・
+// 時計・乱数を持たないことに依存する。
 
 import { compareBlockIndex } from "./order";
 import {
@@ -10,12 +10,13 @@ import {
   type ProposedBlock,
 } from "./types";
 
+/** ブロック木。既知の全ブロックの集合を保持する。 */
 export interface BlockTree {
-  /** All known blocks, keyed by index. Always contains the anchor block. */
+  /** 既知の全ブロック、識別子をキーとする。常に錨ブロックを含む。 */
   readonly blocks: ReadonlyMap<BlockIndex, Block>;
 }
 
-/** A tree holding only the anchor block, the state every validator starts from. */
+/** 錨ブロックのみを保持する木。あらゆるバリデータの出発点となる状態。 */
 export function createBlockTree(): BlockTree {
   const anchor = anchorBlock();
   return { blocks: new Map([[anchor.index, anchor]]) };
@@ -26,11 +27,11 @@ export function getBlock(tree: BlockTree, index: BlockIndex): Block | undefined 
 }
 
 /**
- * Add a proposed block. Rejects blocks whose parent is unknown, whose index
- * is already present with different content, or whose slot does not come
- * after its parent's slot. Adding an identical duplicate is a no-op, because
- * a validator may legitimately receive the same block twice. Only the
- * anchor is ever a root, and it is there from the start.
+ * 提案ブロックを追加する。parent が未知であるブロック、既に異なる内容で
+ * 存在する識別子を持つブロック、スロットが parent のスロットより後で
+ * ないブロックは拒否する。同一の重複を追加するのは no-op である。
+ * バリデータが同じブロックを正当に 2 度受信することがあり得るからだ。
+ * 根となるのは常に錨のみであり、それは最初から存在する。
  */
 export function addBlock(tree: BlockTree, block: ProposedBlock): BlockTree {
   const existing = tree.blocks.get(block.index);
@@ -61,7 +62,7 @@ export function addBlock(tree: BlockTree, block: ProposedBlock): BlockTree {
   return { blocks };
 }
 
-/** Child block indices of `parent`, in the block order (deterministic). */
+/** `parent` の子ブロックの識別子を、ブロックの順序で(決定的に)返す。 */
 export function childrenOf(tree: BlockTree, parent: BlockIndex): BlockIndex[] {
   const children: BlockIndex[] = [];
   for (const block of tree.blocks.values()) {
@@ -71,8 +72,8 @@ export function childrenOf(tree: BlockTree, parent: BlockIndex): BlockIndex[] {
 }
 
 /**
- * Whether `ancestor` is on the path from `descendant` to the root
- * (inclusive: a block is its own ancestor).
+ * `ancestor` が `descendant` から根に至る経路上にあるか否か(自分自身も
+ * 自分の祖先に含む)。
  */
 export function isAncestor(
   tree: BlockTree,
@@ -89,8 +90,8 @@ export function isAncestor(
 }
 
 /**
- * Leaves (blocks without children) of the subtree rooted at `root`, in the
- * block order — `root` itself when it has no children.
+ * `root` を根とする部分木の葉(子を持たないブロック)を、ブロックの順序で
+ * 返す — `root` 自身が子を持たなければ `root` のみとなる。
  */
 export function leavesUnder(tree: BlockTree, root: BlockIndex): BlockIndex[] {
   const parents = new Set<BlockIndex>();
@@ -106,7 +107,7 @@ export function leavesUnder(tree: BlockTree, root: BlockIndex): BlockIndex[] {
   return leaves.sort(compareBlockIndex);
 }
 
-/** The path from `index` up to the anchor block, starting at `index`. */
+/** `index` から始まり錨ブロックに至るまでの経路。 */
 export function pathToAnchor(tree: BlockTree, index: BlockIndex): Block[] {
   const path: Block[] = [];
   let current = tree.blocks.get(index);

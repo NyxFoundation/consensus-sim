@@ -8,7 +8,10 @@
     "avoid_mixing_high_risk_items": true,
     "avoid_mixing_executors": true
   },
-  "active_batch": [],
+  "active_batch": [
+    "T-059",
+    "T-058"
+  ],
   "items": [
     {
       "id": "T-001",
@@ -2209,7 +2212,7 @@
     {
       "id": "T-058",
       "title": "型一覧ページの人間の実ブラウザ確認と承認(必須 8・成功条件 2): 再レイアウト後の型一覧を人間が手元の実ブラウザで確認して承認する(Human-input Recommendation で承認を求めて停止し、承認の resume 記録を evidence とする。承認前に完了扱いにしない)",
-      "status": "pending",
+      "status": "in_progress",
       "priority": "must",
       "spec": [
         "S-046"
@@ -2220,12 +2223,13 @@
       "batch_group": "e6-pages",
       "context_cost": 1,
       "risk_level": "normal",
-      "notes": "遂行順序 1。T-057 と T-059(日本語コメント — 成功条件 10 と同時に確認できる)の完了後に起票する。人間の往復を減らすため、攻撃 UI(T-042/T-043/T-060)が同じサイクル群で終わるならその見た目確認と 1 つの Recommendation にまとめてよい。確認手段: npm run dev または npm run build && node scripts/verify-ui.mjs。"
+      "notes": "遂行順序 1。T-057・T-059 完了後の cycle 40 で R-014(Human-input Recommendation、requires_human_approval)を起票して停止中。人間が実ブラウザで型一覧ページ(必須 8・成功条件 2)と日本語コメントの表示(成功条件 10)を確認し、承認(resume の注記『R-014 を承認』で R-014 を解決)したら、次サイクルはその resume 記録を evidence に done とする。修正指示があれば T-057/T-059 の追補として実装し再度承認を求める。確認手段: npm run build && node scripts/verify-ui.mjs(sandbox では Chromium が起動できないため人間が実行)、npm run dev の目視。",
+      "updated_at": "2026-09-03T20:40:00+09:00"
     },
     {
       "id": "T-059",
       "title": "本質的仕様モジュール(src/domain/model)のコメント日本語化(必須 32・成功条件 10): 型定義と規則の説明コメントをすべて日本語にし(識別子は英語のまま)、型一覧に表示される全型がコメントを持つようにする(PresetName・StageStatus の欠落を補う)+『全型にコメントがある・コメントが日本語である』機械検査",
-      "status": "pending",
+      "status": "done",
       "priority": "must",
       "spec": [
         "S-047",
@@ -2238,7 +2242,33 @@
       "batch_group": "e6-pages",
       "context_cost": 4,
       "risk_level": "normal",
-      "notes": "遂行順序 1。sim モジュール・UI・テストのコメントは英語のまま(対象外)。用語節のユビキタス言語と一致する語を使う。typeGraph の includeDocComment が拾うのは直前の /** */ ブロックなので、各 export 型の直前に日本語の /** */ を置く。"
+      "notes": "遂行順序 1。sim モジュール・UI・テストのコメントは英語のまま(対象外)。用語節のユビキタス言語と一致する語を使う。typeGraph の includeDocComment が拾うのは直前の /** */ ブロックなので、各 export 型の直前に日本語の /** */ を置く。",
+      "evidence": [
+        {
+          "type": "diff",
+          "summary": "src/domain/model/*.ts (17 files): every comment — file headers, /** */ doc comments, field comments, inline // comments, section rulers — rewritten in Japanese with the ESSENCE 用語 vocabulary (バリデータ / 枝 / 錨ブロック / 証拠 / 取り込み / 神視点 / 2 基底 …; committee / proposer boost / fork choice / justified / finalized / head / source / target / View / ChainState / inactivity leak / unrealized justification kept as in the Essence). Identifiers, string literals, values and formatting unchanged: `git diff -U0 -- src/domain/model` has 0 changed non-comment, non-blank lines. Doc comments added where the catalog type had none: ValidatorIndex / SlotIndex / EpochIndex / BlockIndex / Instant / Checkpoint(kept) / BlockTree / View / InitialConditions / MessageRef / PresetName / ProtocolParams / SplitDelivery / Action / ActionBase / StageVerdict / ChainState (the // file header does not attach to a declaration; only a directly preceding /** */ does). Translation delegated to 3 builders per file group, reviewed by an analyst (attackLibrary.ts: 7 fidelity findings — A10 B3 delay to validator 0 dropped, A04 own-proposal 1-slot delay dropped, A03 withholding timing inverted, A05 bounce direction, A14 drop scope 'everyone' vs honest rest, A03 枝上/枝への, A12 supermajority→多数派 — all corrected) and by the orchestrator (terminology normalisation on comment lines only: ブランチ→枝, god view→神視点, chain state→チェーン状態, double/surround vote→二重投票/包囲投票, anchor→錨ブロック, full-width parentheses→half-width, デフォルト→既定, 三つ組→3 つ組). tests/domain/modelComments.test.ts (new): (1) every comment of every DOMAIN_SOURCES module — block comments and runs of consecutive // lines, string literals skipped — contains Hiragana/Katakana/Han; (2) every node of extractTypeGraph(DOMAIN_SOURCES) has a declaration starting with /** whose comment body contains Japanese (成功条件 10 『コメントを持たない型が無い』); before the translation the check listed 22 catalog types without a doc comment. tests/ui/prose.test.tsx: text nodes inside <pre> (the catalog's verbatim declaration, whose Japanese doc comment carries 。 by design) are excluded from the 『no resident prose』 scan — the declaration is quoted implementation, not panel explanation. README.md: 型一覧 paragraph notes the Japanese comments of src/domain/model."
+        },
+        {
+          "type": "command",
+          "command": "npm run typecheck",
+          "exit_code": 0,
+          "summary": "tsc --noEmit exit 0 after the comment rewrite (three times: after each builder batch, after the terminology normalisation, and after the review fixes)."
+        },
+        {
+          "type": "command",
+          "command": "npx vitest run",
+          "exit_code": 0,
+          "summary": "34 files, 400 tests pass (33 files / 397 before; +tests/domain/modelComments.test.ts with 3 tests). Includes tests/ui/typeGraph.test.ts (declarations are verbatim slices), tests/ui/typesPage.test.tsx (focus pane shows the /** comment), tests/ui/prose.test.tsx (types page with a selection), tests/domain/attackLibrary.test.ts and tests/domain/purity.test.ts."
+        },
+        {
+          "type": "command",
+          "command": "npm run build",
+          "exit_code": 0,
+          "summary": "tsc + vite build exit 0 (dist/assets/index-*.js 459.90 kB; the model sources are bundled verbatim via import.meta.glob ?raw, so the catalog ships the Japanese comments)."
+        }
+      ],
+      "completed_at": "2026-09-03T20:40:00+09:00",
+      "updated_at": "2026-09-03T20:40:00+09:00"
     },
     {
       "id": "T-060",

@@ -1,11 +1,11 @@
-// Protocol skeleton (簡約プロトコル骨格) — how a proposal is built (parent by
-// fork choice, body by inclusion), how an attester votes, and how a view is
-// resolved into a head under the protocol parameters. Pure functions over a
-// view; the simulation driver decides when they run, and schedule.ts says
-// who (proposer, committee).
+// 簡約プロトコル骨格 — 提案がどう構築されるか
+// (parent は fork choice、body は inclusion による)、アテスターがどう投
+// 票するか、そしてプロトコルパラメータの下で View がどう head へと解決さ
+// れるか。View に対する純粋関数群であり、いつ実行するかはシミュレーショ
+// ンドライバが、誰が(proposer、committee)は schedule.ts が決める。
 //
-// Fork choice reads the message layer (the view's votes); the checkpoints a
-// vote carries read the chain-state layer (the head's ChainState).
+// fork choice はメッセージ層(View の votes)を読む。投票が運ぶチェック
+// ポイントは チェーン状態層(head の ChainState)を読む。
 
 import { type BlockTree } from "./blockTree";
 import {
@@ -32,24 +32,25 @@ import {
 } from "./types";
 import type { View } from "./view";
 
-/** What a validator concludes from its view: chain states, root and head. */
+/** バリデータがその View から結論するもの: チェーン状態、root、head。 */
 export interface Resolution {
   readonly states: ChainStateIndex;
-  /** The justified checkpoint fork choice started from. */
+  /** fork choice が開始した justified チェックポイント。 */
   readonly root: Checkpoint;
   readonly head: BlockIndex;
-  /** ChainState(head) — the view's justified / finalized / stakes. */
+  /** ChainState(head) — この View の justified / finalized / stakes。 */
   readonly chainState: ChainState;
-  /** The weights this fork choice ran with (stakes and any proposer boost). */
+  /** この fork choice が用いた重み(stakes と、あれば proposer boost)。 */
   readonly weights: ForkChoiceWeights;
 }
 
 /**
- * The block that receives the proposer boost in a fork choice run at
- * `atSlot` over `view`: the proposal of `atSlot`'s scheduled proposer that
- * the view holds — received during the slot it was proposed in. A proposal
- * that arrives later (delay) belongs to an earlier slot and never qualifies;
- * under a double proposal the smaller index counts as the one received first.
+ * `view` に対して `atSlot` で行う fork choice の実行において proposer
+ * boost を受け取るブロック: `atSlot` の予定表上のプロポーザーによる提案
+ * のうち、その View が保持し、かつ提案されたスロットのうちに受信された
+ * もの。後から届く提案(delay)はより前のスロットに属し決して該当しな
+ * い。二重提案 の下では、より小さいインデックスの方を先に受信し
+ * たものとみなす。
  */
 export function boostedBlock(
   view: View,
@@ -70,7 +71,7 @@ export function boostedBlock(
   return boosted;
 }
 
-/** Total stake of `slot`'s committee in `stakes`. */
+/** `stakes` における `slot` の committee の総ステーク。 */
 export function committeeWeight(
   slot: SlotIndex,
   schedule: Schedule,
@@ -82,17 +83,18 @@ export function committeeWeight(
 }
 
 /**
- * Run chain-state derivation and fork choice over a view, as a fork choice
- * computed at `atSlot` (the slot the validator acts in — a proposer acts at
- * its own slot on its view of the slots before it). A vote weighs the
- * voter's stake in the chain state of the head it votes for (ESSENCE 必須
- * 25: a validator's weight is its stake in its head's chain state), so a
- * penalty included on a branch bites exactly there; the timely proposal of
- * `atSlot` gets its committee's weight × boost on top. The mitigations
- * (緩和策, 必須 27) apply here: the fork-choice rule picks the counted
- * votes, the equivocation discount zeroes a voter whose vote evidence this
- * view holds, and the two checkpoint-switching switches choose the root
- * (window) and prune the candidates (unrealized), independently.
+ * View に対して chain-state の導出と fork choice を、`atSlot`(バリデー
+ * タが行動するスロット — プロポーザーはそれ以前のスロットについての
+ * View 上で自身のスロットで行動する)で計算される fork choice として実
+ * 行する。投票は、その投票が支持する head の チェーン状態 における投票者
+ * のステークで重み付けされる(ESSENCE 必須 25: バリデータの重みはその
+ * head の チェーン状態 における自身のステークである)。したがって、ある
+ * 枝に取り込まれた罰則はまさにそこに効く。`atSlot` の timely な提
+ * 案には、その committee の重み × boost が上乗せされる。ここで緩和策
+ * (必須 27)が適用される: fork-choice ルールが数える投票を選び、
+ * equivocation discount はこの View が投票証拠を保持する投票者の重みを
+ * ゼロにし、2 つのチェックポイント切替スイッチはそれぞれ独立に root
+ * (window)を選び候補を絞り込む(unrealized)。
  */
 export function resolveView(
   view: View,
@@ -134,10 +136,11 @@ export function resolveView(
 }
 
 /**
- * Build the block a proposer publishes at `slot`: parent = its fork-choice
- * head (or `parent` when designated and visible — フォーク作成), body = the
- * honest inclusion of everything unincluded on that branch minus `omit`.
- * `index` is assigned by the caller (the simulation keeps the next free one).
+ * プロポーザーが `slot` で公開するブロックを構築する: parent = その
+ * fork-choice head(またはフォーク作成として指定され可視であれば
+ * `parent`)、body = その枝にまだ取り込まれていないすべてから
+ * `omit` を除いた、正直な取り込み。`index` は呼び出し側が割り当てる(シ
+ * ミュレーションが次の空きインデックスを保持する)。
  */
 export function buildProposal(
   view: View,
@@ -161,10 +164,10 @@ export function buildProposal(
 }
 
 /**
- * The FFG part a validator settled on for `epoch`, if it has voted in that
- * epoch already: the (source, target) of its first vote of the epoch in the
- * view (the earliest slot; under a double vote, the content order breaks
- * the tie).
+ * バリデータがすでに `epoch` で投票している場合、その epoch について確定
+ * させた FFG 部分: View 内でのその epoch の最初の投票の (source,
+ * target)(最も早いスロット。二重投票 の下では内容順序で同点を解消す
+ * る)。
  */
 function ffgSettledIn(
   view: View,
@@ -186,20 +189,20 @@ function ffgSettledIn(
 }
 
 /**
- * The vote an attester casts at `slot` from its view. The head follows fork
- * choice every slot (the LMD part); the FFG part (source, target) is
- * decided once per epoch: in the first slot the validator votes in during
- * the epoch it is read off the head's chain — source = the justified
- * checkpoint of the head's chain state, target = the epoch's checkpoint on
- * the head's chain — and every later vote of the same epoch repeats it (an
- * honest validator never contradicts its own FFG vote, as Ethereum attests
- * once per epoch). `override` (投票先指定) replaces any of the three: a
- * designated head (a block of the view) moves a freshly decided FFG part
- * onto its chain; a designated target is a block of the view standing as
- * the checkpoint of the slot's epoch (the epoch follows from the slot); a
- * designated source is a checkpoint of a branch of the view — a designated
- * FFG part that differs from the one already cast this epoch is evidence.
- * A designation the view does not hold is ignored.
+ * アテスターがその View から `slot` で投じる投票。head は毎スロット
+ * fork choice に従う(LMD 部分)。FFG 部分(source, target)は epoch ご
+ * とに 1 回決まる: そのバリデータがそのエポック中に最初に投票するスロッ
+ * トで head のチェーンから読み取られる — source = head の チェーン状態
+ * の justified チェックポイント、target = head のチェーン上のその epoch
+ * のチェックポイント — そして同じ epoch の以後の投票はすべてこれを繰り
+ * 返す(正直バリデータは、Ethereum が epoch ごとに 1 回だけ attest する
+ * のと同様、自身の FFG 投票と決して矛盾しない)。`override`(投票先指
+ * 定)は三者のいずれも置き換えうる: head の指定(View のブロック)は、
+ * 新たに決まった FFG 部分をそのチェーン上へ動かす。target の指定は、そ
+ * のスロットの epoch のチェックポイントとして立つ View のブロック
+ * (epoch はスロットから定まる)。source の指定は View のある枝の
+ * チェックポイントである — すでにその epoch で投じたものと異なる FFG
+ * 部分の指定は証拠となる。View が保持しない指定は無視される。
  */
 export function buildAttestation(
   view: View,
@@ -226,9 +229,9 @@ export function buildAttestation(
   return { validator, slot, head, source, target };
 }
 
-/** 投票先指定: what an attester's vote is steered to, each optional — the
- * head and target among the blocks of its view, the source among the
- * checkpoints of a branch of its view. */
+/** 投票先指定: アテスターの投票が誘導される先。いずれも省略可能 — head
+ * と target はその View のブロックの中から、source はその View のあるブ
+ * ランチのチェックポイントの中から。 */
 export interface VoteOverride {
   readonly head?: BlockIndex | undefined;
   readonly source?: Checkpoint | undefined;
@@ -236,14 +239,14 @@ export interface VoteOverride {
 }
 
 /**
- * The second vote of a double vote (二重投票): same validator and slot as the
- * primary, endorsing `head` when it is designated, held by the view and
- * differs from the primary head, otherwise the primary head's parent —
- * deterministic, and a genuine equivocation whenever the two heads differ.
- * The target is the epoch's checkpoint on the alternative head's chain; the
- * source stays the primary's (the justified checkpoint the validator votes
- * from). Returns undefined when no distinct alternative exists (primary
- * head = anchor and nothing designated).
+ * 二重投票(二重投票)の 2 回目の投票: 主投票と同じバリデータ・同じス
+ * ロットで、`head` が指定されていて View に保持され主投票の head と異な
+ * ればそれを支持し、そうでなければ主投票の head の parent を支持する —
+ * 決定的であり、2 つの head が異なれば真のエクイボケーションとなる。
+ * target は代替 head のチェーン上のその epoch のチェックポイント。
+ * source は主投票のものを維持する(そのバリデータが投票の起点とする
+ * justified チェックポイント)。異なる代替が存在しない場合(主投票の
+ * head = 錨ブロックで何も指定されていない)は undefined を返す。
  */
 export function buildEquivocalAttestation(
   tree: BlockTree,

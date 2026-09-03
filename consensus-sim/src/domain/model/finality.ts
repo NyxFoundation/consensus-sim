@@ -1,8 +1,7 @@
-// Epochs and checkpoints — the FFG vocabulary the Essence keeps: 4-slot
-// epochs, and the checkpoint {epoch, block} of an epoch on a branch that
-// source/target votes point at. Justification and finalization themselves
-// are chain state (chainState.ts): they are derived from the votes a branch
-// has included.
+// エポックとチェックポイント — Essence が保つ FFG の語彙: 4 スロットの
+// エポックと、source/target 投票が指す、ある枝上のエポックのチェックポイント
+// {epoch, block}。justified / finalized 自体はチェーン状態(chainState.ts)
+// であり、その枝が取り込んだ投票から導出される。
 
 import { pathToAnchor, type BlockTree } from "./blockTree";
 import {
@@ -14,9 +13,9 @@ import {
 } from "./types";
 
 /**
- * Epoch length in slots. The abstract model needs epochs only to place
- * checkpoint boundaries for source/target votes; 4 keeps finality visible
- * within a few slot advances.
+ * エポックの長さ(スロット数)。抽象モデルがエポックを必要とするのは
+ * source/target 投票のためのチェックポイント境界を置くためだけであり、
+ * 4 であれば数回のスロット進行のうちに finality が可視になる。
  */
 export const SLOTS_PER_EPOCH = 4;
 
@@ -33,10 +32,10 @@ export function slotsSinceEpochStart(slot: SlotIndex): number {
 }
 
 /**
- * The head section of an epoch in which the fork-choice root may switch to
- * a conflicting justified checkpoint (justified チェックポイント切替 =
- * window): Ethereum's SAFE_SLOTS_TO_UPDATE_JUSTIFIED is a quarter of its
- * epoch, which is one slot of this model's four.
+ * fork choice の起点が競合する justified チェックポイントへ切り替わり
+ * 得るエポック先頭区間(justified チェックポイント切替の window):
+ * Ethereum の SAFE_SLOTS_TO_UPDATE_JUSTIFIED はそのエポックの 4 分の 1
+ * であり、これはこのモデルの 4 スロットのうちの 1 スロットに当たる。
  */
 export const JUSTIFIED_SWITCH_WINDOW_SLOTS = 1;
 
@@ -45,10 +44,10 @@ export function inJustifiedSwitchWindow(slot: SlotIndex): boolean {
 }
 
 /**
- * The checkpoint of `epoch` on the chain ending at `head`: the last block on
- * that chain with slot ≤ the epoch's boundary slot (the epoch-boundary
- * block, or its most recent ancestor when the boundary slot is empty — the
- * same block then stands for consecutive epochs).
+ * `head` に至る枝上での `epoch` のチェックポイント: その枝上でスロットが
+ * エポックの境界スロット以下である直近のブロック(境界スロットのブロック、
+ * または境界スロットが空であればその直近の祖先 — その場合は同じブロックが
+ * 連続するエポックのチェックポイントとなる)。
  */
 export function checkpointFor(
   tree: BlockTree,
@@ -62,8 +61,8 @@ export function checkpointFor(
   return { ...ANCHOR_CHECKPOINT, epoch };
 }
 
-/** Whether `checkpoint` is the checkpoint of its epoch on the chain ending
- * at `head` — the condition for a vote's FFG link to count on that branch. */
+/** `checkpoint` が `head` に至る枝上でそのエポックのチェックポイントに
+ * 一致するか否か — その枝上で投票の FFG リンクが数えられる条件。 */
 export function isCheckpointOn(
   tree: BlockTree,
   head: BlockIndex,

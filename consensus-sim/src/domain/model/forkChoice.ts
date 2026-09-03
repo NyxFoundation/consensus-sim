@@ -1,10 +1,11 @@
-// Fork choice (GHOST 系) — pure functions over a block tree and votes.
-// The rule decides which votes count: LMD-GHOST only each validator's
-// latest, GHOST every vote. GHOST descends from a root checkpoint, always
-// into the heaviest child subtree. Weights are stakes (from the chain state
-// the caller picks per vote) plus, for one slot's proposal, the proposer
-// boost; the caller may also restrict which blocks are candidates
-// (justified-checkpoint switching by unrealized justification).
+// fork choice(GHOST 系) — block tree と投票に対する純粋関数群。
+// ルールがどの投票を数えるかを決める: LMD-GHOST は各バリデータの最新の
+// 投票のみ、GHOST はすべての投票。GHOST は root チェックポイントから、常
+// に最も重い子部分木へと降りていく。重みはステーク(呼び出し側が投票ご
+// とに選ぶ チェーン状態 から得る)に加え、1 スロットの提案については
+// proposer boost を足したもの。呼び出し側はどのブロックが候補となるかを
+// 制限することもできる(unrealized justification による justified チェ
+// ックポイント切替)。
 
 import { childrenOf, isAncestor, type BlockTree } from "./blockTree";
 import { compareVoteContent } from "./order";
@@ -12,11 +13,11 @@ import type { ForkChoiceRule } from "./protocolParams";
 import type { BlockIndex, Stake, ValidatorIndex, Vote } from "./types";
 
 /**
- * How votes and the proposer boost weigh in one fork-choice computation.
- * `weightOf` is the stake a vote carries — the caller decides which chain
- * state it reads it from; `boost` adds `weight` to the subtree of `block`
- * (the current slot's timely proposal, ESSENCE 必須 3) for this computation
- * only.
+ * 1 回の fork choice 計算において、投票と proposer boost がどう重み付け
+ * されるか。`weightOf` は投票が運ぶステーク — どの チェーン状態 から読み
+ * 取るかは呼び出し側が決める。`boost` はこの計算限りで、`block`(現在の
+ * スロットの timely な提案、ESSENCE 必須 3)の部分木に `weight` を加算す
+ * る。
  */
 export interface ForkChoiceWeights {
   readonly weightOf: (vote: Vote) => Stake;
@@ -25,27 +26,28 @@ export interface ForkChoiceWeights {
     | undefined;
 }
 
-/** Every vote weighs 1 and nothing is boosted — the bare GHOST count. */
+/** すべての投票の重みが 1 で、boost も無い — 素の GHOST カウント。 */
 export const UNIT_WEIGHTS: ForkChoiceWeights = { weightOf: () => 1 };
 
-/** What one fork-choice run takes besides the tree, the votes and the root. */
+/** 1 回の fork choice 実行が、tree・votes・root 以外に受け取るもの。 */
 export interface ForkChoiceOptions {
   readonly weights?: ForkChoiceWeights;
-  /** GHOST counts every vote; LMD-GHOST (default) only each validator's latest. */
+  /** GHOST はすべての投票を数える。LMD-GHOST(既定)は各バリデー
+   * タの最新の投票のみ数える。 */
   readonly rule?: ForkChoiceRule;
   /**
-   * When given, only these blocks may be descended into: a child outside the
-   * set is skipped with its whole subtree (緩和策: unrealized justification
-   * excludes branches that can only realize an older justified checkpoint).
+   * 指定された場合、これらのブロックにしか降りられない: 集合外の子はその
+   * 部分木ごと飛ばされる(緩和策: unrealized justification は、より古い
+   * justified チェックポイントしか実現できない枝を除外する)。
    */
   readonly candidates?: ReadonlySet<BlockIndex> | undefined;
 }
 
 /**
- * The latest vote of each validator (LMD). For votes at the same slot by the
- * same validator (equivocation), the winner is the first in the content
- * order of the skeleton (order.ts), so the result never depends on message
- * arrival order (determinism).
+ * 各バリデータの最新の投票(LMD)。同じバリデータによる同じスロットの投
+ * 票(エクイボケーション)については、骨格の内容順序(order.ts)で先に来
+ * る方を勝者とするので、結果はメッセージの到着順序に依存しない(決定
+ * 性)。
  */
 export function latestVotes(
   votes: readonly Vote[],
@@ -65,9 +67,10 @@ export function latestVotes(
 }
 
 /**
- * The votes a fork-choice rule counts (必須 27): under LMD-GHOST each
- * validator's latest vote only, under GHOST every vote — so a validator's
- * earlier votes, and both votes of an equivocation, keep their weight.
+ * fork-choice ルールが数える投票(必須 27): LMD-GHOST の下では各バリデ
+ * ータの最新の投票のみ、GHOST の下ではすべての投票 — したがって GHOST で
+ * はあるバリデータの過去の投票や、エクイボケーションの両方の投票も重み
+ * を保つ。
  */
 export function countedVotes(
   votes: readonly Vote[],
@@ -77,10 +80,10 @@ export function countedVotes(
 }
 
 /**
- * GHOST subtree weight of `block`: the stake of the counted votes supporting
- * a head inside the subtree rooted at `block`, plus the proposer boost when
- * the boosted block lies in that subtree. Votes whose head is unknown to
- * this tree are ignored (that validator has not shown us its head yet).
+ * `block` の GHOST 部分木重み: `block` を根とする部分木内の head を支持
+ * する、数える対象の投票のステークに、boost 対象のブロックがその部分木
+ * にあれば proposer boost を加えたもの。head がこの tree に未知の投票は
+ * 無視される(そのバリデータはまだ head を示していない)。
  */
 export function subtreeWeight(
   tree: BlockTree,
@@ -106,11 +109,10 @@ export function subtreeWeight(
 }
 
 /**
- * The head block by GHOST from `root` (normally the justified checkpoint's
- * block): descend into the candidate child with the greatest subtree
- * weight; ties break to the preferred child in the block order (order.ts —
- * children come in that order), so the result is deterministic. When no
- * child is a candidate the descent stops there.
+ * `root`(通常は justified チェックポイントのブロック)から GHOST で決ま
+ * る head ブロック: 部分木重みが最大の候補の子へ降りる。同点はブロック順
+ * 序(order.ts — 子はその順序で並ぶ)で優先される子に決まるので、結果は
+ * 決定的である。候補となる子が 1 つも無ければ、そこで降下は止まる。
  */
 export function ghostHead(
   tree: BlockTree,
