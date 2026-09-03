@@ -5,12 +5,13 @@
 // UI), so it lives in the sim module; the strategies and attack triples it
 // references are the essential specification (model/attackLibrary.ts).
 //
-// A library attack declares its premise as a preset name plus overrides
-// (プリセット名+上書き); `premiseParams` resolves that to the ProtocolParams a
-// run uses. The default run (既定実行構成) satisfies the attacker-set condition
-// and is proposed as a scenario's initial conditions when the row is chosen.
+// A library attack declares its premise (前提): a preset name plus overrides
+// and the delay bound d; `premiseParams` resolves the parameters a run uses.
+// The default run (既定実行構成) satisfies the attacker-set condition, binds
+// the premise's d as the run's `maxDelay`, and is proposed as a scenario's
+// initial conditions when the row is chosen.
 
-import type { Attack } from "../model/attack";
+import type { Attack, AttackPremise } from "../model/attack";
 import {
   ATTACK_A01,
   ATTACK_A02,
@@ -27,16 +28,11 @@ import {
 } from "../model/attackLibrary";
 import type { AttackGoal } from "../model/attackGoal";
 import type { AttackerCondition, AttackParams, Capability } from "../model/attack";
+import type { AttackInstance } from "./attackRun";
 import type { AttackRegistry } from "./scenarioCodec";
-import { PRESETS, type PresetName, type ProtocolParams } from "../model/protocolParams";
+import { PRESETS, type ProtocolParams } from "../model/protocolParams";
 import { equalStakes } from "../model/initialConditions";
 import type { SlotIndex, Stake, ValidatorIndex } from "../model/types";
-
-/** An attack's premise: a preset with optional field overrides. */
-export interface AttackPremise {
-  readonly preset: PresetName;
-  readonly overrides?: Partial<ProtocolParams>;
-}
 
 /** The ProtocolParams a premise resolves to. */
 export function premiseParams(premise: AttackPremise): ProtocolParams {
@@ -48,7 +44,8 @@ export interface AttackDefaultRun {
   readonly validatorCount: number;
   readonly initialStakes: readonly Stake[];
   readonly attackers: readonly ValidatorIndex[];
-  readonly params: AttackParams;
+  /** Attack parameters beyond the premise's d, when the strategy reads any. */
+  readonly params?: Readonly<Record<string, number>>;
   /** The seed the run is tuned to: it fixes the committees a strategy
    * reads its slots from (only the epoch split depends on it). */
   readonly seed: number;
@@ -74,6 +71,21 @@ export interface LibraryAttack {
   readonly defaultRun: AttackDefaultRun;
 }
 
+/** The parameters the default run binds: the premise's d plus the run's own. */
+export function defaultParams(entry: LibraryAttack): AttackParams {
+  return { ...entry.defaultRun.params, maxDelay: entry.premise.maxDelay };
+}
+
+/** The attack bound into a scenario as its default run proposes. */
+export function defaultInstance(entry: LibraryAttack): AttackInstance {
+  return {
+    id: entry.id,
+    attack: { attackers: entry.attackers, goal: entry.goal, strategy: entry.strategy },
+    attackers: entry.defaultRun.attackers,
+    params: defaultParams(entry),
+  };
+}
+
 const REPORT = "essences/deep-research-report.md";
 
 export const ATTACK_LIBRARY: readonly LibraryAttack[] = [
@@ -81,7 +93,7 @@ export const ATTACK_LIBRARY: readonly LibraryAttack[] = [
     id: "A01",
     name: "Ex-Ante リオーグ(保留+時機)",
     source: `${REPORT}#A01`,
-    premise: { preset: "phase0" },
+    premise: { preset: "phase0", maxDelay: 2 },
     attackers: ATTACK_A01.attackers,
     capabilities: ["withhold", "delay-honest"],
     goal: ATTACK_A01.goal,
@@ -94,7 +106,6 @@ export const ATTACK_LIBRARY: readonly LibraryAttack[] = [
       validatorCount: 4,
       initialStakes: equalStakes(4),
       attackers: [1],
-      params: { maxDelay: 2 },
       seed: DEFAULT_SEED,
       throughSlot: 6,
     },
@@ -103,7 +114,7 @@ export const ATTACK_LIBRARY: readonly LibraryAttack[] = [
     id: "A02",
     name: "proposer boost 逆用リオーグ",
     source: `${REPORT}#A02`,
-    premise: { preset: "merge" },
+    premise: { preset: "merge", maxDelay: 2 },
     attackers: ATTACK_A02.attackers,
     capabilities: ["propose-parent", "vote-target", "delay-honest"],
     goal: ATTACK_A02.goal,
@@ -116,7 +127,6 @@ export const ATTACK_LIBRARY: readonly LibraryAttack[] = [
       validatorCount: 4,
       initialStakes: equalStakes(4),
       attackers: [1],
-      params: { maxDelay: 2 },
       seed: DEFAULT_SEED,
       throughSlot: 8,
     },
@@ -125,7 +135,7 @@ export const ATTACK_LIBRARY: readonly LibraryAttack[] = [
     id: "A03",
     name: "バランシング",
     source: `${REPORT}#A03`,
-    premise: { preset: "phase0" },
+    premise: { preset: "phase0", maxDelay: 2 },
     attackers: ATTACK_A03.attackers,
     capabilities: ["withhold", "vote-target", "delay-honest"],
     goal: ATTACK_A03.goal,
@@ -140,7 +150,6 @@ export const ATTACK_LIBRARY: readonly LibraryAttack[] = [
       validatorCount: 5,
       initialStakes: equalStakes(5),
       attackers: [1],
-      params: { maxDelay: 2 },
       seed: DEFAULT_SEED,
       throughSlot: 16,
     },
@@ -149,7 +158,7 @@ export const ATTACK_LIBRARY: readonly LibraryAttack[] = [
     id: "A04",
     name: "LMD バランシング(エクイボケーション+選択配送)",
     source: `${REPORT}#A04`,
-    premise: { preset: "merge", overrides: { equivocationDiscount: false } },
+    premise: { preset: "merge", overrides: { equivocationDiscount: false }, maxDelay: 2 },
     attackers: ATTACK_A04.attackers,
     capabilities: ["withhold", "equivocation", "vote-target", "delay-honest"],
     goal: ATTACK_A04.goal,
@@ -164,7 +173,6 @@ export const ATTACK_LIBRARY: readonly LibraryAttack[] = [
       validatorCount: 5,
       initialStakes: equalStakes(5),
       attackers: [1],
-      params: { maxDelay: 2 },
       seed: DEFAULT_SEED,
       throughSlot: 21,
     },
@@ -175,7 +183,11 @@ export const ATTACK_LIBRARY: readonly LibraryAttack[] = [
     source: `${REPORT}#A05`,
     premise: {
       preset: "merge",
-      overrides: { checkpointSwitch: "off", committee: { kind: "epoch-split" } },
+      overrides: {
+        checkpointSwitch: { window: false, unrealized: false },
+        committee: { kind: "epoch-split" },
+      },
+      maxDelay: 5,
     },
     attackers: ATTACK_A05.attackers,
     capabilities: ["withhold", "propose-parent", "vote-target", "delay-honest"],
@@ -192,7 +204,6 @@ export const ATTACK_LIBRARY: readonly LibraryAttack[] = [
       validatorCount: 4,
       initialStakes: equalStakes(4),
       attackers: [1],
-      params: { maxDelay: 5 },
       seed: DEFAULT_SEED,
       throughSlot: 24,
     },
@@ -201,7 +212,7 @@ export const ATTACK_LIBRARY: readonly LibraryAttack[] = [
     id: "A06",
     name: "エポック境界 finality 遅延",
     source: `${REPORT}#A06`,
-    premise: { preset: "merge" },
+    premise: { preset: "merge", maxDelay: 4 },
     attackers: ATTACK_A06.attackers,
     capabilities: ["delay-honest"],
     goal: ATTACK_A06.goal,
@@ -216,7 +227,6 @@ export const ATTACK_LIBRARY: readonly LibraryAttack[] = [
       validatorCount: 5,
       initialStakes: equalStakes(5),
       attackers: [1],
-      params: { maxDelay: 4 },
       seed: DEFAULT_SEED,
       throughSlot: 16,
     },
@@ -225,7 +235,7 @@ export const ATTACK_LIBRARY: readonly LibraryAttack[] = [
     id: "A07",
     name: "アバランチ(秘匿エクイボケーションブロック列)",
     source: `${REPORT}#A07`,
-    premise: { preset: "phase0", overrides: { forkChoice: "GHOST" } },
+    premise: { preset: "phase0", overrides: { forkChoice: "GHOST" }, maxDelay: 5 },
     attackers: ATTACK_A07.attackers,
     capabilities: ["withhold", "equivocation", "vote-target", "propose-parent", "delay-honest"],
     goal: ATTACK_A07.goal,
@@ -239,7 +249,6 @@ export const ATTACK_LIBRARY: readonly LibraryAttack[] = [
       validatorCount: 4,
       initialStakes: equalStakes(4),
       attackers: [1],
-      params: { maxDelay: 5 },
       seed: DEFAULT_SEED,
       throughSlot: 10,
     },
@@ -248,7 +257,7 @@ export const ATTACK_LIBRARY: readonly LibraryAttack[] = [
     id: "A09",
     name: "1/3 超の棄権による finality 停止",
     source: `${REPORT}#A09`,
-    premise: { preset: "merge" },
+    premise: { preset: "merge", maxDelay: 2 },
     attackers: ATTACK_A09.attackers,
     capabilities: ["silence"],
     goal: ATTACK_A09.goal,
@@ -261,7 +270,6 @@ export const ATTACK_LIBRARY: readonly LibraryAttack[] = [
       validatorCount: 4,
       initialStakes: equalStakes(4),
       attackers: [2, 3],
-      params: { maxDelay: 2 },
       seed: DEFAULT_SEED,
       throughSlot: 16,
     },
@@ -270,31 +278,32 @@ export const ATTACK_LIBRARY: readonly LibraryAttack[] = [
     id: "A10",
     name: "34% 二重投票による二重 finality",
     source: `${REPORT}#A10`,
-    premise: { preset: "merge" },
+    premise: { preset: "merge", maxDelay: 8 },
     attackers: ATTACK_A10.attackers,
-    capabilities: ["propose-parent", "vote-target", "withhold", "drop-honest"],
+    capabilities: ["propose-parent", "vote-target", "withhold", "delay-honest"],
     goal: ATTACK_A10.goal,
     strategySummary:
-      "攻撃者(ステークの 1/3 以上)は正直 2 体の視界を分割し(一方は攻撃者のスロット 3 " +
-      "ブロックを、他方は正直スロット 4 ブロックを見ない)、各正直者に別々の枝を伸ばさせる。" +
-      "同一エポックの target 投票を時機をずらして両枝へ投じ、自分の提案スロットで両枝を延ばすと、" +
-      "各枝が正直 1 体+攻撃者で 2/3 に達して両方が finalize し、相反する finalized " +
-      "チェックポイントが並ぶ(安全性違反)。",
+      "攻撃者(ステークの 1/3 以上)は正直 2 体の視界をスロット 12 まで分割し(一方には攻撃者の" +
+      "スロット 3 ブロックを、他方には正直スロット 4 ブロックを遅らせる)、各正直者に別々の枝を" +
+      "伸ばさせる。同一エポックの 2 つの target へ偶数・奇数スロットで交互に投票し、各票をその枝の" +
+      "正直者だけに届けて(選択配送)自分の提案スロットで両枝を延ばすと、各枝が正直 1 体+攻撃者で" +
+      "2/3 に達して両方が finalize し、相反する finalized チェックポイントが並ぶ(安全性違反)。" +
+      "神視点には FFG 二重投票の証拠が揃っており、分割が解けたスロット 13 の正直提案が証拠を" +
+      "取り込んでその枝で攻撃者をスラッシングする(可罰性)。",
     strategy: ATTACK_A10.strategy,
     defaultRun: {
       validatorCount: 4,
       initialStakes: equalStakes(4),
       attackers: [2, 3],
-      params: { maxDelay: 2 },
       seed: DEFAULT_SEED,
-      throughSlot: 12,
+      throughSlot: 14,
     },
   },
   {
     id: "A11",
     name: "51% 多数派 fork choice 支配リオーグ",
     source: `${REPORT}#A11`,
-    premise: { preset: "merge" },
+    premise: { preset: "merge", maxDelay: 2 },
     attackers: ATTACK_A11.attackers,
     capabilities: ["propose-parent", "vote-target"],
     goal: ATTACK_A11.goal,
@@ -307,7 +316,6 @@ export const ATTACK_LIBRARY: readonly LibraryAttack[] = [
       validatorCount: 4,
       initialStakes: equalStakes(4),
       attackers: [0, 1, 2],
-      params: { maxDelay: 2 },
       seed: DEFAULT_SEED,
       throughSlot: 8,
     },
@@ -316,21 +324,22 @@ export const ATTACK_LIBRARY: readonly LibraryAttack[] = [
     id: "A12",
     name: "66% 履歴支配",
     source: `${REPORT}#A12`,
-    premise: { preset: "merge" },
+    premise: { preset: "merge", maxDelay: 2 },
     attackers: ATTACK_A12.attackers,
-    capabilities: ["propose-parent", "vote-target"],
+    capabilities: ["propose-parent", "vote-target", "omit-inclusion"],
     goal: ATTACK_A12.goal,
     strategySummary:
       "攻撃者(ステークの 2/3 以上)はまず正直に振る舞い、正直チェーンの B4 を finalize させる。" +
       "スロット 12 に錨ブロック上へ分岐を提案し、以後の投票をその枝へ向けて自分の提案スロットで" +
       "延ばすと、supermajority が分岐側のチェックポイントを justify・finalize し、finalized 済みの" +
-      "履歴と相反するチェックポイントが finalize される(安全性違反)。",
+      "履歴と相反するチェックポイントが finalize される(安全性違反)。分岐側のエポック 3 の投票" +
+      "(錨 → B12)は自分のエポック 2 の投票(B4 → B8)を包囲する証拠になり、正直者は正直チェーン" +
+      "に取り込んで攻撃者をスラッシングするが、攻撃者は自枝の提案でその証拠を省略する(可罰性)。",
     strategy: ATTACK_A12.strategy,
     defaultRun: {
       validatorCount: 4,
       initialStakes: equalStakes(4),
       attackers: [0, 1, 2],
-      params: { maxDelay: 2 },
       seed: DEFAULT_SEED,
       throughSlot: 20,
     },
@@ -339,22 +348,22 @@ export const ATTACK_LIBRARY: readonly LibraryAttack[] = [
     id: "A14",
     name: "inactivity leak 増幅",
     source: `${REPORT}#A14`,
-    premise: { preset: "merge" },
+    premise: { preset: "merge", maxDelay: 2 },
     attackers: ATTACK_A14.attackers,
-    capabilities: ["drop-honest", "vote-target"],
+    capabilities: ["drop-honest", "vote-target", "withhold"],
     goal: ATTACK_A14.goal,
     strategySummary:
       "攻撃者(ステークの 1/3 未満)は正直 1 体を他の正直者から分断し(分断を始める 2 提案を" +
-      "互いに欠落させる)、両枝に毎エポック投票する。孤立枝では finality が停止して他の正直者が" +
-      "leak し、攻撃者は leak しないため、孤立正直者の head の枝で攻撃者比率が 1/3 に達する" +
-      "(第 1 段)。同じ侵食で孤立正直者+攻撃者が 2/3 に達して孤立枝が独自に finalize し、攻撃者が" +
-      "finalize させ続けた他枝と相反する(第 2 段: 安全性違反)。",
+      "互いに欠落させる)、両枝に毎エポック投票して、各票をその枝の正直者だけに届ける(選択配送: " +
+      "2 票は FFG 二重投票の証拠になるため)。孤立枝では finality が停止して他の正直者が leak し、" +
+      "攻撃者は leak しないため、孤立正直者の head の枝で攻撃者比率が 1/3 に達する(第 1 段)。" +
+      "同じ侵食で孤立正直者+攻撃者が 2/3 に達して孤立枝が独自に finalize し、攻撃者が finalize " +
+      "させ続けた他枝と相反する(第 2 段: 安全性違反)。",
     strategy: ATTACK_A14.strategy,
     defaultRun: {
       validatorCount: 4,
       initialStakes: equalStakes(4),
       attackers: [3],
-      params: { maxDelay: 2 },
       seed: DEFAULT_SEED,
       throughSlot: 44,
     },

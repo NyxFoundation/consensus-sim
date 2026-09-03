@@ -6,11 +6,11 @@
     "stop_after_infra_fails": 2
   },
   "progress": {
-    "last_signature": "5e9c63c6c447da356a5b3c37ef3b3e048ff3a6b852221c47a0a09fbdab532c18",
+    "last_signature": "27fbad4c72280b49a63b7402b73935513b5170253b086495dc71b508398bf6ef",
     "idle_cycles_since_progress": 0,
     "infra_fails_since_ok": 0,
-    "last_progress_at": "2026-09-03T16:30:04+09:00",
-    "last_checked_at": "2026-09-03T16:30:04+09:00",
+    "last_progress_at": "2026-09-03T17:01:21+09:00",
+    "last_checked_at": "2026-09-03T17:01:21+09:00",
     "usage_limited_since_ok": 0
   },
   "reset_policy": {
@@ -23,21 +23,20 @@
   "counters": {
     "context_usage_estimate": 0.55,
     "failed_attempts_since_reset": 0,
-    "changed_files_since_reset": 50,
-    "completed_todos_since_reset": 1,
+    "changed_files_since_reset": 24,
+    "completed_todos_since_reset": 2,
     "important_decisions_since_reset": 5,
     "major_spec_rewrite_since_reset": false,
     "high_risk_change_completed": false
   },
   "handoff": {
-    "written_at": "2026-09-03T16:50:00+09:00",
-    "summary": "T-053(型の改訂 (2))を実施して done(typecheck 0 / vitest 31 files 370 tests 0 / build 0): Instant = {slot, phase: proposal|vote|end}(atProposal/atVote/atEnd)と座標なし View = {blockTree, votes}(viewOf(log, observer, instant, delivery)、observeAsAttackers(attackers, views, slot, config, schedule))、正直者の FFG 部分のエポック単位決定(protocol.ts ffgSettledIn: エポック最初の投票で定め以後繰り返す、投票先指定の source/target が優先)、SimulationConfig → InitialConditions(model/initialConditions.ts)、Schedule = {proposerOf, committeeOf} と Permutation 型を model/schedule.ts に(構造のみ)、順列は sim/schedule.ts(seededPermutation, scheduleOf(config))、resolveView(view, config, schedule, atSlot)、MessageRef = {kind: proposal|vote, sender, slot, block?|vote?} に統一(blockRef/voteRef/sameRef/coversMessage(selector, message)/isExactRef; 正直者の個体名指しは能力範囲外)、DoubleVoteAction.split = {first, second, untilSlot}(未公開の二重投票の片方の選択配送の糖衣、compileDelivery が処理、R-010 Non-blocking で記録)、codec version 2、UI 参照ラベル追随、README / docs/INSPECTION.md 追記。攻撃ライブラリ再調整: A10/A14 は同エポック第 2 の target を投票先指定で明示(voteAllFfg)、A04 は両陣営収束で戦略停止+L = 20(LMD_STALL)+throughSlot 21。steering.test.ts の期待値 3 件は FFG 規則の帰結として変更(T-053 コメント付き)。counters が reset_policy 超過(changed_files 50、decisions 5)のためリセット推奨。残る must: T-054/T-055(型の改訂 (3)(4))、T-050/T-051(UI 刷新の残り、人間承認で停止)、T-042/T-043(攻撃 UI)、T-044(総点検)。フェーズは must のまま。",
+    "written_at": "2026-09-03T17:05:00+09:00",
+    "summary": "T-054(型の改訂 (3))と T-055(型の改訂 (4))を同一バッチで実施して done(typecheck 0 / vitest 31 files 382 tests 0 / build 0)。遂行順序 1(型の改訂の適用)は完了。ドメイン: Equivocation = 二重提案 {validator, slot, blocks} | 二重投票 {votes} | 包囲投票 {votes}(equivocatorOf / evidenceSlotOf で導出、EvidenceRef.slot = 後の票のスロット)、スロット横断の証拠は相異なる FFG 部分の代表どうしに限る正規化(R-011)、スラッシング 3 形・割引は投票 2 形。checkpointSwitch = {window, unrealized}(NO_SWITCHING)、inactivityLeak = LeakSchedule | 'off'(DEFAULT_INACTIVITY_LEAK は LeakSchedule)、codec version 3。attack.ts: AttackPremise {preset, overrides?, maxDelay}、PublishBase / DeliverBase / MessageSpan / ActionBase、basesOf、withinRange、capabilityOf(自分の保留は d 外、閉じた分断は ≤ d)。sim/attackLibrary.ts: premise.maxDelay、defaultRun.params は任意の追加値、defaultParams / defaultInstance。攻撃ライブラリ: omittingOwnEvidence(攻撃者の提案は自分への証拠を省略)を A10/A12/A14 に適用、A10 は遅延(d = 8)+選択配送で違反 @11・slot 13 の正直提案がスラッシング、A12 は包囲投票を正直チェーン(slot 15)が取り込み攻撃者は自枝で省略・parent/head を slot 20 まで明示、違反 @17、A14 は第 2 スロット A・他 B の FFG で投票し枝ごと配送、第 1 段 @32・第 2 段 @40。UI: ParamsPanel は 2 スイッチ(aria: 'justified 切替窓' / 'unrealized justification')と leak off で N/r 非表示、evidenceLabel は包囲投票に対応。README / docs/INSPECTION.md 追記(R-007 撤回)。R-010 resolved、R-011 Non-blocking(能力範囲の 2 点是正・証拠正規化・スラッシング後の閾値縮小の帰結)を記録。残る must: T-050/T-051(UI 刷新の残り、人間承認で停止)、T-042/T-043(攻撃 UI)、T-044(総点検)。フェーズは must のまま。",
     "next_actions": [
-      "T-054(型の改訂 (3)): inclusion.ts の equivocationsIn/equivocatingVoters に『同一 target エポックで target の異なる 2 投票』と『包囲投票(source₁.epoch < source₂.epoch < target₂.epoch < target₁.epoch)』を追加(Equivocation の第 3 形 kind: 'surround-vote'; 割引は投票の証拠 2 形で発火。voteKey/equivocationKey/evidenceRef(kind, validator, slot)は slot 横断の証拠を扱えるよう見直す)、protocolParams.ts の checkpointSwitch を {window: boolean, unrealized: boolean} に、inactivityLeak を {delayEpochs, rate} | 'off' に(プリセット表: phase0 on/off, merge on/off, current off/on; chainState.forkChoiceRoot / viableBlocks は 2 スイッチを独立に適用)、ParamsPanel / codec / sameParams / presetOf / 型一覧テストを追随。投票先指定: 同エポックで既に投じた FFG 部分と異なる指定は証拠になる(FFG 二重投票の検出で自然に成立することをテストで固定)。docs/INSPECTION.md の R-007 撤回を追記。",
-      "T-054 の証拠化で A10(slot 4/5・8/9 の target 明示)と A14(各エポックの A/B 枝への target 明示)の攻撃者票は FFG 二重投票として正直者に見え、スラッシングされて達成が崩れる見込み — T-055 と同バッチにし、A10/A14 は DoubleVoteAction.split(または T-055 の Publish 基底)で 2 票を各正直者へ選択配送する形に再設計する(可罰性 成功条件 27: 神視点には ≥1/3 の証拠が成立し、取り込んだ枝で効く)。tests/domain/attackLibrary.test.ts の『A10/A12 は証拠を含まない』アサーションは可罰性の形に書き換える。",
-      "T-055(型の改訂 (4)): attack.ts に行動の 2 基底(Publish: 自分名義のメッセージの内容・時機・受信者集合 / Deliver: 正直者メッセージの遅延 ≤ d・欠落)を型として置き、capabilityOf を基底へ接続(介入語彙は糖衣 — DoubleVoteAction.split は Publish×2)、AttackPremise = {preset, overrides, maxDelay d} を攻撃の宣言に、A12 を『包囲投票の証拠を自枝で省略』に再設計、README / docs / 型一覧を追随。",
-      "その後 T-050 → T-051(Human-input Recommendation で人間の実ブラウザ承認を求めて停止)→ T-042/T-043(攻撃 UI: 前提列は プリセット+上書き・d)→ T-044(総点検、notes の点検項目 (1)〜(10))。",
-      "運用: atlas-builder state の呼び出しは ATLAS_BUILDER_LOCK_TOKEN=$(cat .agent/tmp/loop.lock/token) を前置する。Bash のガードは ESSENCE.md / .atlas-builder/state のパスを含むコマンド文字列や heredoc を拒むことがあるので、投影・診断スクリプトは Write ツールで PROJECT_STATE_ROOT/tmp/ に置いて python3 で実行する(stage-projection → 編集 → apply-projection)。挙動診断は lessons.jsonl 参照(一時 test ファイル+$TMPDIR への書き出し)。"
+      "T-050(UI 刷新 (2) 情報設計の再編と全表示への適用): 前提事項のデザイン方針(主役 = チェーン表示+状態表が標準 PC 幅の初期表示でスクロールなしに過半、操作盤は小面積に集約、説明文は要求時表示へ、統一部品、トークン参照のみ)に沿ってレイアウトを再編する。既存基盤: src/ui/tokens.css / components/(Button, Segmented, NumberField, Checkbox, Disclosure)、tests/ui/designTokens.test.ts / polish.test.tsx / appShell.test.tsx が機械検査を固定している。成功条件 26 (a)〜(f) の機械検査をテストに追加しつつ、T-050 の Todo 本文の要件を満たす。ParamsPanel の justified 切替が 2 スイッチ(切替窓 / unrealized)になったこと、leak off で N/r が隠れることを再編後の操作盤にも反映する。",
+      "T-051: T-050 完了後、Human-input Recommendation(requires_human_approval: true)で人間の実ブラウザ確認と承認を求めて停止(必須対応事項 30)。承認前に T-051 を done にしない。",
+      "その後 T-042/T-043(攻撃 UI: 前提列は premise.preset + overrides + maxDelay(d)、既定実行構成は defaultInstance(entry) / defaultParams(entry) を使う。攻撃者に必要な能力は entry.capabilities、行動の 2 基底の説明は attack.ts の PublishBase / DeliverBase の docコメントに揃える)→ T-044(総点検、notes の点検項目 (1)〜(10)。R-011 の 3 点(能力範囲の是正・証拠の正規化・スラッシング後の閾値縮小)を点検記録に含める)。",
+      "運用: atlas-builder state の呼び出しは ATLAS_BUILDER_LOCK_TOKEN=$(cat .agent/tmp/loop.lock/token) を前置する。Bash のガードは ESSENCE.md / .atlas-builder/state のパスを含むコマンド文字列や heredoc を拒むことがあるので、投影・診断スクリプトは Write ツールで PROJECT_STATE_ROOT/tmp/ に置いて python3 で実行する(stage-projection → 編集 → apply-projection)。cd を含む複合コマンドはガードに拒まれることがあるので、npm は --prefix、grep は絶対パスで呼ぶ。挙動診断は lessons.jsonl 参照(一時 test ファイル+$TMPDIR への書き出し、終了後に削除)。"
     ],
     "open_questions": [],
     "pending_cycle": false

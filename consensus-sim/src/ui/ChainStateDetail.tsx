@@ -10,7 +10,7 @@
  * equivocation evidence its proposer included.
  */
 
-import { validatorName } from '../domain'
+import { equivocatorOf, evidenceSlotOf, validatorName } from '../domain'
 import type {
   BlockBody,
   ChainState,
@@ -96,16 +96,17 @@ export function ChainStateTable({
   )
 }
 
-/** One line of evidence: who, when, and the two conflicting messages. */
+/** One line of evidence: its form, who, when it arose, and the two
+ * conflicting messages. */
 export function evidenceLabel(e: Equivocation): string {
-  const who = `${validatorName(e.validator)} @${e.slot}`
+  const who = `${validatorName(equivocatorOf(e))} @${evidenceSlotOf(e)}`
   if (e.kind === 'double-proposal') {
     return `二重提案 ${who}: ${blockName(e.blocks[0])} / ${blockName(e.blocks[1])}`
   }
   const [a, b] = e.votes
   const vote = (v: typeof a) =>
-    `${blockName(v.head)} (${checkpointName(v.source)} → ${checkpointName(v.target)})`
-  return `二重投票 ${who}: ${vote(a)} / ${vote(b)}`
+    `${blockName(v.head)}@s${v.slot} (${checkpointName(v.source)} → ${checkpointName(v.target)})`
+  return `${e.kind === 'double-vote' ? '二重投票' : '包囲投票'} ${who}: ${vote(a)} / ${vote(b)}`
 }
 
 export function BlockBodyView({

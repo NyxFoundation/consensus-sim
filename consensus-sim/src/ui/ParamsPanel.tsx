@@ -10,6 +10,7 @@
 
 import { useEffect, useState } from 'react'
 import {
+  DEFAULT_INACTIVITY_LEAK,
   DEFAULT_STAKE,
   PRESETS,
   PRESET_NAMES,
@@ -18,8 +19,8 @@ import {
   validatorName,
 } from '../domain'
 import type {
-  CheckpointSwitch,
   ForkChoiceRule,
+  LeakSchedule,
   PresetName,
   ProtocolParams,
   InitialConditions,
@@ -38,7 +39,6 @@ const PRESET_NOTES: Readonly<Record<PresetName, string>> = {
 }
 
 const FORK_CHOICE_RULES: readonly ForkChoiceRule[] = ['GHOST', 'LMD-GHOST']
-const CHECKPOINT_SWITCHES: readonly CheckpointSwitch[] = ['window', 'unrealized', 'off']
 
 const ON_OFF = [
   { key: 'on', label: 'on' },
@@ -136,8 +136,12 @@ export function ParamsPanel({ session }: ParamsPanelProps) {
     session.setConfig({ ...config, ...patch })
   const setParams = (patch: Partial<ProtocolParams>) =>
     setConfig({ params: { ...params, ...patch } })
-  const setLeak = (patch: Partial<ProtocolParams['inactivityLeak']>) =>
-    setParams({ inactivityLeak: { ...params.inactivityLeak, ...patch } })
+  const setSwitch = (patch: Partial<ProtocolParams['checkpointSwitch']>) =>
+    setParams({ checkpointSwitch: { ...params.checkpointSwitch, ...patch } })
+  const leak: LeakSchedule | undefined =
+    params.inactivityLeak === 'off' ? undefined : params.inactivityLeak
+  const setLeak = (patch: Partial<LeakSchedule>) =>
+    setParams({ inactivityLeak: { ...(leak ?? DEFAULT_INACTIVITY_LEAK), ...patch } })
   const setStake = (v: number, stake: number) =>
     setConfig({
       initialStakes: config.initialStakes.map((s, i) => (i === v ? stake : s)),
@@ -250,12 +254,22 @@ export function ParamsPanel({ session }: ParamsPanelProps) {
             </div>
             <div className="form-line">
               <span className="param-name">justified 切替</span>
-              <Segmented
-                label="justified チェックポイント切替"
-                value={params.checkpointSwitch}
-                options={CHECKPOINT_SWITCHES.map((s) => ({ key: s, label: s }))}
-                onChange={(checkpointSwitch) => setParams({ checkpointSwitch })}
-              />
+              <label className="check-inline">
+                切替窓
+                <OnOff
+                  label="justified 切替窓"
+                  value={params.checkpointSwitch.window}
+                  onChange={(window) => setSwitch({ window })}
+                />
+              </label>
+              <label className="check-inline">
+                unrealized
+                <OnOff
+                  label="unrealized justification"
+                  value={params.checkpointSwitch.unrealized}
+                  onChange={(unrealized) => setSwitch({ unrealized })}
+                />
+              </label>
             </div>
           </fieldset>
 
@@ -273,31 +287,37 @@ export function ParamsPanel({ session }: ParamsPanelProps) {
               <span className="param-name">inactivity leak</span>
               <OnOff
                 label="inactivity leak"
-                value={params.inactivityLeak.enabled}
-                onChange={(enabled) => setLeak({ enabled })}
+                value={leak !== undefined}
+                onChange={(on) =>
+                  setParams({ inactivityLeak: on ? DEFAULT_INACTIVITY_LEAK : 'off' })
+                }
               />
-              <label className="check-inline">
-                N =
-                <NumberField
-                  label="inactivity leak N"
-                  value={params.inactivityLeak.delayEpochs}
-                  min={0}
-                  integer
-                  onCommit={(delayEpochs) => setLeak({ delayEpochs })}
-                />
-                エポック
-              </label>
-              <label className="check-inline">
-                r =
-                <NumberField
-                  label="inactivity leak r"
-                  value={params.inactivityLeak.rate}
-                  min={0}
-                  max={1}
-                  step={0.05}
-                  onCommit={(rate) => setLeak({ rate })}
-                />
-              </label>
+              {leak !== undefined && (
+                <>
+                  <label className="check-inline">
+                    N =
+                    <NumberField
+                      label="inactivity leak N"
+                      value={leak.delayEpochs}
+                      min={1}
+                      integer
+                      onCommit={(delayEpochs) => setLeak({ delayEpochs })}
+                    />
+                    エポック
+                  </label>
+                  <label className="check-inline">
+                    r =
+                    <NumberField
+                      label="inactivity leak r"
+                      value={leak.rate}
+                      min={0}
+                      max={1}
+                      step={0.05}
+                      onCommit={(rate) => setLeak({ rate })}
+                    />
+                  </label>
+                </>
+              )}
             </div>
           </fieldset>
 

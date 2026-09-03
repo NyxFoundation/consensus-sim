@@ -57,17 +57,17 @@ describe("presets (プロトコルプリセット)", () => {
         p.forkChoice,
         p.boost,
         p.equivocationDiscount,
-        p.checkpointSwitch,
+        p.checkpointSwitch.window,
+        p.checkpointSwitch.unrealized,
         p.slashing,
-        p.inactivityLeak.enabled,
-        p.inactivityLeak.delayEpochs,
+        p.inactivityLeak === "off" ? "off" : p.inactivityLeak.delayEpochs,
         p.committee.kind,
       ];
     });
     expect(rows).toEqual([
-      ["phase0", "LMD-GHOST", 0, false, "window", true, true, 4, "all"],
-      ["merge", "LMD-GHOST", 0.4, true, "window", true, true, 4, "all"],
-      ["current", "LMD-GHOST", 0.4, true, "unrealized", true, true, 4, "all"],
+      ["phase0", "LMD-GHOST", 0, false, true, false, true, 4, "all"],
+      ["merge", "LMD-GHOST", 0.4, true, true, false, true, 4, "all"],
+      ["current", "LMD-GHOST", 0.4, true, false, true, true, 4, "all"],
     ]);
   });
 

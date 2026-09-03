@@ -63,8 +63,8 @@ The プロトコルパラメータ panel below the slot bar holds the scenario's
 initial conditions: a preset (`phase0` / `merge` / `current`, default
 `merge`) that sets every value at once, and each protocol parameter on its
 own — committee (everyone, size `c`, or an epoch split), proposer boost, fork-choice rule,
-equivocation discount, justified-checkpoint switching, slashing and the
-inactivity leak (on/off, `N`, `r`) — plus the seed and every validator's
+equivocation discount, the two justified-checkpoint switches (window,
+unrealized), slashing and the inactivity leak (off, or `N` and `r`) — plus the seed and every validator's
 initial stake (equal by default). Changing a value recomputes the displayed
 run from the anchor with the interventions kept, so the effect of one knob
 is read off the same run; the preset label turns to カスタム as soon as a
@@ -122,18 +122,28 @@ npm run build      # static bundle in dist/ (no backend; plain static SPA)
   belongs to the simulator.
 - **Protocol parameters** (`ProtocolParams`) make the skeleton's knobs
   explicit: committee assignment, proposer boost, fork-choice rule (GHOST /
-  LMD-GHOST), equivocation discount, justified-checkpoint switching
-  (window / unrealized / off), slashing and inactivity leak. Three
-  **presets** name real points of Ethereum's history — `phase0` (no boost,
-  no discount), `merge` (boost 0.4, discount on; the default) and `current`
-  (unrealized justification) — and an attack later declares its premise as
-  a preset plus overrides. The parameters are part of the scenario and are
-  saved with it.
+  LMD-GHOST), equivocation discount, justified-checkpoint switching (two
+  independent switches: window, unrealized), slashing and inactivity leak
+  (`{N, r}` or off). Three **presets** name real points of Ethereum's
+  history — `phase0` (no boost, no discount, window on), `merge` (boost
+  0.4, discount on, window on; the default) and `current` (unrealized on
+  instead of the window) — and an attack declares its premise as a preset
+  plus overrides. The parameters are part of the scenario and are saved
+  with it.
 - **Blocks** form a tree rooted at the **anchor block** (slot 0), which every
   validator already agrees is finalized — there is no genesis ceremony. A
   block carries a **body**: the votes and equivocation evidence its proposer
   included. An honest proposer includes everything in its view that no
-  ancestor of the parent has included yet.
+  ancestor of the parent has included yet. **Evidence** is a pair of
+  conflicting messages of one validator in one of three forms — a double
+  proposal (two blocks of one slot), a double vote (two votes of one slot
+  with different content, or two votes with the same target epoch and
+  different targets) and a surround vote (a later vote whose source →
+  target span strictly encloses an earlier one's in epochs) — the last two
+  being Casper FFG's slashing conditions. Evidence is not a message of its
+  own: it comes into existence in any view that holds both messages (the
+  god view included), and a validator that repeats the same FFG part
+  through an epoch, as honest validators do, produces none.
 - **Votes** are `{validator, slot, head, source, target}`: an LMD-GHOST-style
   head endorsement plus an FFG-style pair of **checkpoints**. The head
   follows fork choice every slot; the FFG pair is decided once per epoch —
@@ -161,12 +171,13 @@ npm run build      # static bundle in dist/ (no backend; plain static SPA)
   source is finalized when its target of the very next epoch, by epoch
   number, is justified). Two **penalties** reshape a branch's stakes:
   **slashing** zeroes an equivocator from the block that includes the
-  evidence onward (a branch without the evidence is untouched), and the
-  **inactivity leak** removes the fraction `r` per epoch from every
-  validator whose target vote for that epoch the branch has not included,
-  once finality lags by more than `N` epochs, stopping as soon as finality
-  catches up. Both are protocol parameters; Ethereum's quadratic amounts and
-  rewards are deliberately absent.
+  evidence — of any of its three forms — onward (a branch without the
+  evidence is untouched), and the **inactivity leak**, when on, removes the
+  fraction `r` per epoch from every validator whose target vote for that
+  epoch the branch has not included, once finality lags by more than `N`
+  epochs, stopping as soon as finality catches up. Both are protocol
+  parameters; Ethereum's quadratic amounts and rewards are deliberately
+  absent.
 - **Fork choice** is GHOST over each validator's own view (the message
   layer), starting from the highest justified checkpoint it knows. A vote
   weighs the voter's stake in the chain state of the head it votes for, so
@@ -181,15 +192,17 @@ npm run build      # static bundle in dist/ (no backend; plain static SPA)
   votes count: LMD-GHOST only each validator's latest, GHOST every vote (so
   stale votes and both halves of a double vote keep their weight). The
   **equivocation discount** zeroes a validator's votes in the fork choice of
-  any view that holds two conflicting votes of it for one slot — immediate,
-  local to that view, and fork choice only; chain state waits for slashing.
-  **Justified-checkpoint switching** governs the fork-choice root: `off`
-  always starts from the highest justified checkpoint known; `window` lets
-  the root move to a conflicting justified checkpoint only in the first slot
-  of an epoch (a quarter of the epoch, as in Ethereum), while a newer
-  checkpoint on the root's own chain is adopted at once; `unrealized`
-  starts from the highest justified checkpoint but never descends into a
-  branch whose included votes justify only an older one.
+  any view that holds vote evidence against it (a double vote or a surround
+  vote) — immediate, local to that view, and fork choice only; chain state
+  waits for slashing. **Justified-checkpoint switching** is two independent
+  switches on the fork-choice root: with both off the root is always the
+  highest justified checkpoint known; the **window** lets the root move to a
+  conflicting justified checkpoint only in the first slot of an epoch (a
+  quarter of the epoch, as in Ethereum), while a newer checkpoint on the
+  root's own chain is adopted at once; **unrealized** keeps the root but
+  never descends into a branch whose included votes justify only an older
+  one. Ethereum introduced the window first and unrealized justification
+  later, both against bouncing.
 - **Local views** are pure filters over a global append-only message log: a
   **view** is `{blockTree, votes}`, the knowledge read for one validator at
   one instant (both are the view's coordinates, not its content — the
@@ -209,14 +222,20 @@ npm run build      # static bundle in dist/ (no backend; plain static SPA)
   attacker stake ratio ≥ θ — judged stage by stage) and a **strategy**: a
   pure rule that, at every slot boundary, maps what the attackers observe
   (the merge of their views — attackers share everything instantly — and
-  the schedule) to their actions for the slots ahead. The action
-  vocabulary is the intervention set within a capability range: an
-  attacker's own equivocation (a double vote may split its two halves
-  between two receiver sets, the rest receiving them later), parent
-  designation, vote designation, silence, withholding and selective
-  delivery of its own messages (referenced ahead of publication), omitted
-  inclusion in its own proposal, and delay / drop / partition of honest
-  messages, delays bounded by the attack's `maxDelay`. A scenario holds at most one attack beside
+  the schedule) to their actions for the slots ahead. An attacker's
+  capability range is two **bases**: *publish* — a message of its own,
+  with any content it can build from its observation (no forgery), at any
+  time, to any receiver set (withholding, selective delivery and silence
+  included) — and *deliver* — an honest message held back at most `d`
+  slots, or dropped, per receiver. The action vocabulary is the intervention
+  set as sugar over the bases: an attacker's own equivocation (a double vote
+  may split its two halves between two receiver sets), parent designation,
+  vote designation, silence, withholding and selective delivery of its own
+  messages (referenced ahead of publication), omitted inclusion in its own
+  proposal, and delay / drop / partition of honest messages — a partition
+  being the symmetric set of deliveries, so a closed one must heal within
+  `d`. The attack's **premise** declares the protocol parameters it holds
+  under (a preset plus overrides) and `d`. A scenario holds at most one attack beside
   its manual interventions; the strategy's actions are generated as
   interventions marked as the attackers', and an action that is not
   causal, outside the range, contradicted by a manual intervention of the
@@ -227,6 +246,12 @@ npm run build      # static bundle in dist/ (no backend; plain static SPA)
   stage before it is achieved, and every verdict carries its evidence (the
   conflicting finalized checkpoints, the slots finality has stalled, the
   reorg count and latest event, the stake ratio and the head it is read at).
+  The safety violations of the library are accountable: by the slot the
+  violation is judged, the god view holds FFG evidence (double or surround
+  votes) of attackers worth at least a third of the stake, and a branch
+  that includes it slashes them — the honest chain in the history
+  domination, the healed network in the double finality — while the
+  attackers' own proposals leave it out.
 - **Determinism and rewind:** the state at slot *n* is recomputed from the
   anchor, never replayed from mutable history — the same scenario always
   reproduces the same run, and rewinding is just recomputation.

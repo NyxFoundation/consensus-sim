@@ -66,7 +66,10 @@ const ALL_KINDS: Intervention[] = [
     kind: "omit-inclusion",
     slot: 8,
     votes: [{ kind: "vote", sender: 0, slot: 7 }],
-    evidence: [{ kind: "double-vote", validator: 3, slot: 6 }],
+    evidence: [
+      { kind: "double-vote", validator: 3, slot: 6 },
+      { kind: "surround-vote", validator: 2, slot: 8 },
+    ],
   },
 ];
 
@@ -149,15 +152,26 @@ describe("parse rejection", () => {
     ["boost above 1", { boost: 1.5 }],
     ["negative boost", { boost: -0.1 }],
     ["unknown fork choice rule", { forkChoice: "PBFT" }],
-    ["unknown checkpoint switch", { checkpointSwitch: "sometimes" }],
+    ["a checkpoint switch that is not the two switches", { checkpointSwitch: "window" }],
+    ["a non-boolean window switch", { checkpointSwitch: { window: "on", unrealized: false } }],
+    ["a missing unrealized switch", { checkpointSwitch: { window: true } }],
     ["non-boolean slashing", { slashing: "on" }],
     ["committee of unknown kind", { committee: { kind: "random" } }],
     ["committee larger than the validator set", { committee: { kind: "sized", size: 5 } }],
     ["empty committee", { committee: { kind: "sized", size: 0 } }],
-    ["leak without delay", { inactivityLeak: { enabled: true, delayEpochs: 0, rate: 0.25 } }],
-    ["leak rate above 1", { inactivityLeak: { enabled: true, delayEpochs: 4, rate: 2 } }],
+    ["leak without delay", { inactivityLeak: { delayEpochs: 0, rate: 0.25 } }],
+    ["leak rate above 1", { inactivityLeak: { delayEpochs: 4, rate: 2 } }],
+    ["a leak that is neither off nor a schedule", { inactivityLeak: "on" }],
   ])("rejects protocol params with %s", (_name, patch) => {
     expect(() => parseScenario(withParams(patch))).toThrow();
+  });
+
+  it("round-trips the leak off and both checkpoint switches", () => {
+    const parsed = parseScenario(
+      withParams({ inactivityLeak: "off", checkpointSwitch: { window: true, unrealized: true } }),
+    );
+    expect(parsed.scenario.config.params.inactivityLeak).toBe("off");
+    expect(parsed.scenario.config.params.checkpointSwitch).toEqual({ window: true, unrealized: true });
   });
 
   it("defaults absent protocol params to the merge preset (pre-parameter scenarios)", () => {

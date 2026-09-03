@@ -22,6 +22,7 @@ import type { AttackGoal } from "./attackGoal";
 import { childrenOf, isAncestor, leavesUnder, type BlockTree } from "./blockTree";
 import { chainStatesOf } from "./chainState";
 import { latestVotes } from "./forkChoice";
+import { equivocationsIn, equivocatorOf, evidenceRef } from "./inclusion";
 import { validatorIndices, type InitialConditions } from "./initialConditions";
 import type { View } from "./view";
 import {
@@ -52,6 +53,34 @@ function honestOf(
  * afterwards — the shape of a fixed-action-list strategy. */
 function once(actions: readonly Action[]): Strategy {
   return (observation) => (observation.slot === 0 ? actions : []);
+}
+
+/**
+ * The attackers' next proposal, when the next slot is theirs, leaves every
+ * piece of evidence against themselves out of its body (取り込みの省略) —
+ * what an attacker that equivocates must do, since honest inclusion would
+ * otherwise carry its own evidence and slash it on its own branch. The
+ * evidence is read off the observation: every pair the attackers hold at
+ * the boundary.
+ */
+function omitOwnEvidence({ slot, attackers, view, schedule }: AttackerObservation): Action[] {
+  const next = slot + 1;
+  if (!attackers.includes(schedule.proposerOf(next))) return [];
+  const own = equivocationsIn(view.blockTree, view.votes).filter((e) =>
+    attackers.includes(equivocatorOf(e)),
+  );
+  return own.length === 0
+    ? []
+    : [{ kind: "omit-inclusion", slot: next, evidence: own.map(evidenceRef) }];
+}
+
+/** `strategy`, with the attackers' own evidence omitted from every proposal
+ * of theirs. */
+function omittingOwnEvidence(strategy: Strategy): Strategy {
+  return (observation, params) => [
+    ...strategy(observation, params),
+    ...omitOwnEvidence(observation),
+  ];
 }
 
 /** The same vote designation for every attacker at `slot`. */
@@ -730,24 +759,26 @@ export const ATTACK_A07: Attack = {
 
 // ── A10 double finality by 34% double voting (34% 二重投票) ─────────────────
 // The attackers (validators 2 and 3, half the stake) split the two honest
-// validators' views (分割): validator 0 never sees the attacker block B3
-// (built on B1 at slot 3) and validator 1 never sees the honest B4, so from
-// slot 4 on each honest validator extends its own branch — A: B1→B2→B4→…,
-// B: B1→B3→B5→…. The attackers cast their FFG votes of the same epoch for
-// both branches' checkpoints in different slots (時機: B4 at slot 4, B3 at
-// slot 5, then B8 at slot 8 and B7 at slot 9 — the second target of each
-// epoch designated explicitly, since an undesignated FFG part repeats the
-// epoch's first), extend both branches from their own proposal slots, and
-// each branch's honest validator completes its link: {0,2,3} on A, {1,2,3}
-// on B, 3/4 each. Both branches finalize — B4 on A, B3 on B — two finalized
+// validators' views (分割): validator 0 receives the attacker block B3
+// (built on B1 at slot 3) and validator 1 the honest B4 only at slot 12, so
+// from slot 4 on each honest validator extends its own branch — A:
+// B1→B2→B4→…, B: B1→B3→B5→…. The attackers vote for both branches' epoch
+// checkpoints in alternating slots — even slots for A (B4 at slot 4, B8 at
+// slot 8), odd slots for B (B3 at slot 5, B7 at slot 9; the second target
+// of each epoch is designated explicitly, since an undesignated FFG part
+// repeats the epoch's first) — and deliver each vote to that branch's
+// honest validator only, holding it back from the other until slot 12 (選択
+// 配送), so neither honest validator sees the conflicting pair while it
+// completes its link: {0,2,3} on A, {1,2,3} on B, 3/4 each. Both branches
+// finalize — B4 on A at slot 10, B3 on B at slot 11 — two finalized
 // checkpoints in conflict (安全性違反). The contradictory target votes are
-// FFG double votes cast in different slots. Premise merge.
-const SPLIT_HONEST: readonly Action[] = [
-  { kind: "drop", message: { kind: "proposal", sender: 3, slot: 3 }, observers: [0] },
-  { kind: "drop", message: { kind: "proposal", sender: 0, slot: 4 }, observers: [1] },
-  { kind: "drop", message: { kind: "vote", sender: 0, slot: 2 }, observers: [1] },
-  { kind: "drop", message: { kind: "vote", sender: 0, slot: 3 }, observers: [1] },
-];
+// FFG double votes of the same epoch: the attackers leave them out of their
+// own proposals, but the god view holds every pair (成功条件 27), and once
+// the split heals at slot 12 the next honest proposal (slot 13) includes
+// the evidence and the attackers are slashed on that branch. Premise merge,
+// d = 8 (B4 and validator 0's early votes are held from validator 1 up to
+// eight slots).
+const HEAL_SLOT = 12;
 
 /** The same FFG-explicit vote designation for every attacker at `slot`. */
 function voteAllFfg(
@@ -767,21 +798,51 @@ function voteAllFfg(
   }));
 }
 
-export const doubleFinalityA10: Strategy = once([
+/** The attackers' votes of `slot` reach only `to` until the heal slot. */
+function deliverOnlyTo(
+  attackers: readonly ValidatorIndex[],
+  slot: SlotIndex,
+  to: ValidatorIndex,
+  others: readonly ValidatorIndex[],
+): Action[] {
+  return attackers.map((sender) => ({
+    kind: "delay",
+    message: { kind: "vote", sender, slot },
+    untilSlot: HEAL_SLOT,
+    observers: others.filter((v) => v !== to),
+  }));
+}
+
+export const doubleFinalityA10: Strategy = omittingOwnEvidence(once([
   { kind: "propose-parent", slot: 3, parent: 1 },
-  ...SPLIT_HONEST,
+  { kind: "delay", message: { kind: "proposal", sender: 3, slot: 3 }, untilSlot: HEAL_SLOT - 1, observers: [0] },
+  { kind: "delay", message: { kind: "proposal", sender: 0, slot: 4 }, untilSlot: HEAL_SLOT, observers: [1] },
+  // Validator 0's votes for B2 are held from 1 so that 1 sits on B3 at slot 4.
+  { kind: "delay", message: { kind: "vote", sender: 0, slot: 2 }, untilSlot: 10, observers: [1] },
+  { kind: "delay", message: { kind: "vote", sender: 0, slot: 3 }, untilSlot: 11, observers: [1] },
   ...voteAll([2, 3], 3, 3),
+  // Even slots: branch A's vote, to validator 0; odd slots: branch B's, to 1.
   ...voteAll([2, 3], 4, 4),
+  ...deliverOnlyTo([2, 3], 4, 0, [0, 1]),
   ...voteAllFfg([2, 3], 5, 5, 3),
+  ...deliverOnlyTo([2, 3], 5, 1, [0, 1]),
   { kind: "propose-parent", slot: 6, parent: 4 },
   ...voteAll([2, 3], 6, 6),
+  ...deliverOnlyTo([2, 3], 6, 0, [0, 1]),
   { kind: "propose-parent", slot: 7, parent: 5 },
-  ...voteAll([2, 3], 7, 7),
+  ...voteAllFfg([2, 3], 7, 7, 3),
+  ...deliverOnlyTo([2, 3], 7, 1, [0, 1]),
   ...voteAll([2, 3], 8, 8),
+  ...deliverOnlyTo([2, 3], 8, 0, [0, 1]),
   ...voteAllFfg([2, 3], 9, 9, 7, { epoch: 1, block: 3 }),
+  ...deliverOnlyTo([2, 3], 9, 1, [0, 1]),
   { kind: "propose-parent", slot: 10, parent: 8 },
+  ...voteAll([2, 3], 10, 10),
+  ...deliverOnlyTo([2, 3], 10, 0, [0, 1]),
   { kind: "propose-parent", slot: 11, parent: 9 },
-]);
+  ...voteAllFfg([2, 3], 11, 11, 7, { epoch: 1, block: 3 }),
+  ...deliverOnlyTo([2, 3], 11, 1, [0, 1]),
+]));
 
 const SAFETY: AttackGoal = { kind: "safety-violation" };
 
@@ -796,19 +857,38 @@ export const ATTACK_A10: Attack = {
 // behave, so the honest chain finalizes B4 at slot 9. At slot 12 validator 0
 // proposes on the anchor — beside the finalized history — and the attackers
 // steer their votes to the new branch, extending it from their own slots
-// (13, 14). Their supermajority justifies the branch's epoch-3 checkpoint
-// (slot 12) and, once the epoch-4 checkpoint is built and voted at slot 16,
-// finalizes it at slot 17: a finalized checkpoint that conflicts with the
-// already finalized B4 (安全性違反). Premise merge.
-export const historyDominationA12: Strategy = once([
+// (13, 14, 16, 17, 18, 20). Their epoch-3 votes there span anchor (epoch 0)
+// → B12 (epoch 3) and so surround their own epoch-2 votes B4 (epoch 1) → B8
+// (epoch 2): the surround-vote evidence of every attacker (three quarters of
+// the stake) stands in the god view, the honest validator includes it in
+// its slot-15 block on the honest chain — where the attackers are slashed,
+// so that chain justifies and finalizes on the honest validator's votes
+// alone from then on — and the attackers leave it out of their own blocks
+// (取り込みの省略), so their branch keeps their stake. Their supermajority
+// justifies the branch's epoch-3 checkpoint (slot 12) and, once the epoch-4
+// checkpoint is built and voted at slot 16, finalizes it at slot 17: a
+// finalized checkpoint that conflicts with the already finalized B4 (安全性
+// 違反, with 成功条件 27's accountability). Premise merge.
+const A12_ATTACKERS: readonly ValidatorIndex[] = [0, 1, 2];
+
+export const historyDominationA12: Strategy = omittingOwnEvidence(once([
   { kind: "propose-parent", slot: 12, parent: 0 },
-  ...voteAll([0, 1, 2], 12, 12),
+  ...voteAll(A12_ATTACKERS, 12, 12),
   { kind: "propose-parent", slot: 13, parent: 12 },
-  ...voteAll([0, 1, 2], 13, 13),
+  ...voteAll(A12_ATTACKERS, 13, 13),
   { kind: "propose-parent", slot: 14, parent: 13 },
-  ...voteAll([0, 1, 2], 14, 14),
-  ...voteAll([0, 1, 2], 15, 14),
-]);
+  ...voteAll(A12_ATTACKERS, 14, 14),
+  ...voteAll(A12_ATTACKERS, 15, 14),
+  { kind: "propose-parent", slot: 16, parent: 14 },
+  ...voteAll(A12_ATTACKERS, 16, 16),
+  { kind: "propose-parent", slot: 17, parent: 16 },
+  ...voteAll(A12_ATTACKERS, 17, 17),
+  { kind: "propose-parent", slot: 18, parent: 17 },
+  ...voteAll(A12_ATTACKERS, 18, 18),
+  ...voteAll(A12_ATTACKERS, 19, 18),
+  { kind: "propose-parent", slot: 20, parent: 18 },
+  ...voteAll(A12_ATTACKERS, 20, 20),
+]));
 
 export const ATTACK_A12: Attack = {
   attackers: { kind: "stake-ratio", atLeast: 2 / 3 },
@@ -824,12 +904,18 @@ export const ATTACK_A12: Attack = {
 // next honest proposal after it is dropped for the isolated one — so the
 // honest validators build two branches, A (the isolated one's) and B (the
 // rest's), neither seeing the other's blocks. The attackers see both and
-// vote on both every epoch: the second slot of each epoch on A's tip, the
-// third on B's tip — each with the FFG part of that branch designated
-// (source = the branch's justified checkpoint, target = its checkpoint of
-// the epoch), so both branches count the attackers as active; an
-// undesignated FFG part would repeat the epoch's first vote and count on
-// one branch only. On A only the isolated validator and the attackers are
+// vote on both every epoch from the split on: the second slot of each epoch
+// on A's tip, every other slot on B's tip (at the split itself, on the fork
+// point the rest will build on) — each with the FFG part of that branch
+// designated (source = the branch's justified checkpoint, target = its
+// checkpoint of the epoch), so both branches count the attackers as active;
+// an undesignated FFG part would repeat the epoch's first vote, and a vote
+// of the epoch's first slot cannot name A's boundary block yet. The two
+// FFG parts of an epoch are FFG double votes (one target epoch, two
+// targets), and across epochs A's votes surround B's, so each vote is
+// delivered to its own branch's validators only (選択配送), no honest view
+// ever holds a pair, and the attackers' own proposals leave their evidence
+// out. On A only the isolated validator and the attackers are
 // active, so finality stalls and, once it lags by more than N epochs, the
 // rest leak stake there every epoch (罰則 inactivity leak) while the
 // attackers never leak. Stage 1: the attackers' share of A's chain state,
@@ -874,7 +960,8 @@ function tipUnder(tree: BlockTree, root: BlockIndex): BlockIndex {
   return tip;
 }
 
-export const leakAmplificationA14: Strategy = ({ slot, attackers, view, schedule, config }) => {
+export const leakAmplificationA14: Strategy = omittingOwnEvidence((observation) => {
+  const { slot, attackers, view, schedule, config } = observation;
   const honest = honestOf(attackers, config);
   const isolated = honest[0];
   const rest = honest.slice(1);
@@ -896,22 +983,26 @@ export const leakAmplificationA14: Strategy = ({ slot, attackers, view, schedule
     );
   }
   const next = slot + 1;
+  if (next < splitA) return actions;
+  const tree = view.blockTree;
   const phase = slotsSinceEpochStart(next);
-  const fork =
-    phase === 1
-      ? blockBy(view.blockTree, isolated, splitA)
-      : phase === 2
-        ? blockBy(view.blockTree, schedule.proposerOf(splitB), splitB)
-        : undefined;
-  if (fork !== undefined) {
-    const tree = view.blockTree;
-    const tip = tipUnder(tree, fork);
+  const onA = phase === 1;
+  const root = onA
+    ? blockBy(tree, isolated, splitA)
+    : (blockBy(tree, schedule.proposerOf(splitB), splitB) ??
+      (next === splitA ? blockBy(tree, schedule.proposerOf(splitA - 1), splitA - 1) : undefined));
+  if (root !== undefined) {
+    const tip = tipUnder(tree, root);
     const justified = chainStatesOf(tree, config).get(tip)!.justified;
     const target = checkpointFor(tree, tip, epochOf(next)).block;
     actions.push(...voteAllFfg(attackers, next, tip, target, justified));
+    const others = onA ? rest : [isolated];
+    for (const sender of attackers) {
+      actions.push({ kind: "drop", message: { kind: "vote", sender, slot: next }, observers: others });
+    }
   }
   return actions;
-};
+});
 
 export const ATTACK_A14: Attack = {
   attackers: { kind: "count", atLeast: 1 },

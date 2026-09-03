@@ -48,3 +48,9 @@ export function compareVoteContent(a: Vote, b: Vote): number {
     ascendingCheckpoints(a.target, b.target)
   );
 }
+
+/** The order on votes of one validator across slots: the earlier slot
+ * first, then the content order. Negative when `a` comes first. */
+export function compareVotes(a: Vote, b: Vote): number {
+  return a.slot - b.slot || compareVoteContent(a, b);
+}

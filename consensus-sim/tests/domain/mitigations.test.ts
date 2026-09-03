@@ -1,8 +1,9 @@
 // Mitigations (緩和策, 必須対応事項 27): the fork-choice rule (GHOST counts
 // every vote, LMD-GHOST only the latest), the equivocation discount
-// (immediate, local, fork choice only) and justified-checkpoint switching
-// (window / unrealized / off) — each a protocol parameter, each transparent
-// to an honest run, and each bound to the presets the Essence names.
+// (immediate, local, fork choice only, on every form of vote evidence) and
+// the two independent switches of justified-checkpoint switching (window,
+// unrealized) — each a protocol parameter, each transparent to an honest
+// run, and each bound to the presets the Essence names.
 
 import { describe, expect, it } from "vitest";
 import {
@@ -109,11 +110,20 @@ describe("fork-choice rule (GHOST | LMD-GHOST)", () => {
 });
 
 describe("equivocation discount (エクイボケーション割引)", () => {
-  it("names validators with two content-different votes in one slot", () => {
+  it("names validators whose vote evidence the votes hold, in any of its forms", () => {
     expect([...equivocatingVoters([])]).toEqual([]);
     expect([...equivocatingVoters([vote(0, 2, 2), vote(0, 2, 2)])]).toEqual([]);
+    // Same slot, different content.
     expect([...equivocatingVoters([vote(0, 2, 2), vote(1, 2, 2), vote(0, 2, 3)])]).toEqual([0]);
     expect([...equivocatingVoters([vote(0, 1, 1), vote(0, 2, 2)])]).toEqual([]);
+    // Same target epoch, different targets (slots 4 and 5 are both epoch 1).
+    expect([...equivocatingVoters([vote(1, 4, 4, 0, 4), vote(1, 5, 3, 0, 3)])]).toEqual([1]);
+    expect([...equivocatingVoters([vote(1, 4, 4, 0, 4), vote(1, 5, 5, 0, 4)])]).toEqual([]);
+    // A surround vote: (0 → 3) around (1 → 2).
+    const inner: Vote = vote(2, 8, 8, 4, 8);
+    const outer: Vote = vote(2, 12, 12, 0, 12);
+    expect([...equivocatingVoters([inner, outer])]).toEqual([2]);
+    expect([...equivocatingVoters([inner, vote(2, 12, 12, 8, 12)])]).toEqual([]);
   });
 
   it("zeroes the equivocator's fork-choice weight when on, and only there", () => {
@@ -216,6 +226,9 @@ describe("justified-checkpoint switching (justified チェックポイント切�
   ].reduce(addBlock, createBlockTree());
   const config = configOf();
   const states = chainStatesOf(tree, config);
+  const off: CheckpointSwitch = { window: false, unrealized: false };
+  const window: CheckpointSwitch = { window: true, unrealized: false };
+  const unrealized: CheckpointSwitch = { window: false, unrealized: true };
   const rootAt = (switching: CheckpointSwitch, atSlot: number) =>
     forkChoiceRoot(tree, states, switching, atSlot);
 
@@ -238,22 +251,25 @@ describe("justified-checkpoint switching (justified チェックポイント切�
     ]);
   });
 
-  it("off: always starts from the highest justified checkpoint known", () => {
+  it("window off: always starts from the highest justified checkpoint known", () => {
     // B6 and B8 are both epoch-2 checkpoints; the tie breaks to the smaller index.
-    expect(rootAt("off", 10)).toEqual({ epoch: 2, block: 6 });
-    expect(rootAt("off", 12)).toEqual({ epoch: 2, block: 6 });
-    expect(rootAt("unrealized", 10)).toEqual({ epoch: 2, block: 6 });
+    expect(rootAt(off, 10)).toEqual({ epoch: 2, block: 6 });
+    expect(rootAt(off, 12)).toEqual({ epoch: 2, block: 6 });
+    // The unrealized switch never moves the root.
+    expect(rootAt(unrealized, 10)).toEqual({ epoch: 2, block: 6 });
   });
 
-  it("window: outside the window, switches only along the root's own chain", () => {
+  it("window on: outside the window, switches only along the root's own chain", () => {
     // As of the window (blocks before slot 9) the root is B4. B8 descends from
     // it and is adopted at once; B6 conflicts and must wait for slot 12.
-    expect(rootAt("window", 10)).toEqual({ epoch: 2, block: 8 });
-    expect(rootAt("window", 11)).toEqual({ epoch: 2, block: 8 });
-    expect(rootAt("window", 12)).toEqual({ epoch: 2, block: 6 });
+    expect(rootAt(window, 10)).toEqual({ epoch: 2, block: 8 });
+    expect(rootAt(window, 11)).toEqual({ epoch: 2, block: 8 });
+    expect(rootAt(window, 12)).toEqual({ epoch: 2, block: 6 });
+    // Both switches on: the root is the window's.
+    expect(rootAt({ window: true, unrealized: true }, 10)).toEqual({ epoch: 2, block: 8 });
   });
 
-  it("unrealized: prunes branches whose included votes only justify something older", () => {
+  it("unrealized on: prunes branches whose included votes only justify something older", () => {
     // Under root B6 (its checkpoint of epoch 2): B7 realizes B6, B11 realizes
     // nothing newer than the anchor.
     const viable = viableBlocks(tree, states, { epoch: 2, block: 6 });
@@ -265,27 +281,31 @@ describe("justified-checkpoint switching (justified チェックポイント切�
     // never descends into B11.
     const votes = [vote(0, 10, 11), vote(1, 10, 11), vote(2, 10, 11), vote(3, 10, 7)];
     const view = { blockTree: tree, votes };
-    const offConfig = configOf(bare({ checkpointSwitch: "off" }));
-    const unrealizedConfig = configOf(bare({ checkpointSwitch: "unrealized" }));
-    const windowConfig = configOf(bare({ checkpointSwitch: "window" }));
-    expect(resolveView(view, offConfig, scheduleOf(offConfig), 10).head).toBe(11);
-    expect(resolveView(view, unrealizedConfig, scheduleOf(unrealizedConfig), 10).head).toBe(7);
+    const headUnder = (checkpointSwitch: CheckpointSwitch) => {
+      const config = configOf(bare({ checkpointSwitch }));
+      return resolveView(view, config, scheduleOf(config), 10).head;
+    };
+    expect(headUnder(off)).toBe(11);
+    expect(headUnder(unrealized)).toBe(7);
     // window at slot 10 starts from B8 instead, where B9 and B10 tie on zero
     // weight and the smaller index wins.
-    expect(resolveView(view, windowConfig, scheduleOf(windowConfig), 10).head).toBe(9);
+    expect(headUnder(window)).toBe(9);
+    // Both switches apply independently: the window's root B8, then the
+    // unrealized pruning under it (B9 realizes nothing newer than B4).
+    expect(headUnder({ window: true, unrealized: true })).toBe(10);
   });
 });
 
 describe("presets bind the mitigations", () => {
   const names: PresetName[] = ["phase0", "merge", "current"];
 
-  it("map phase0 → discount off / window, merge → on / window, current → on / unrealized", () => {
+  it("map phase0 → discount off / window on, merge → on / window on, current → on / unrealized on", () => {
     expect(
       names.map((n) => [n, PRESETS[n].forkChoice, PRESETS[n].equivocationDiscount, PRESETS[n].checkpointSwitch]),
     ).toEqual([
-      ["phase0", "LMD-GHOST", false, "window"],
-      ["merge", "LMD-GHOST", true, "window"],
-      ["current", "LMD-GHOST", true, "unrealized"],
+      ["phase0", "LMD-GHOST", false, { window: true, unrealized: false }],
+      ["merge", "LMD-GHOST", true, { window: true, unrealized: false }],
+      ["current", "LMD-GHOST", true, { window: false, unrealized: true }],
     ]);
   });
 

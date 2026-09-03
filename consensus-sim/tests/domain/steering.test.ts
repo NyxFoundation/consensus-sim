@@ -96,6 +96,29 @@ describe("vote designation (投票先指定)", () => {
     });
   });
 
+  it("makes a designated FFG part that differs from the epoch's settled one evidence (必須 9)", () => {
+    // キャロル settled (anchor → B4) at slot 4; a target B5 designated at slot
+    // 6 is a second target of epoch 1 — an FFG double vote every view holds
+    // at the end of slot 6, included by B7 and slashed on its branch.
+    const steered = scenario([{ kind: "vote-target", slot: 6, validator: 2, target: 5 }]);
+    const states = scenarioStates(steered, 7);
+    const b7 = bodyAt(steered, 7);
+    expect(b7.evidence).toEqual([
+      {
+        kind: "double-vote",
+        votes: [
+          { validator: 2, slot: 4, head: 4, source: ANCHOR_CHECKPOINT, target: { epoch: 1, block: 4 } },
+          { validator: 2, slot: 6, head: 6, source: ANCHOR_CHECKPOINT, target: { epoch: 1, block: 5 } },
+        ],
+      },
+    ]);
+    expect(states[7]!.chainStates.get(6)!.stakes.get(2)).toBe(32);
+    expect(states[7]!.chainStates.get(7)!.stakes.get(2)).toBe(0);
+    // Repeating the settled part, or designating the head alone, is no evidence.
+    expect(bodyAt(scenario([{ kind: "vote-target", slot: 6, validator: 2, target: 4 }]), 7).evidence).toEqual([]);
+    expect(bodyAt(scenario([{ kind: "vote-target", slot: 6, validator: 2, head: 3 }]), 7).evidence).toEqual([]);
+  });
+
   it("ignores a designated block the voter's view does not hold", () => {
     const s = scenario([
       { kind: "vote-target", slot: 6, validator: 1, head: 99, target: 2 },

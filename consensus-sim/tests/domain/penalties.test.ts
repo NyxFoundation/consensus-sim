@@ -113,8 +113,6 @@ describe("initial stakes (初期ステーク)", () => {
 describe("slashing (スラッシング)", () => {
   const evidence: Equivocation = {
     kind: "double-vote",
-    validator: 3,
-    slot: 4,
     votes: [vote(3, 4, 3, 0, 4), vote(3, 4, 4, 0, 4)],
   };
   // anchor ─ 1 ─ 2 ─ 3 ─ 4 ─ 5 (includes evidence against 3 + two link votes 0→4)
@@ -137,6 +135,26 @@ describe("slashing (スラッシング)", () => {
   it("does nothing when slashing is off", () => {
     const { tree, config } = withEvidence({ ...DEFAULT_PARAMS, slashing: false });
     expect(stakesOf(config, tree, 5)).toEqual([32, 32, 32, 32]);
+  });
+
+  it("zeroes the equivocator for every form of evidence (成功条件 22)", () => {
+    // Slot 5's block carries one form per validator: デイブ's double
+    // proposal, キャロル's cross-slot double vote (one target epoch, two
+    // targets), ボブ's surround vote (epoch 0 → 2 around epoch 1 → 1).
+    const forms: Equivocation[] = [
+      { kind: "double-proposal", validator: 3, slot: 3, blocks: [3, 9] },
+      { kind: "double-vote", votes: [vote(2, 4, 4, 0, 4), vote(2, 5, 3, 0, 3)] },
+      {
+        kind: "surround-vote",
+        votes: [
+          { validator: 1, slot: 5, head: 5, source: { epoch: 1, block: 4 }, target: { epoch: 1, block: 4 } },
+          { validator: 1, slot: 8, head: 8, source: ANCHOR_CHECKPOINT, target: { epoch: 2, block: 8 } },
+        ],
+      },
+    ];
+    const tree = chain(5, { 5: { votes: [], evidence: forms } });
+    expect(stakesOf(configOf(), tree, 4)).toEqual([32, 32, 32, 32]);
+    expect(stakesOf(configOf(), tree, 5)).toEqual([32, 0, 0, 0]);
   });
 
   it("excludes the equivocator from the finality threshold", () => {
@@ -229,9 +247,14 @@ describe("inactivity leak", () => {
     expect(headStakes(DEFAULT_PARAMS, 36)).toEqual([32, 32, 24, 18]);
   });
 
-  it("never runs when off", () => {
-    const off = { ...DEFAULT_PARAMS, inactivityLeak: { ...DEFAULT_INACTIVITY_LEAK, enabled: false } };
+  it("never runs when off, and follows its own N and r when on", () => {
+    const off: ProtocolParams = { ...DEFAULT_PARAMS, inactivityLeak: "off" };
     expect(headStakes(off, 36)).toEqual([32, 32, 32, 32]);
+    expect(DEFAULT_INACTIVITY_LEAK).toEqual({ delayEpochs: 4, rate: 0.25 });
+    const sooner: ProtocolParams = { ...DEFAULT_PARAMS, inactivityLeak: { delayEpochs: 2, rate: 0.5 } };
+    // Epoch 3 is the first whose delay exceeds N = 2, processed at slot 16.
+    expect(headStakes(sooner, 15)).toEqual([32, 32, 32, 32]);
+    expect(headStakes(sooner, 16)).toEqual([32, 32, 16, 16]);
   });
 
   it("keeps the run deterministic", () => {

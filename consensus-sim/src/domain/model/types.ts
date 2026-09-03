@@ -73,11 +73,19 @@ export interface Vote {
 }
 
 /**
- * Evidence (証拠) of an equivocation (エクイボケーション): two conflicting
- * messages of one validator in one slot — two blocks, or two votes with
- * different content. Not a message type of its own: it comes into existence
- * in a view holding both messages and is included into a block body.
- * The pair is kept in canonical order so identical evidence is identical.
+ * Evidence (証拠) of an equivocation (エクイボケーション): a pair of
+ * conflicting messages of one validator, in one of three forms —
+ * - double proposal (二重提案): two blocks of one slot;
+ * - double vote (二重投票): two votes of one slot with different content, or
+ *   two votes with the same target epoch and different targets;
+ * - surround vote (包囲投票): two votes with
+ *   source₁.epoch < source₂.epoch < target₂.epoch < target₁.epoch.
+ * The last two are Casper FFG's slashing conditions. Not a message type of
+ * its own: it comes into existence in a view holding both messages and is
+ * included into a block body. The pair is kept in canonical order (blocks
+ * ascending; votes by slot, then the content order of order.ts — so a
+ * surrounding vote, whose target epoch is the later, comes second), so
+ * identical evidence is identical.
  */
 export type Equivocation =
   | {
@@ -89,9 +97,11 @@ export type Equivocation =
     }
   | {
       readonly kind: "double-vote";
-      readonly validator: ValidatorIndex;
-      readonly slot: SlotIndex;
-      /** The two conflicting votes, in the content order of order.ts. */
+      readonly votes: readonly [Vote, Vote];
+    }
+  | {
+      readonly kind: "surround-vote";
+      /** The surrounded vote, then the surrounding one. */
       readonly votes: readonly [Vote, Vote];
     };
 

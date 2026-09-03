@@ -1994,7 +1994,7 @@
     {
       "id": "T-054",
       "title": "型の改訂 (3) Equivocation の 3 形・切替の 2 スイッチ・leak の和型・投票先指定: Equivocation = 二重提案 | 二重投票(同一スロットの相反、または同一 target エポックで target の異なる 2 投票)| 包囲投票(source₁.epoch < source₂.epoch < target₂.epoch < target₁.epoch)を View で検出しブロック body に取り込む、スラッシングは 3 形すべて・エクイボケーション割引は投票の証拠(二重投票・包囲投票)で発火、checkpointSwitch = {window: on/off, unrealized: on/off} の独立 2 スイッチ(プリセット: phase0 on/off・merge on/off・current off/on)、inactivityLeak = {delayEpochs, rate} | off の和型、投票先指定は head/target を View 内のブロックから・source を View 内の枝のチェックポイントから指定(target のエポックはスロットから定まり、同エポックで既に投じた FFG 部分と異なる指定は証拠)、ParamsPanel / InterventionPanel / codec / 型一覧の追随+テスト(成功条件 22 の 3 形)",
-      "status": "pending",
+      "status": "done",
       "priority": "must",
       "spec": [
         "S-018",
@@ -2010,12 +2010,36 @@
       "batch_group": "e5-type-revision",
       "context_cost": 5,
       "risk_level": "normal",
-      "notes": "遂行順序 1。R-007 で了承していた簡約(スロット分割 FFG 二重投票は証拠外)は新 Essence(Equivocation の 3 形)が上書きするため撤回する。A10/A14 の既存機構がこれでスラッシングされ得るため、達成テストが崩れる場合は T-055 と同一バッチで扱う。docs/INSPECTION.md の R-007 記述を改める。"
+      "notes": "遂行順序 1。R-007 で了承していた簡約(スロット分割 FFG 二重投票は証拠外)は新 Essence(Equivocation の 3 形)が上書きするため撤回する。A10/A14 の既存機構がこれでスラッシングされ得るため、達成テストが崩れる場合は T-055 と同一バッチで扱う。docs/INSPECTION.md の R-007 記述を改める。",
+      "evidence": [
+        {
+          "type": "diff",
+          "summary": "Model: types.ts (Equivocation = double-proposal {validator, slot, blocks} | double-vote {votes} | surround-vote {votes}; the vote forms carry the pair only), order.ts (compareVotes: slot, then content), inclusion.ts (equivocatorOf / evidenceSlotOf = the later message's slot; voteConflict classifies a pair: same slot & different content, same target epoch & different target, or source1.epoch < source2.epoch < target2.epoch < target1.epoch; equivocationsIn draws same-slot evidence per pair and cross-slot evidence between the earliest votes of a validator's distinct FFG parts; equivocatingVoters fires on every vote form; equivocationKey carries the kind; EvidenceRef = {kind, validator, slot the evidence arises in}), chainState.ts (slashing via equivocatorOf for all three forms; CheckpointSwitch object: forkChoiceRoot reads .window, NO_SWITCHING; leak 'off'), protocolParams.ts (CheckpointSwitch = {window, unrealized}; LeakSchedule = {delayEpochs, rate}, InactivityLeak = LeakSchedule | 'off'; presets phase0/merge window on, current unrealized on; sameLeak/sameParams), protocol.ts (candidates when .unrealized). Sim: scenarioCodec.ts (SCENARIO_VERSION 3; checkpointSwitch as two booleans, leakOf 'off' | schedule, surround-vote evidence kind). UI: ParamsPanel.tsx (two OnOff switches 'justified 切替窓' / 'unrealized justification'; leak OnOff toggles 'off' vs DEFAULT_INACTIVITY_LEAK and hides N / r while off), ChainStateDetail.tsx (evidenceLabel: 二重提案 / 二重投票 / 包囲投票 with each vote's slot). Docs: README (evidence forms, two switches, leak {N, r} | off), docs/INSPECTION.md (追記 (3)(4), R-007 retracted). Tests: chainState (FFG forms across slots, representative-only cross-slot pairs, evidenceRef slots), mitigations (discount on every vote form; window / unrealized / both as independent switches; presets), penalties (all three forms slashed; leak off and a custom {N, r}), protocolParams (table), steering (a designated target differing from the settled FFG part is evidence, included and slashed; repeating it or steering the head alone is not), scenarioCodec (switch/leak rejections and round-trip, surround-vote refs), ui/params (two switches independent, leak schedule hidden while off), ui/typeGraph (CheckpointSwitch, InactivityLeak pinned)."
+        },
+        {
+          "type": "command",
+          "command": "npm run typecheck",
+          "exit_code": 0,
+          "summary": "tsc --noEmit exits 0 on src and tests."
+        },
+        {
+          "type": "command",
+          "command": "npx vitest run",
+          "exit_code": 0,
+          "summary": "31 files / 382 tests pass, including the new evidence-form, switch, leak, capability-base and accountability tests; all 12 library attacks reach their goal under their default run with every generated action accepted; A01/A03/A04/A07 miss under merge; A05 window / current observations unchanged."
+        },
+        {
+          "type": "command",
+          "command": "npm run build",
+          "exit_code": 0,
+          "summary": "tsc --noEmit && vite build exits 0 (dist/ static bundle)."
+        }
+      ]
     },
     {
       "id": "T-055",
       "title": "型の改訂 (4) 攻撃の形式体系の追随と攻撃ライブラリ 12 件の再調整: 行動の 2 基底(公開: 自分名義のメッセージを任意の内容(偽造不能)・時機・受信者集合へ — 保留・選択配送・沈黙を含む / 配送: 正直者のメッセージの最大 d スロットの遅延・欠落、分断はその対称集合)を型として定義し介入語彙をその糖衣として能力判定を基底に接続、前提(プリセット+上書き・遅延上限 d)を攻撃の宣言に、A10 を同一エポックの 2 target への投票を選択配送で分ける機構に・A12 を包囲投票の証拠を自枝で省略する機構に再設計、成功条件 19(達成/未達)・22・27(可罰性: 違反判定までに攻撃者 ≥ 1/3 の FFG 証拠が神視点で成立し取り込んだ枝でスラッシングが効く)のテスト、型一覧・README・docs/INSPECTION.md の追随",
-      "status": "pending",
+      "status": "done",
       "priority": "must",
       "spec": [
         "S-037",
@@ -2031,7 +2055,31 @@
       "batch_group": "e5-type-revision",
       "context_cost": 5,
       "risk_level": "normal",
-      "notes": "遂行順序 1。攻撃の定義・能力範囲・述語の意味論は変えない(思想 (c))。攻撃者集合の条件(人数下限 | ステーク比率下限)は既存 AttackerCondition で満たす。A10/A12 は成功条件 27 の可罰性を伴う: FFG 証拠(二重投票または包囲投票)が神視点で ≥ 1/3 分成立し、証拠を取り込んだ枝でスラッシングが効く(取り込まない自枝では効かない)。"
+      "notes": "遂行順序 1。攻撃の定義・能力範囲・述語の意味論は変えない(思想 (c))。攻撃者集合の条件(人数下限 | ステーク比率下限)は既存 AttackerCondition で満たす。A10/A12 は成功条件 27 の可罰性を伴う: FFG 証拠(二重投票または包囲投票)が神視点で ≥ 1/3 分成立し、証拠を取り込んだ枝でスラッシングが効く(取り込まない自枝では効かない)。",
+      "evidence": [
+        {
+          "type": "diff",
+          "summary": "Model: attack.ts (AttackPremise = {preset, overrides?, maxDelay}; MessageSpan; PublishBase = {base: 'publish', message: MessageRef | MessageSpan, decides: content | timing | receivers | silence}; DeliverBase = {base: 'deliver', message, hold: number | 'drop', observers?}; ActionBase; basesOf(action, attackers, schedule) expands every action kind — own delay/drop = publish timing/receivers, honest delay/drop = deliver, partition = deliver of honest members over the span (hold = span length or drop) + publish receivers of attacker members, stop = publish silence over the span, double-vote split = content + receivers; withinRange(bases, attackers, maxDelay): publishes must be the attackers' own, deliveries must name honest messages ahead (no individual) and hold ≤ d or drop; capabilityOf = withinRange + the Capability label by action kind — own withholding is no longer bounded by d, a closed partition longer than d is outside), attackLibrary.ts (omitOwnEvidence / omittingOwnEvidence: the attackers' proposals omit every piece of evidence against themselves read off the observation; A10: delays instead of drops (B3 to validator 0 until 11, B4 and validator 0's slot-2/3 votes to validator 1 until 10–12), votes for A in even slots / B in odd slots each delivered to that branch's honest validator only until slot 12 (deliverOnlyTo), voteAllFfg at 7/9/11; A12: explicit parents and vote heads through slot 20 (the honest chain, having slashed the attackers, justifies on one validator and would otherwise win the root tie-break), own evidence omitted; A14: votes for A in the epoch's second slot and for B in the other three (the fork point at the split slot), each dropped for the other branch's validators, own evidence omitted). Sim: attackLibrary.ts (premise carries maxDelay; AttackDefaultRun.params optional extras; defaultParams / defaultInstance; A05 override checkpointSwitch {window: false, unrealized: false}; A10 d = 8 / throughSlot 14 / capabilities withhold + delay-honest; A12 capabilities + omit-inclusion; A14 + withhold; summaries updated). Docs: README (two bases, premise, partition bound, accountability), docs/INSPECTION.md. Tests: attack.test.ts (own withholding unbounded, honest delays bounded, partition closed ≤ d / open / closed > d, basesOf expansion of every kind), attackLibrary.test.ts (defaultInstance/defaultParams, every generated action accepted, accountability of A10 (double votes, evidence carried by the slot-13 honest block after the heal, violation @11) and A12 (surround votes, carried by the slot-15 honest block on the finalized history, attackers' branch evidence-free, violation @17), A14 god-view evidence never included), ui/typeGraph (AttackPremise, ActionBase, PublishBase, DeliverBase)."
+        },
+        {
+          "type": "command",
+          "command": "npm run typecheck",
+          "exit_code": 0,
+          "summary": "tsc --noEmit exits 0 on src and tests."
+        },
+        {
+          "type": "command",
+          "command": "npx vitest run",
+          "exit_code": 0,
+          "summary": "31 files / 382 tests pass, including the new evidence-form, switch, leak, capability-base and accountability tests; all 12 library attacks reach their goal under their default run with every generated action accepted; A01/A03/A04/A07 miss under merge; A05 window / current observations unchanged."
+        },
+        {
+          "type": "command",
+          "command": "npm run build",
+          "exit_code": 0,
+          "summary": "tsc --noEmit && vite build exits 0 (dist/ static bundle)."
+        }
+      ]
     }
   ]
 }

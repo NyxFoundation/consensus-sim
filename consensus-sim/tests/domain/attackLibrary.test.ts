@@ -2,7 +2,8 @@
 // its declared premise and default run (成功条件 19), the mitigation-sensitive
 // attacks (A01, A03, A04, A07) miss under the merge preset with the overrides
 // removed, the bouncing (A05) is stopped by the switching window and runs
-// identically to `off` under `unrealized`, and a saved attack round-trips
+// identically to both switches off under `current`, the safety violations
+// (A10, A12) are accountable (成功条件 27), and a saved attack round-trips
 // through the codec and replays identically (成功条件 20).
 
 import { describe, expect, it } from "vitest";
@@ -11,8 +12,13 @@ import {
   ATTACK_LIBRARY,
   ATTACK_REGISTRY,
   PRESETS,
+  attackerStakeRatio,
   bodyOf,
   compareCheckpoints,
+  defaultInstance,
+  defaultParams,
+  equivocationsIn,
+  equivocatorOf,
   goalAchievedAt,
   isAncestor,
   latestFinalized,
@@ -21,7 +27,6 @@ import {
   runScenario,
   satisfiesCondition,
   serializeScenario,
-  type AttackInstance,
   type Block,
   type LibraryAttack,
   type ProposedBlock,
@@ -46,17 +51,8 @@ function configFor(a: LibraryAttack, params: ProtocolParams): InitialConditions 
   };
 }
 
-function instanceOf(a: LibraryAttack): AttackInstance {
-  return {
-    id: a.id,
-    attack: { attackers: a.attackers, goal: a.goal, strategy: a.strategy },
-    attackers: a.defaultRun.attackers,
-    params: a.defaultRun.params,
-  };
-}
-
 function scenarioFor(a: LibraryAttack, params = premiseParams(a.premise)): Scenario {
-  return { config: configFor(a, params), interventions: [], attack: instanceOf(a) };
+  return { config: configFor(a, params), interventions: [], attack: defaultInstance(a) };
 }
 
 describe("attack library", () => {
@@ -67,12 +63,22 @@ describe("attack library", () => {
     }
   });
 
-  it("every default run satisfies the attacker-set condition", () => {
+  it("every default run satisfies the attacker-set condition and binds the premise's d", () => {
     for (const a of ATTACK_LIBRARY) {
       expect(
         satisfiesCondition(a.attackers, a.defaultRun.attackers, configFor(a, premiseParams(a.premise))),
         `${a.id} default run violates its attacker condition`,
       ).toBe(true);
+      expect(defaultParams(a).maxDelay).toBe(a.premise.maxDelay);
+      expect(a.premise.maxDelay).toBeGreaterThanOrEqual(0);
+    }
+  });
+
+  it("accepts every generated action of every default run (能力範囲)", () => {
+    for (const a of ATTACK_LIBRARY) {
+      const run = runScenario(scenarioFor(a), a.defaultRun.throughSlot);
+      const discarded = run.generated.filter((g) => g.discarded !== undefined);
+      expect(discarded, `${a.id} discards ${JSON.stringify(discarded[0])}`).toEqual([]);
     }
   });
 
@@ -141,7 +147,7 @@ describe("attack library", () => {
   it("the bouncing (A05) alternates the justified checkpoint between two branches and finalizes nothing", () => {
     const a05 = ATTACK_LIBRARY.find((a) => a.id === "A05")!;
     const params = premiseParams(a05.premise);
-    expect(params.checkpointSwitch).toBe("off");
+    expect(params.checkpointSwitch).toEqual({ window: false, unrealized: false });
     expect(params.committee.kind).toBe("epoch-split");
     const run = runScenario(scenarioFor(a05), 36);
     expect(run.generated.every((g) => g.discarded === undefined)).toBe(true);
@@ -169,7 +175,7 @@ describe("attack library", () => {
 
   // The A05 mitigation observations of 成功条件 19: the switching window stops
   // the bounce, unrealized justification does not act on it.
-  const bouncingUnder = (checkpointSwitch: ProtocolParams["checkpointSwitch"], throughSlot: number) => {
+  const bouncingUnder = (checkpointSwitch: "off" | "window" | "unrealized", throughSlot: number) => {
     const a05 = ATTACK_LIBRARY.find((a) => a.id === "A05")!;
     const premise = premiseParams(a05.premise);
     // `off` is the premise itself; `window` / `unrealized` keep the committee
@@ -178,7 +184,10 @@ describe("attack library", () => {
       checkpointSwitch === "off"
         ? premise
         : { ...(checkpointSwitch === "unrealized" ? PRESETS.current : PRESETS.merge), committee: premise.committee };
-    expect(params.checkpointSwitch).toBe(checkpointSwitch);
+    expect(params.checkpointSwitch).toEqual({
+      window: checkpointSwitch === "window",
+      unrealized: checkpointSwitch === "unrealized",
+    });
     return runScenario(scenarioFor(a05, params), throughSlot);
   };
   const honestTargetsByEpoch = (run: ReturnType<typeof runScenario>) => {
@@ -224,18 +233,60 @@ describe("attack library", () => {
     for (const s of unrealized.states) expect(latestFinalized(s.chainStates)).toEqual(ANCHOR_CHECKPOINT);
   });
 
-  it("the safety violations (A10, A12) finalize two conflicting checkpoints", () => {
-    for (const id of ["A10", "A12"]) {
-      const a = ATTACK_LIBRARY.find((x) => x.id === id)!;
-      const run = runScenario(scenarioFor(a), a.defaultRun.throughSlot);
-      const at = goalAchievedAt(run.goal!)!;
-      const evidence = run.goal![at]![0]!.evidence;
-      expect(evidence.kind).toBe("safety-violation");
-      if (evidence.kind !== "safety-violation") throw new Error("unreachable");
-      expect(evidence.conflicting, `${id} reports no conflicting pair`).toBeDefined();
-      // The strategy never trips slashing: no evidence is included anywhere.
-      const last = run.states[run.states.length - 1]!;
-      for (const block of last.tree.blocks.values()) expect(bodyOf(block).evidence).toEqual([]);
+  // 成功条件 27 (可罰性): by the slot the violation is judged, the god view
+  // holds FFG evidence (double or surround votes) of attackers worth at
+  // least a third of the stake, and a branch that includes it slashes them
+  // while a branch that does not keeps their stake.
+  const accountability = (id: string, evidenceKind: "double-vote" | "surround-vote") => {
+    const a = ATTACK_LIBRARY.find((x) => x.id === id)!;
+    const scenario = scenarioFor(a);
+    const run = runScenario(scenario, a.defaultRun.throughSlot);
+    const at = goalAchievedAt(run.goal!)!;
+    const verdict = run.goal![at]![0]!.evidence;
+    expect(verdict.kind).toBe("safety-violation");
+    if (verdict.kind !== "safety-violation") throw new Error("unreachable");
+    expect(verdict.conflicting, `${id} reports no conflicting pair`).toBeDefined();
+    const god = run.states[at]!;
+    const ffgEvidence = equivocationsIn(god.tree, god.votes).filter((e) => e.kind !== "double-proposal");
+    expect(ffgEvidence.map((e) => e.kind)).toContain(evidenceKind);
+    const accused = [...new Set(ffgEvidence.map(equivocatorOf))];
+    for (const v of accused) expect(scenario.attack!.attackers).toContain(v);
+    expect(attackerStakeRatio(accused, scenario.config)).toBeGreaterThanOrEqual(1 / 3);
+    // The branches at the end of the run: one carries the evidence and zeroes
+    // the accused, one does not and keeps their stake.
+    const last = run.states[run.states.length - 1]!;
+    const carrying = [...last.tree.blocks.values()].filter((b) => bodyOf(b).evidence.length > 0);
+    expect(carrying.length, `${id}: no block includes the evidence`).toBeGreaterThan(0);
+    const slashedOn = carrying[0]!.index;
+    for (const v of accused) expect(last.chainStates.get(slashedOn)!.stakes.get(v)).toBe(0);
+    // The other branch — a block neither above nor below the carrying one.
+    const spared = [...last.tree.blocks.values()]
+      .filter((b) => !isAncestor(last.tree, slashedOn, b.index) && !isAncestor(last.tree, b.index, slashedOn))
+      .sort((x, y) => y.slot - x.slot)[0];
+    expect(spared, `${id}: no branch without the evidence`).toBeDefined();
+    expect(bodyOf(spared!).evidence).toEqual([]);
+    for (const v of accused) expect(last.chainStates.get(spared!.index)!.stakes.get(v)).toBe(32);
+    return { run, at, carrying: carrying[0]! };
+  };
+
+  it("the double finality (A10) is accountable: FFG double votes, slashed once the split heals", () => {
+    const { at, carrying } = accountability("A10", "double-vote");
+    expect(at).toBe(11);
+    // The honest slot-13 proposal, after both honest validators see everything
+    // at slot 12, carries the evidence.
+    expect(carrying.slot).toBe(13);
+  });
+
+  it("the history domination (A12) is accountable: surround votes, slashed on the honest chain only", () => {
+    const { run, at, carrying } = accountability("A12", "surround-vote");
+    expect(at).toBe(17);
+    // The honest validator's slot-15 block on the finalized history carries
+    // the evidence; the attackers' branch (B12 onward) omits it throughout.
+    expect(carrying.slot).toBe(15);
+    expect(isAncestor(run.states[at]!.tree, 4, carrying.index)).toBe(true);
+    const last = run.states[run.states.length - 1]!;
+    for (const block of last.tree.blocks.values()) {
+      if (isAncestor(last.tree, 12, block.index)) expect(bodyOf(block).evidence).toEqual([]);
     }
   });
 
@@ -255,6 +306,12 @@ describe("attack library", () => {
     const head = run.states[ratio.achievedAt!]!.chainStates.get(evidence.head!)!;
     expect(head.stakes.get(3)).toBe(32);
     expect(head.stakes.get(1)!).toBeLessThan(32);
+    // Its two votes per epoch are FFG double votes in the god view, but the
+    // selective delivery keeps every honest view — and every block — free of
+    // the pair: nobody ever slashes it.
+    const last = run.states[run.states.length - 1]!;
+    expect(equivocationsIn(last.tree, last.votes).length).toBeGreaterThan(0);
+    for (const block of last.tree.blocks.values()) expect(bodyOf(block).evidence).toEqual([]);
   });
 
   it("resolves and replays a saved attack through the registry (成功条件 20)", () => {

@@ -16,9 +16,9 @@ import type { MessageRef } from "../model/messageRef";
 import type { AttackInstance } from "./attackRun";
 import {
   DEFAULT_PARAMS,
-  type CheckpointSwitch,
   type CommitteeAssignment,
   type ForkChoiceRule,
+  type InactivityLeak,
   type ProtocolParams,
 } from "../model/protocolParams";
 import type { Scenario } from "./scenario";
@@ -29,9 +29,9 @@ import {
 } from "./validatorSet";
 
 export const SCENARIO_FORMAT = "consensus-sim.scenario";
-/** Bumped with every change of the saved shape (2: message references by
- * sender / slot / kind, double-vote splits). */
-export const SCENARIO_VERSION = 2;
+/** Bumped with every change of the saved shape (3: the two checkpoint
+ * switches, the leak as {N, r} | off, surround-vote evidence). */
+export const SCENARIO_VERSION = 3;
 
 /** A saved run: the scenario plus how far it had advanced. */
 export interface SavedRun {
@@ -175,11 +175,15 @@ function committeeOf(
 }
 
 const FORK_CHOICE_RULES: readonly ForkChoiceRule[] = ["GHOST", "LMD-GHOST"];
-const CHECKPOINT_SWITCHES: readonly CheckpointSwitch[] = [
-  "window",
-  "unrealized",
-  "off",
-];
+
+/** The inactivity leak: "off", or {delayEpochs ≥ 1, rate in [0, 1]}. */
+function leakOf(x: unknown, what: string): InactivityLeak {
+  if (x === "off") return "off";
+  if (!isRecord(x)) throw new ParseError(`${what} must be "off" or an object`);
+  const delayEpochs = integer(x.delayEpochs, `${what}.delayEpochs`);
+  if (delayEpochs < 1) throw new ParseError(`${what}.delayEpochs must be ≥ 1`);
+  return { delayEpochs, rate: fractionOf(x.rate, `${what}.rate`) };
+}
 
 /** Validate protocol parameters; absent means the default preset (merge),
  * so scenarios saved before parameters existed stay loadable. */
@@ -190,13 +194,9 @@ function paramsOf(
 ): ProtocolParams {
   if (x === undefined) return DEFAULT_PARAMS;
   if (!isRecord(x)) throw new ParseError(`${what} must be an object`);
-  const leak = x.inactivityLeak;
-  if (!isRecord(leak)) {
-    throw new ParseError(`${what}.inactivityLeak must be an object`);
-  }
-  const delayEpochs = integer(leak.delayEpochs, `${what}.inactivityLeak.delayEpochs`);
-  if (delayEpochs < 1) {
-    throw new ParseError(`${what}.inactivityLeak.delayEpochs must be ≥ 1`);
+  const switching = x.checkpointSwitch;
+  if (!isRecord(switching)) {
+    throw new ParseError(`${what}.checkpointSwitch must be an object`);
   }
   return {
     committee: committeeOf(x.committee, validatorCount, `${what}.committee`),
@@ -206,17 +206,12 @@ function paramsOf(
       x.equivocationDiscount,
       `${what}.equivocationDiscount`,
     ),
-    checkpointSwitch: oneOf(
-      x.checkpointSwitch,
-      CHECKPOINT_SWITCHES,
-      `${what}.checkpointSwitch`,
-    ),
-    slashing: booleanOf(x.slashing, `${what}.slashing`),
-    inactivityLeak: {
-      enabled: booleanOf(leak.enabled, `${what}.inactivityLeak.enabled`),
-      delayEpochs,
-      rate: fractionOf(leak.rate, `${what}.inactivityLeak.rate`),
+    checkpointSwitch: {
+      window: booleanOf(switching.window, `${what}.checkpointSwitch.window`),
+      unrealized: booleanOf(switching.unrealized, `${what}.checkpointSwitch.unrealized`),
     },
+    slashing: booleanOf(x.slashing, `${what}.slashing`),
+    inactivityLeak: leakOf(x.inactivityLeak, `${what}.inactivityLeak`),
   };
 }
 
@@ -344,6 +339,7 @@ function listOf(x: unknown, what: string): unknown[] {
 const EVIDENCE_KINDS: readonly EvidenceRef["kind"][] = [
   "double-proposal",
   "double-vote",
+  "surround-vote",
 ];
 
 function evidenceRefOf(

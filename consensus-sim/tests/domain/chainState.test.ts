@@ -229,20 +229,60 @@ describe("inclusion (取り込み) and evidence (証拠)", () => {
     const evidence = equivocationsIn(tree, votes);
     expect(evidence).toEqual([
       { kind: "double-proposal", validator: 2, slot: 2, blocks: [2, 7] },
-      {
-        kind: "double-vote",
-        validator: 1,
-        slot: 2,
-        votes: [vote(1, 2, 2, 0, 0), vote(1, 2, 7, 0, 0)],
-      },
+      { kind: "double-vote", votes: [vote(1, 2, 2, 0, 0), vote(1, 2, 7, 0, 0)] },
     ]);
     expect(equivocationsIn(tree, [...votes].reverse())).toEqual(evidence);
+    expect(evidence.map(evidenceRef)).toEqual([
+      { kind: "double-proposal", validator: 2, slot: 2 },
+      { kind: "double-vote", validator: 1, slot: 2 },
+    ]);
   });
 
   it("treats a duplicate of the same vote as no equivocation", () => {
     const tree = chain(2);
     const v = vote(1, 2, 2, 0, 0);
     expect(equivocationsIn(tree, [v, { ...v }])).toEqual([]);
+  });
+
+  it("detects the FFG forms across slots: two targets of one epoch, and a surround", () => {
+    const tree = chain(9);
+    // Validator 1: epoch-1 votes with target B4 (slot 4) and B3 (slot 5).
+    const doubled = [vote(1, 4, 4, 0, 4), vote(1, 5, 5, 0, 3)];
+    expect(equivocationsIn(tree, doubled)).toEqual([{ kind: "double-vote", votes: doubled }]);
+    expect(equivocationsIn(tree, doubled).map(evidenceRef)).toEqual([
+      { kind: "double-vote", validator: 1, slot: 5 },
+    ]);
+    // Validator 2: (B4 → B8) at slot 8, then (anchor → B9's epoch-2 …) —
+    // no: (anchor@e0 → B8@e2) surrounds (B4@e1 → B5@e1)? Epochs must nest
+    // strictly: inner (1 → 1) is not a link; use inner (1 → 2) at slot 8
+    // and outer (0 → 3) at slot 12.
+    const inner = vote(2, 8, 8, 4, 8);
+    const outer: Vote = { validator: 2, slot: 12, head: 9, source: ANCHOR_CHECKPOINT, target: { epoch: 3, block: 9 } };
+    expect(equivocationsIn(tree, [outer, inner])).toEqual([
+      { kind: "surround-vote", votes: [inner, outer] },
+    ]);
+    expect(evidenceRef({ kind: "surround-vote", votes: [inner, outer] })).toEqual({
+      kind: "surround-vote",
+      validator: 2,
+      slot: 12,
+    });
+    // Same epochs on both ends, or a source that does not go back, is no
+    // surround; the same FFG part repeated in later slots is no evidence.
+    expect(equivocationsIn(tree, [inner, vote(2, 12, 9, 4, 9)])).toEqual([]);
+    expect(equivocationsIn(tree, [vote(2, 4, 4, 0, 4), vote(2, 5, 5, 0, 4), vote(2, 6, 6, 0, 4)])).toEqual([]);
+  });
+
+  it("draws cross-slot evidence between distinct FFG parts only, and same-slot evidence per pair", () => {
+    const tree = chain(9);
+    // Validator 1 votes target B4 at slots 4 and 5 and target B3 at slots 6
+    // and 7: one pair (the earliest of each FFG part), not four.
+    const votes = [vote(1, 4, 4, 0, 4), vote(1, 5, 5, 0, 4), vote(1, 6, 6, 0, 3), vote(1, 7, 7, 0, 3)];
+    expect(equivocationsIn(tree, votes)).toEqual([
+      { kind: "double-vote", votes: [vote(1, 4, 4, 0, 4), vote(1, 6, 6, 0, 3)] },
+    ]);
+    // Three conflicting votes in one slot: three pairs.
+    const triple = [vote(1, 4, 2, 0, 4), vote(1, 4, 3, 0, 4), vote(1, 4, 4, 0, 4)];
+    expect(equivocationsIn(tree, triple)).toHaveLength(3);
   });
 
   it("builds a body from everything not yet included on the branch", () => {

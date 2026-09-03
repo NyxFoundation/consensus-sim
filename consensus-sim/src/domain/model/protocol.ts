@@ -90,9 +90,9 @@ export function committeeWeight(
  * penalty included on a branch bites exactly there; the timely proposal of
  * `atSlot` gets its committee's weight × boost on top. The mitigations
  * (緩和策, 必須 27) apply here: the fork-choice rule picks the counted
- * votes, the equivocation discount zeroes a voter this view has seen
- * double-voting, and the checkpoint-switching rule chooses the root
- * (`window`) or prunes the candidates (`unrealized`).
+ * votes, the equivocation discount zeroes a voter whose vote evidence this
+ * view holds, and the two checkpoint-switching switches choose the root
+ * (window) and prune the candidates (unrealized), independently.
  */
 export function resolveView(
   view: View,
@@ -126,10 +126,9 @@ export function resolveView(
   const head = ghostHead(view.blockTree, view.votes, root.block, {
     weights,
     rule: params.forkChoice,
-    candidates:
-      params.checkpointSwitch === "unrealized"
-        ? viableBlocks(view.blockTree, states, root)
-        : undefined,
+    candidates: params.checkpointSwitch.unrealized
+      ? viableBlocks(view.blockTree, states, root)
+      : undefined,
   });
   return { states, root, head, chainState: states.get(head)!, weights };
 }

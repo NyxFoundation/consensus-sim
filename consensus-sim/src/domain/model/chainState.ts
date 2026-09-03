@@ -16,9 +16,10 @@
 //   a justified source whose target of the very next epoch (by epoch
 //   number) gets justified is finalized.
 // - Slashing (スラッシング, on/off): from the block that includes evidence of
-//   an equivocation onward, the equivocator's stake on this branch is 0, so
-//   it drops out of every weight and threshold from then on.
-// - Inactivity leak (on/off, N, r): once an epoch ends on the branch, if
+//   an equivocation (any of its three forms) onward, the equivocator's stake
+//   on this branch is 0, so it drops out of every weight and threshold from
+//   then on.
+// - Inactivity leak ({N, r} | off): once an epoch ends on the branch, if
 //   finalized lags that epoch by more than N epochs (Ethereum's finality
 //   delay), every validator without a target vote of that epoch included on
 //   the branch loses the fraction r of its stake. An epoch is processed at
@@ -42,6 +43,7 @@ import {
   epochOf,
   inJustifiedSwitchWindow,
 } from "./finality";
+import { equivocatorOf } from "./inclusion";
 import { checkpointKey, higherCheckpoint } from "./order";
 import type { CheckpointSwitch } from "./protocolParams";
 import {
@@ -157,7 +159,7 @@ function deriveBranch(
   };
 
   const leakEpoch = (epoch: EpochIndex): void => {
-    if (epoch - finalized.epoch <= inactivityLeak.delayEpochs) return;
+    if (inactivityLeak === "off" || epoch - finalized.epoch <= inactivityLeak.delayEpochs) return;
     const active = participation.get(epoch);
     for (const [v, stake] of stakes) {
       if (!active?.has(v)) stakes.set(v, stake * (1 - inactivityLeak.rate));
@@ -167,7 +169,7 @@ function deriveBranch(
   for (const block of branch) {
     const body = bodyOf(block);
     if (slashing) {
-      for (const evidence of body.evidence) stakes.set(evidence.validator, 0);
+      for (const evidence of body.evidence) stakes.set(equivocatorOf(evidence), 0);
     }
     for (const vote of body.votes) {
       if (
@@ -193,7 +195,7 @@ function deriveBranch(
       active.add(vote.validator);
     }
     evaluateFinality();
-    if (inactivityLeak.enabled) {
+    if (inactivityLeak !== "off") {
       const ended = epochOf(block.slot) - 1;
       for (let epoch = processedEpoch + 1; epoch <= ended; epoch++) leakEpoch(epoch);
       processedEpoch = Math.max(processedEpoch, ended);
@@ -323,15 +325,19 @@ function highestJustified(states: Iterable<ChainState>): Checkpoint {
   return root;
 }
 
+/** Both switches off: the root is always the highest justified checkpoint
+ * known and every block is a candidate. */
+export const NO_SWITCHING: CheckpointSwitch = { window: false, unrealized: false };
+
 /**
  * The justified checkpoint a validator starts fork choice from, under the
- * justified-checkpoint switching rule (justified チェックポイント切替,
- * 必須 27) as a fork choice computed at `atSlot`:
+ * window switch of justified-checkpoint switching (justified チェック
+ * ポイント切替, 必須 27) as a fork choice computed at `atSlot`:
  *
- * - `off` / `unrealized`: the highest justified checkpoint among the chain
- *   states of every block it knows (`unrealized` filters candidates instead,
- *   see `viableBlocks`).
- * - `window`: the same inside the head section of the epoch; outside it the
+ * - window off: the highest justified checkpoint among the chain states of
+ *   every block it knows (the unrealized switch does not move the root; it
+ *   filters the candidates instead, see `viableBlocks`).
+ * - window on: the same inside the head section of the epoch; outside it the
  *   root switches only along its own chain. A block's slot stands for its
  *   arrival, so "the root as of the window" is the highest justified among
  *   blocks proposed before the window closed, and a newer justified
@@ -343,11 +349,11 @@ function highestJustified(states: Iterable<ChainState>): Checkpoint {
 export function forkChoiceRoot(
   tree: BlockTree,
   states: ChainStateIndex,
-  switching: CheckpointSwitch = "off",
+  switching: CheckpointSwitch = NO_SWITCHING,
   atSlot: SlotIndex = 0,
 ): Checkpoint {
   const free = highestJustified(states.values());
-  if (switching !== "window" || inJustifiedSwitchWindow(atSlot)) return free;
+  if (!switching.window || inJustifiedSwitchWindow(atSlot)) return free;
   const windowEnd =
     epochBoundarySlot(epochOf(atSlot)) + JUSTIFIED_SWITCH_WINDOW_SLOTS;
   const settled = highestJustified(
@@ -359,7 +365,7 @@ export function forkChoiceRoot(
 }
 
 /**
- * The blocks fork choice may descend into under `unrealized` switching: the
+ * The blocks fork choice may descend into under the unrealized switch: the
  * leaves whose chain state realizes a justified checkpoint of an epoch as
  * recent as `root`'s, together with their ancestors. A branch whose
  * included votes can only justify something older is excluded even when it

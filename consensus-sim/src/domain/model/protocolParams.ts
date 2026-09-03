@@ -1,7 +1,8 @@
 // Protocol parameters (プロトコルパラメータ) and presets (プロトコルプリセット).
 // Reference type from ESSENCE.md:
 //   ProtocolParams = {committee, boost, forkChoice, equivocationDiscount,
-//                     checkpointSwitch, slashing, inactivityLeak}
+//                     checkpointSwitch: {window, unrealized}, slashing,
+//                     inactivityLeak: {delayEpochs, rate} | off}
 // A preset is a named bundle corresponding to a real point in Ethereum's
 // history; an attack declares its premise as a preset name plus overrides.
 // The default is `merge`.
@@ -18,19 +19,29 @@ export type CommitteeAssignment =
 /** GHOST counts every vote; LMD-GHOST only each validator's latest. */
 export type ForkChoiceRule = "GHOST" | "LMD-GHOST";
 
-/** How the fork-choice root may move to a newer justified checkpoint
- * (justified チェックポイント切替): only in the head slots of an epoch
- * (`window`), by unrealized justification (`unrealized`), or freely (`off`). */
-export type CheckpointSwitch = "window" | "unrealized" | "off";
+/** Justified-checkpoint switching (justified チェックポイント切替): two
+ * independent switches on the fork-choice root. `window`: the root may move
+ * to a conflicting justified checkpoint only in the head section of an
+ * epoch. `unrealized`: branches whose included votes can only justify a
+ * checkpoint older than the root are excluded from the candidates.
+ * Ethereum introduced the former first and the latter later, both against
+ * bouncing. */
+export interface CheckpointSwitch {
+  readonly window: boolean;
+  readonly unrealized: boolean;
+}
 
-export interface InactivityLeak {
-  readonly enabled: boolean;
-  /** Epochs without finality progress before the leak starts (N). */
+/** The inactivity leak's schedule: once finality lags by more than
+ * `delayEpochs` epochs (N), every validator without a target vote of an
+ * epoch included on the branch loses the fraction `rate` (r) of its stake
+ * for that epoch. */
+export interface LeakSchedule {
   readonly delayEpochs: number;
-  /** Fraction of stake removed per epoch from validators whose target vote
-   * the branch has not included (r). */
   readonly rate: number;
 }
+
+/** Inactivity leak (inactivity leak): its schedule, or off. */
+export type InactivityLeak = LeakSchedule | "off";
 
 export interface ProtocolParams {
   readonly committee: CommitteeAssignment;
@@ -51,20 +62,19 @@ export const DEFAULT_PRESET: PresetName = "merge";
 
 /** Leak defaults: N = 4 epochs (ESSENCE), r = 1/4 per epoch (discretion —
  * coarse enough to be visible within a few epochs of a stalled branch). */
-export const DEFAULT_INACTIVITY_LEAK: InactivityLeak = {
-  enabled: true,
+export const DEFAULT_INACTIVITY_LEAK: LeakSchedule = {
   delayEpochs: 4,
   rate: 0.25,
 };
 
 export const PRESETS: Readonly<Record<PresetName, ProtocolParams>> = {
-  /** Beacon chain genesis (2020-12): no boost, no discount, window switch. */
+  /** Beacon chain genesis (2020-12): no boost, no discount, the window. */
   phase0: {
     committee: { kind: "all" },
     boost: 0,
     forkChoice: "LMD-GHOST",
     equivocationDiscount: false,
-    checkpointSwitch: "window",
+    checkpointSwitch: { window: true, unrealized: false },
     slashing: true,
     inactivityLeak: DEFAULT_INACTIVITY_LEAK,
   },
@@ -74,17 +84,18 @@ export const PRESETS: Readonly<Record<PresetName, ProtocolParams>> = {
     boost: 0.4,
     forkChoice: "LMD-GHOST",
     equivocationDiscount: true,
-    checkpointSwitch: "window",
+    checkpointSwitch: { window: true, unrealized: false },
     slashing: true,
     inactivityLeak: DEFAULT_INACTIVITY_LEAK,
   },
-  /** After the 2023 fork-choice fixes: unrealized justification. */
+  /** After the 2023 fork-choice fixes: unrealized justification replaces
+   * the window. */
   current: {
     committee: { kind: "all" },
     boost: 0.4,
     forkChoice: "LMD-GHOST",
     equivocationDiscount: true,
-    checkpointSwitch: "unrealized",
+    checkpointSwitch: { window: false, unrealized: true },
     slashing: true,
     inactivityLeak: DEFAULT_INACTIVITY_LEAK,
   },
@@ -101,6 +112,11 @@ export function presetOf(params: ProtocolParams): PresetName | undefined {
   return PRESET_NAMES.find((name) => sameParams(PRESETS[name], params));
 }
 
+export function sameLeak(a: InactivityLeak, b: InactivityLeak): boolean {
+  if (a === "off" || b === "off") return a === b;
+  return a.delayEpochs === b.delayEpochs && a.rate === b.rate;
+}
+
 export function sameParams(a: ProtocolParams, b: ProtocolParams): boolean {
   return (
     a.committee.kind === b.committee.kind &&
@@ -110,10 +126,9 @@ export function sameParams(a: ProtocolParams, b: ProtocolParams): boolean {
     a.boost === b.boost &&
     a.forkChoice === b.forkChoice &&
     a.equivocationDiscount === b.equivocationDiscount &&
-    a.checkpointSwitch === b.checkpointSwitch &&
+    a.checkpointSwitch.window === b.checkpointSwitch.window &&
+    a.checkpointSwitch.unrealized === b.checkpointSwitch.unrealized &&
     a.slashing === b.slashing &&
-    a.inactivityLeak.enabled === b.inactivityLeak.enabled &&
-    a.inactivityLeak.delayEpochs === b.inactivityLeak.delayEpochs &&
-    a.inactivityLeak.rate === b.inactivityLeak.rate
+    sameLeak(a.inactivityLeak, b.inactivityLeak)
   );
 }

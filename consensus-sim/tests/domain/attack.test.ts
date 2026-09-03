@@ -10,6 +10,7 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_PARAMS,
   MAX_FORKS,
+  basesOf,
   capabilityOf,
   compileDelivery,
   coversMessage,
@@ -196,17 +197,31 @@ describe("the capability range (攻撃者の能力範囲, 必須 18)", () => {
     expect(cap({ kind: "partition", fromSlot: 5, groups: [[0, 2]] })).toBe("partition");
   });
 
-  it("puts acting as an honest validator, honest proposals and long delays outside", () => {
+  it("puts acting as an honest validator, honest proposals and long delays of honest messages outside", () => {
     expect(cap({ kind: "double-vote", slot: 5, validator: 2 })).toBeUndefined();
     expect(cap({ kind: "stop", fromSlot: 5, validators: [1, 2] })).toBeUndefined();
     expect(cap({ kind: "vote-target", slot: 5, validator: 0, head: 0 })).toBeUndefined();
     // Slot 6 is proposed by validator 2.
     expect(cap({ kind: "propose-parent", slot: 6, parent: 0 })).toBeUndefined();
     expect(cap({ kind: "omit-inclusion", slot: 6 })).toBeUndefined();
-    // d = 2: a delay may hold a message at most 2 slots past its slot.
+    // d = 2: an honest message may be held at most 2 slots past its slot…
     expect(
-      cap({ kind: "delay", message: { kind: "proposal", sender: 1, slot: 5 }, untilSlot: 8 }),
+      cap({ kind: "delay", message: { kind: "proposal", sender: 2, slot: 6 }, untilSlot: 9 }),
     ).toBeUndefined();
+    expect(
+      cap({ kind: "delay", message: { kind: "proposal", sender: 2, slot: 6 }, untilSlot: 8 }),
+    ).toBe("delay-honest");
+    // …while the attacker's own message it may withhold for any length of
+    // time (公開の時機は任意), and drop honest messages outright.
+    expect(
+      cap({ kind: "delay", message: { kind: "proposal", sender: 1, slot: 5 }, untilSlot: 20 }),
+    ).toBe("withhold");
+    expect(cap({ kind: "drop", message: { kind: "vote", sender: 0, slot: 6 } })).toBe("drop-honest");
+    // A partition is the symmetric set of deliveries: closed within d it is a
+    // delay, open it is a drop, closed but longer than d it is outside.
+    expect(cap({ kind: "partition", fromSlot: 5, toSlot: 6, groups: [[0, 2]] })).toBe("partition");
+    expect(cap({ kind: "partition", fromSlot: 5, groups: [[0, 2]] })).toBe("partition");
+    expect(cap({ kind: "partition", fromSlot: 5, toSlot: 7, groups: [[0, 2]] })).toBeUndefined();
     // An honest message named by its individual (exact ref) is outside the
     // range: its content is not the attacker's to know in advance.
     expect(
@@ -219,6 +234,58 @@ describe("the capability range (攻撃者の能力範囲, 必須 18)", () => {
     expect(
       cap({ kind: "drop", message: { kind: "vote", sender: 0, slot: 5, vote: dummyVote(0, 5, 4) } }),
     ).toBeUndefined();
+  });
+
+  it("expands every action into the two bases (公開 / 配送, 必須 18)", () => {
+    const bases = (action: Action) => basesOf(action, [1], schedule);
+    const vote5 = { kind: "vote", sender: 1, slot: 5 } as const;
+    expect(bases({ kind: "double-vote", slot: 5, validator: 1 })).toEqual([
+      { base: "publish", message: vote5, decides: "content" },
+    ]);
+    expect(
+      bases({ kind: "double-vote", slot: 5, validator: 1, head: 9, split: { first: [0], second: [2], untilSlot: 7 } }),
+    ).toEqual([
+      { base: "publish", message: vote5, decides: "content" },
+      { base: "publish", message: vote5, decides: "receivers" },
+    ]);
+    expect(bases({ kind: "vote-target", slot: 5, validator: 1, head: 0 })).toEqual([
+      { base: "publish", message: vote5, decides: "content" },
+    ]);
+    // Parent designation and omission decide the content of the slot's proposal.
+    const proposal5 = { kind: "proposal", sender: 1, slot: 5 } as const;
+    expect(bases({ kind: "propose-parent", slot: 5, parent: 0 })).toEqual([
+      { base: "publish", message: proposal5, decides: "content" },
+    ]);
+    expect(bases({ kind: "omit-inclusion", slot: 5 })).toEqual([
+      { base: "publish", message: proposal5, decides: "content" },
+    ]);
+    expect(bases({ kind: "stop", fromSlot: 5, toSlot: 6, validators: [1] })).toEqual([
+      { base: "publish", message: { senders: [1], fromSlot: 5, toSlot: 6 }, decides: "silence" },
+    ]);
+    // Delay / drop: own messages are publishes (timing / receivers), honest
+    // ones deliveries (hold / drop).
+    expect(bases({ kind: "delay", message: proposal5, untilSlot: 7 })).toEqual([
+      { base: "publish", message: proposal5, decides: "timing" },
+    ]);
+    expect(bases({ kind: "drop", message: vote5, observers: [2] })).toEqual([
+      { base: "publish", message: vote5, decides: "receivers" },
+    ]);
+    const honest6 = { kind: "proposal", sender: 2, slot: 6 } as const;
+    expect(bases({ kind: "delay", message: honest6, untilSlot: 8, observers: [0] })).toEqual([
+      { base: "deliver", message: honest6, hold: 2, observers: [0] },
+    ]);
+    expect(bases({ kind: "drop", message: honest6 })).toEqual([
+      { base: "deliver", message: honest6, hold: "drop" },
+    ]);
+    // A partition: a delivery of the honest members' messages and a publish
+    // (receivers) of the attacker's, over the span.
+    expect(bases({ kind: "partition", fromSlot: 5, toSlot: 6, groups: [[0, 1], [2]] })).toEqual([
+      { base: "deliver", message: { senders: [0, 2], fromSlot: 5, toSlot: 6 }, hold: 2 },
+      { base: "publish", message: { senders: [1], fromSlot: 5, toSlot: 6 }, decides: "receivers" },
+    ]);
+    expect(bases({ kind: "partition", fromSlot: 5, groups: [[0, 2]] })).toEqual([
+      { base: "deliver", message: { senders: [0, 2], fromSlot: 5 }, hold: "drop" },
+    ]);
   });
 
   it("splits a double vote's two halves between two observer sets before untilSlot (選択配送)", () => {
