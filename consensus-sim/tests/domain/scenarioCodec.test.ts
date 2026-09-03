@@ -9,6 +9,7 @@ import {
   PRESETS,
   equalStakes,
   parseScenario,
+  proposerForSlot,
   runScenario,
   scenarioStates,
   serializeScenario,
@@ -17,9 +18,22 @@ import {
   type Action,
   type Attack,
   type AttackRegistry,
+  type InitialConditions,
   type Intervention,
   type Scenario,
 } from "../../src/domain";
+
+const CONFIG: InitialConditions = {
+  validatorCount: 4,
+  seed: 7,
+  params: { ...PRESETS.phase0, committee: { kind: "sized", size: 3 } },
+  initialStakes: [32, 48, 16, 32],
+};
+
+/** The exact reference of B_n, the block published at slot n in this file's
+ * sequential-numbering scenario (block index = slot). */
+const blockAt = (slot: number) =>
+  ({ kind: "proposal", sender: proposerForSlot(slot, CONFIG), slot, block: slot }) as const;
 
 const ALL_KINDS: Intervention[] = [
   { kind: "partition", fromSlot: 2, toSlot: 6, groups: [[0, 1]] },
@@ -30,28 +44,34 @@ const ALL_KINDS: Intervention[] = [
   { kind: "double-propose", slot: 5, validator: 1 },
   { kind: "double-vote", slot: 6, validator: 3 },
   { kind: "double-vote", slot: 9, validator: 0, head: 1 },
-  { kind: "delay", message: { kind: "block", block: 2 }, untilSlot: 4 },
+  { kind: "delay", message: blockAt(2), untilSlot: 4 },
   {
     kind: "drop",
-    message: { kind: "vote", validator: 1, slot: 2, head: 2 },
+    message: {
+      kind: "vote",
+      sender: 1,
+      slot: 2,
+      vote: {
+        validator: 1,
+        slot: 2,
+        head: 2,
+        source: { epoch: 0, block: 0 },
+        target: { epoch: 0, block: 0 },
+      },
+    },
     observers: [0, 3],
   },
   { kind: "vote-target", slot: 7, validator: 2, head: 3, source: { epoch: 0, block: 0 } },
   {
     kind: "omit-inclusion",
     slot: 8,
-    votes: [{ kind: "vote", validator: 0, slot: 7, head: 7 }],
+    votes: [{ kind: "vote", sender: 0, slot: 7 }],
     evidence: [{ kind: "double-vote", validator: 3, slot: 6 }],
   },
 ];
 
 const SCENARIO: Scenario = {
-  config: {
-    validatorCount: 4,
-    seed: 7,
-    params: { ...PRESETS.phase0, committee: { kind: "sized", size: 3 } },
-    initialStakes: [32, 48, 16, 32],
-  },
+  config: CONFIG,
   interventions: ALL_KINDS,
 };
 
@@ -189,9 +209,31 @@ describe("parse rejection", () => {
     ["duplicate across partition groups", { kind: "partition", fromSlot: 1, groups: [[0, 1], [1]] }],
     ["empty partition groups", { kind: "partition", fromSlot: 1, groups: [] }],
     ["bad message kind", { kind: "drop", message: { kind: "gossip" } }],
-    ["non-positive block ref", { kind: "drop", message: { kind: "block", block: 0 } }],
-    ["delay without untilSlot", { kind: "delay", message: { kind: "block", block: 1 } }],
-    ["empty observers", { kind: "drop", message: { kind: "block", block: 1 }, observers: [] }],
+    [
+      "non-positive block ref",
+      { kind: "drop", message: { kind: "proposal", sender: 0, slot: 1, block: 0 } },
+    ],
+    [
+      "delay without untilSlot",
+      { kind: "delay", message: { kind: "proposal", sender: 0, slot: 1, block: 1 } },
+    ],
+    [
+      "empty observers",
+      {
+        kind: "drop",
+        message: { kind: "proposal", sender: 0, slot: 1, block: 1 },
+        observers: [],
+      },
+    ],
+    [
+      "double-vote split without a designated head",
+      {
+        kind: "double-vote",
+        slot: 1,
+        validator: 0,
+        split: { first: [1], second: [2], untilSlot: 3 },
+      },
+    ],
   ])("rejects intervention with %s", (_name, i) => {
     expect(() => parseScenario(withIntervention(i))).toThrow();
   });
@@ -249,16 +291,35 @@ describe("attack in a scenario (高々 1 つの攻撃)", () => {
     });
   });
 
-  it("round-trips ahead-of-publication message references (proposal / attestation)", () => {
+  it("round-trips ahead-of-publication message references (proposal / vote)", () => {
     const ahead: Intervention[] = [
-      { kind: "delay", message: { kind: "proposal", proposer: 1, slot: 5 }, untilSlot: 6 },
-      { kind: "drop", message: { kind: "attestation", validator: 2, slot: 5 }, observers: [0] },
-      { kind: "omit-inclusion", slot: 8, votes: [{ kind: "attestation", validator: 0, slot: 7 }] },
+      { kind: "delay", message: { kind: "proposal", sender: 1, slot: 5 }, untilSlot: 6 },
+      { kind: "drop", message: { kind: "vote", sender: 2, slot: 5 }, observers: [0] },
+      { kind: "omit-inclusion", slot: 8, votes: [{ kind: "vote", sender: 0, slot: 7 }] },
     ];
     const parsed = parseScenario(
       JSON.parse(JSON.stringify(serializeScenario({ ...SCENARIO, interventions: ahead }, 3))),
     );
     expect(parsed.scenario.interventions).toEqual(ahead);
+  });
+
+  it("round-trips a double vote with a split (選択配送)", () => {
+    const split: Intervention[] = [
+      {
+        kind: "double-vote",
+        slot: 6,
+        validator: 3,
+        head: 1,
+        split: { first: [0], second: [2], untilSlot: 8 },
+      },
+    ];
+    const parsed = parseScenario(
+      JSON.parse(JSON.stringify(serializeScenario({ ...SCENARIO, interventions: split }, 9))),
+    );
+    expect(parsed.scenario.interventions).toEqual(split);
+    expect(scenarioStates(parsed.scenario, 9)).toEqual(
+      scenarioStates({ ...SCENARIO, interventions: split }, 9),
+    );
   });
 
   it.each([
@@ -279,8 +340,8 @@ describe("attack in a scenario (高々 1 つの攻撃)", () => {
   });
 
   it.each([
-    ["a proposal reference with an out-of-range proposer", { kind: "proposal", proposer: 4, slot: 5 }],
-    ["an attestation reference without a slot", { kind: "attestation", validator: 1 }],
+    ["a proposal reference with an out-of-range sender", { kind: "proposal", sender: 4, slot: 5 }],
+    ["a vote reference without a slot", { kind: "vote", sender: 1 }],
   ])("rejects %s", (_name, message) => {
     expect(() =>
       parseScenario(withIntervention({ kind: "delay", message, untilSlot: 6 })),

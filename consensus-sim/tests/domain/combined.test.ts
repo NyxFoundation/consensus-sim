@@ -7,30 +7,45 @@
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_PARAMS,
+  atEnd,
   equalStakes,
   isProposed,
   latestVotes,
   parseScenario,
+  proposerForSlot,
   scenarioDelivery,
   scenarioStates,
   serializeScenario,
   viewOf,
+  type InitialConditions,
   type Intervention,
   type Scenario,
 } from "../../src/domain";
+
+const configOf = (validatorCount: number): InitialConditions => ({
+  validatorCount,
+  seed: 0,
+  params: DEFAULT_PARAMS,
+  initialStakes: equalStakes(validatorCount),
+});
 
 const scenario = (
   interventions: Intervention[],
   validatorCount = 4,
 ): Scenario => ({
-  config: {
-    validatorCount,
-    seed: 0,
-    params: DEFAULT_PARAMS,
-    initialStakes: equalStakes(validatorCount),
-  },
+  config: configOf(validatorCount),
   interventions,
 });
+
+/** The exact reference of B_n, the block published at slot n in this file's
+ * round-robin scenarios (block index = slot). */
+const blockAt = (slot: number, validatorCount = 4) =>
+  ({
+    kind: "proposal",
+    sender: proposerForSlot(slot, configOf(validatorCount)),
+    slot,
+    block: slot,
+  }) as const;
 
 // Every intervention kind in one 4-validator run. Round robin: slot s is
 // proposed by validator s % 4. Blocks index in publication order: B1@s1,
@@ -42,14 +57,14 @@ const everything = scenario([
   { kind: "offline", fromSlot: 4, toSlot: 6, validators: [3] },
   { kind: "double-propose", slot: 5, validator: 1 },
   { kind: "double-vote", slot: 3, validator: 0 },
-  { kind: "delay", message: { kind: "block", block: 2 }, untilSlot: 4, observers: [0] },
-  { kind: "drop", message: { kind: "block", block: 4 }, observers: [1] },
+  { kind: "delay", message: blockAt(2), untilSlot: 4, observers: [0] },
+  { kind: "drop", message: blockAt(4), observers: [1] },
   { kind: "propose-parent", slot: 7, parent: 0 },
   { kind: "vote-target", slot: 8, validator: 2, head: 1 },
   {
     kind: "omit-inclusion",
     slot: 9,
-    votes: [{ kind: "vote", validator: 2, slot: 8, head: 1 }],
+    votes: [{ kind: "vote", sender: 2, slot: 8 }],
     evidence: [{ kind: "double-vote", validator: 0, slot: 3 }],
   },
 ]);
@@ -82,8 +97,8 @@ describe("all intervention kinds combined", () => {
     const delivery = scenarioDelivery(everything);
     for (let v = 0; v < 4; v++) {
       for (let s = 0; s < THROUGH; s++) {
-        const now = viewOf(last.log, v, s, delivery);
-        const next = viewOf(last.log, v, s + 1, delivery);
+        const now = viewOf(last.log, v, atEnd(s), delivery);
+        const next = viewOf(last.log, v, atEnd(s + 1), delivery);
         for (const index of now.blockTree.blocks.keys()) {
           expect(next.blockTree.blocks.has(index)).toBe(true);
         }
@@ -106,8 +121,8 @@ describe("all intervention kinds combined", () => {
     const last = run[THROUGH];
     if (!last) throw new Error("missing state");
     const delivery = scenarioDelivery(everything);
-    expect(viewOf(last.log, 1, THROUGH, delivery).blockTree.blocks.has(4)).toBe(false);
-    expect(viewOf(last.log, 0, THROUGH, delivery).blockTree.blocks.has(4)).toBe(true);
+    expect(viewOf(last.log, 1, atEnd(THROUGH), delivery).blockTree.blocks.has(4)).toBe(false);
+    expect(viewOf(last.log, 0, atEnd(THROUGH), delivery).blockTree.blocks.has(4)).toBe(true);
   });
 });
 
@@ -138,7 +153,7 @@ describe("overlapping stop and offline spans on one validator", () => {
     if (!last) throw new Error("missing state");
     const delivery = scenarioDelivery(overlapped);
     const sizeAt = (s: number) =>
-      viewOf(last.log, 2, s, delivery).blockTree.blocks.size;
+      viewOf(last.log, 2, atEnd(s), delivery).blockTree.blocks.size;
     expect(sizeAt(3)).toBeGreaterThan(sizeAt(1));
     expect(sizeAt(7)).toBe(sizeAt(3));
     expect(sizeAt(8)).toBeGreaterThan(sizeAt(7));
@@ -157,7 +172,7 @@ describe("delay and partition must both clear at the same instant", () => {
   // where every condition holds at once, so B1 reaches V0 only at slot 6 —
   // not at slot 3, when the delay alone has expired.
   const squeezed = scenario([
-    { kind: "delay", message: { kind: "block", block: 1 }, untilSlot: 3, observers: [0] },
+    { kind: "delay", message: blockAt(1), untilSlot: 3, observers: [0] },
     { kind: "partition", fromSlot: 3, toSlot: 5, groups: [[0]] },
   ]);
 
@@ -166,9 +181,9 @@ describe("delay and partition must both clear at the same instant", () => {
     const last = run[6];
     if (!last) throw new Error("missing state");
     const delivery = scenarioDelivery(squeezed);
-    expect(viewOf(last.log, 0, 2, delivery).blockTree.blocks.has(1)).toBe(false);
-    expect(viewOf(last.log, 0, 5, delivery).blockTree.blocks.has(1)).toBe(false);
-    expect(viewOf(last.log, 0, 6, delivery).blockTree.blocks.has(1)).toBe(true);
+    expect(viewOf(last.log, 0, atEnd(2), delivery).blockTree.blocks.has(1)).toBe(false);
+    expect(viewOf(last.log, 0, atEnd(5), delivery).blockTree.blocks.has(1)).toBe(false);
+    expect(viewOf(last.log, 0, atEnd(6), delivery).blockTree.blocks.has(1)).toBe(true);
   });
 });
 
@@ -186,7 +201,7 @@ describe("equivocation inside a partition", () => {
     if (!last) throw new Error("missing state");
     const delivery = scenarioDelivery(split);
     const votesOfV0At = (observer: number, slot: number) =>
-      viewOf(last.log, observer, slot, delivery).votes.filter(
+      viewOf(last.log, observer, atEnd(slot), delivery).votes.filter(
         (v) => v.validator === 0 && v.slot === 3,
       );
     expect(votesOfV0At(1, 6)).toHaveLength(2);
@@ -199,7 +214,7 @@ describe("equivocation inside a partition", () => {
     if (!last) throw new Error("missing state");
     const delivery = scenarioDelivery(split);
     const resolved = [0, 1, 2, 3].map((observer) =>
-      latestVotes(viewOf(last.log, observer, 10, delivery).votes).get(0),
+      latestVotes(viewOf(last.log, observer, atEnd(10), delivery).votes).get(0),
     );
     expect(resolved[0]).toBeDefined();
     for (const r of resolved) expect(r).toEqual(resolved[0]);

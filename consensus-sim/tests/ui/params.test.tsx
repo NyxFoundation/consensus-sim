@@ -13,8 +13,8 @@ import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import {
   PRESETS,
-  committeeForSlot,
   equalStakes,
+  scheduleOf,
   validatorName,
 } from '../../src/domain'
 import { App } from '../../src/ui/App'
@@ -185,7 +185,7 @@ describe('committee size and seed', () => {
         params: { ...PRESETS.merge, committee: { kind: 'sized', size: 2 } as const },
         initialStakes: equalStakes(4),
       }
-      const expected = [...committeeForSlot(3, config)].map(validatorName)
+      const expected = [...scheduleOf(config).committeeOf(3)].map(validatorName)
       const voters = all('.vote-table tbody tr')
         .filter((r) => r.querySelectorAll('td')[1]?.textContent === '3')
         .map((r) => r.querySelectorAll('td')[0]?.textContent?.trim())
@@ -216,8 +216,9 @@ describe('committee size and seed', () => {
         r.querySelectorAll('td')[1]?.textContent,
       ]),
     )
+    const schedule = scheduleOf(config)
     const assignedSlot = (v: number, epoch: number) =>
-      [0, 1, 2, 3].map((i) => epoch * 4 + i).find((s) => committeeForSlot(s, config).has(v))
+      [0, 1, 2, 3].map((i) => epoch * 4 + i).find((s) => schedule.committeeOf(s).has(v))
     for (const v of [0, 1, 2, 3]) {
       const expected = assignedSlot(v, 2) === 8 ? 8 : assignedSlot(v, 1)
       expect(latest.get(validatorName(v))).toBe(String(expected))

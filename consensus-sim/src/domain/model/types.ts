@@ -29,6 +29,23 @@ export const ANCHOR_BLOCK_INDEX: BlockIndex = 0;
 export const START_SLOT: SlotIndex = 0;
 
 /**
+ * An instant (観測時点): one of the three moments of a slot, in this order —
+ * a block is published at the proposal instant, votes at the vote instant,
+ * and each reaches later instants' views through delivery. An instant is a
+ * coordinate of a view (where the knowledge is read), never its content.
+ */
+export type Phase = "proposal" | "vote" | "end";
+
+export interface Instant {
+  readonly slot: SlotIndex;
+  readonly phase: Phase;
+}
+
+export const atProposal = (slot: SlotIndex): Instant => ({ slot, phase: "proposal" });
+export const atVote = (slot: SlotIndex): Instant => ({ slot, phase: "vote" });
+export const atEnd = (slot: SlotIndex): Instant => ({ slot, phase: "end" });
+
+/**
  * A checkpoint (チェックポイント): the block that stands for `epoch` on some
  * branch — the latest block on the branch at or before the epoch's first
  * slot. When that boundary slot is empty the same block is the checkpoint

@@ -29,7 +29,7 @@ import type { AttackGoal } from "../model/attackGoal";
 import type { AttackerCondition, AttackParams, Capability } from "../model/attack";
 import type { AttackRegistry } from "./scenarioCodec";
 import { PRESETS, type PresetName, type ProtocolParams } from "../model/protocolParams";
-import { equalStakes } from "../model/config";
+import { equalStakes } from "../model/initialConditions";
 import type { SlotIndex, Stake, ValidatorIndex } from "../model/types";
 
 /** An attack's premise: a preset with optional field overrides. */
@@ -166,7 +166,7 @@ export const ATTACK_LIBRARY: readonly LibraryAttack[] = [
       attackers: [1],
       params: { maxDelay: 2 },
       seed: DEFAULT_SEED,
-      throughSlot: 16,
+      throughSlot: 21,
     },
   },
   {

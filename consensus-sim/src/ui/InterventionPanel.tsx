@@ -12,6 +12,9 @@ import { useState } from 'react'
 import {
   ANCHOR_BLOCK_INDEX,
   MAX_FORKS,
+  atEnd,
+  atProposal,
+  blockRef,
   buildBody,
   checkpointFor,
   checkpointKey,
@@ -24,14 +27,16 @@ import {
   pendingForkParents,
   proposerForSlot,
   resolveView,
+  scheduleOf,
   validatorName,
   viewOf,
+  voteKey,
   voteRef,
 } from '../domain'
 import type {
   Checkpoint,
   EvidenceRef,
-  SimulationConfig,
+  InitialConditions,
   Intervention,
   MessageRef,
   OperatingState,
@@ -61,23 +66,22 @@ const setLabel = (vs: readonly ValidatorIndex[]) =>
   vs.map(validatorLabel).join(', ')
 
 function messageLabel(ref: MessageRef): string {
-  switch (ref.kind) {
-    case 'block':
-      return `ブロック B${ref.block}`
-    case 'vote':
-      return `${validatorName(ref.validator)} の投票（s${ref.slot}, head B${ref.head}）`
-    case 'proposal':
-      return `${validatorName(ref.proposer)} の提案（s${ref.slot}）`
-    case 'attestation':
-      return `${validatorName(ref.validator)} の投票（s${ref.slot}）`
+  const who = validatorName(ref.sender)
+  if (ref.kind === 'proposal') {
+    return ref.block === undefined
+      ? `${who} の提案（s${ref.slot}）`
+      : `ブロック ${blockName(ref.block)}`
   }
+  return ref.vote === undefined
+    ? `${who} の投票（s${ref.slot}）`
+    : `${who} の投票（s${ref.slot}, head ${blockName(ref.vote.head)}）`
 }
 
 function spanLabel(fromSlot: number, toSlot: number | undefined): string {
   return toSlot === undefined ? `s${fromSlot}〜` : `s${fromSlot}〜s${toSlot}`
 }
 
-function describe(i: Intervention, config: SimulationConfig): string {
+function describe(i: Intervention, config: InitialConditions): string {
   switch (i.kind) {
     case 'partition':
       return `分断 { ${i.groups.map(setLabel).join(' | ')} } ⇔ 残り全員 ${spanLabel(i.fromSlot, i.toSlot)}`
@@ -94,6 +98,12 @@ function describe(i: Intervention, config: SimulationConfig): string {
     case 'double-vote':
       return `二重投票 ${validatorLabel(i.validator)} @ s${i.slot}${
         i.head === undefined ? '' : `（2 票目 head ${blockName(i.head)}）`
+      }${
+        i.split === undefined
+          ? ''
+          : `（選択配送: 1 票目→${setLabel(i.split.first)}, 2 票目→${setLabel(
+              i.split.second,
+            )}, 他は s${i.split.untilSlot} から）`
       }`
     case 'delay':
       return `遅延 ${messageLabel(i.message)} → s${i.untilSlot} まで${
@@ -118,8 +128,10 @@ function describe(i: Intervention, config: SimulationConfig): string {
   }
 }
 
-const voteRefKey = (r: MessageRef) =>
-  r.kind === 'vote' ? `${r.validator}:${r.slot}:${r.head}` : `${r.kind}:${JSON.stringify(r)}`
+const messageKey = (r: MessageRef) =>
+  r.kind === 'proposal'
+    ? `proposal:${r.sender}:${r.slot}:${r.block ?? ''}`
+    : `vote:${r.sender}:${r.slot}:${r.vote === undefined ? '' : voteKey(r.vote)}`
 const evidenceRefKey = (r: EvidenceRef) => `${r.kind}:${r.validator}:${r.slot}`
 
 interface MessageOption {
@@ -135,23 +147,19 @@ interface MessageOption {
 function messageOptionGroups(
   state: SimulationState,
 ): { slot: number; options: MessageOption[] }[] {
-  const blocks = state.log.blocks.map((m) => ({
-    key: `block:${m.block.index}`,
-    ref: { kind: 'block', block: m.block.index } as MessageRef,
-    label: `ブロック B${m.block.index}（提案 ${validatorName(m.block.proposer)}, s${m.block.slot}）`,
-    at: m.publishedAt,
-  }))
-  const votes = state.log.votes.map((m) => ({
-    key: `vote:${m.vote.validator}:${m.vote.slot}:${m.vote.head}`,
-    ref: {
-      kind: 'vote',
-      validator: m.vote.validator,
-      slot: m.vote.slot,
-      head: m.vote.head,
-    } as MessageRef,
-    label: `${validatorName(m.vote.validator)} の投票（s${m.vote.slot}, head B${m.vote.head}）`,
-    at: m.publishedAt,
-  }))
+  const blocks = state.log.blocks.map((m) => {
+    const ref = blockRef(m.block)
+    return {
+      key: messageKey(ref),
+      ref,
+      label: `ブロック ${blockName(m.block.index)}（提案 ${validatorName(m.block.proposer)}, s${m.block.slot}）`,
+      at: m.publishedAt,
+    }
+  })
+  const votes = state.log.votes.map((m) => {
+    const ref = voteRef(m.vote)
+    return { key: messageKey(ref), ref, label: messageLabel(ref), at: m.publishedAt }
+  })
   const bySlot = new Map<number, MessageOption[]>()
   for (const { at, key, ref, label } of [...blocks, ...votes]) {
     const list = bySlot.get(at) ?? []
@@ -258,7 +266,7 @@ export function InterventionPanel({ session }: InterventionPanelProps) {
         ])
   const forkRefused = forkCountDesignated > MAX_FORKS
   const proposerBlocks = [
-    ...viewOf(current.log, nextProposer, cursor, delivery).blockTree.blocks.values(),
+    ...viewOf(current.log, nextProposer, atEnd(cursor), delivery).blockTree.blocks.values(),
   ].sort((a, b) => a.index - b.index)
 
   const doubleProposeScheduled = interventions.some(
@@ -272,7 +280,7 @@ export function InterventionPanel({ session }: InterventionPanelProps) {
   // the voter's own view at the cursor, the source from the checkpoints of
   // that view's branches (every epoch up to the next slot's, on every leaf);
   // the vote itself is cast from its view at the next slot.
-  const voterTree = viewOf(current.log, vtValidator, cursor, delivery).blockTree
+  const voterTree = viewOf(current.log, vtValidator, atEnd(cursor), delivery).blockTree
   const voterBlocks = [...voterTree.blocks.values()].sort((a, b) => a.index - b.index)
   const voterCheckpoints = (() => {
     const found = new Map<string, Checkpoint>()
@@ -303,7 +311,7 @@ export function InterventionPanel({ session }: InterventionPanelProps) {
 
   // Omitted inclusion (取り込みの省略): what the next proposer would include
   // — everything in its view not yet on the branch it builds on.
-  const proposerView = viewOf(current.log, nextProposer, cursor, delivery)
+  const proposerView = viewOf(current.log, nextProposer, atProposal(nextSlot), delivery)
   const scheduledParent = interventions.find(
     (i) => i.kind === 'propose-parent' && i.slot === nextSlot,
   )
@@ -311,13 +319,13 @@ export function InterventionPanel({ session }: InterventionPanelProps) {
     scheduledParent?.kind === 'propose-parent' &&
     proposerView.blockTree.blocks.has(scheduledParent.parent)
       ? scheduledParent.parent
-      : resolveView(proposerView, config, nextSlot).head
+      : resolveView(proposerView, config, scheduleOf(config), nextSlot).head
   const candidates = buildBody(proposerView.blockTree, proposerView.votes, inclusionParent)
   const toggleKey = (list: readonly string[], key: string): string[] =>
     list.includes(key) ? list.filter((k) => k !== key) : [...list, key]
   const omitSelected = omitVotes.length + omitEvidence.length > 0
   const scheduleOmission = () => {
-    const votes = candidates.votes.map(voteRef).filter((r) => omitVotes.includes(voteRefKey(r)))
+    const votes = candidates.votes.map(voteRef).filter((r) => omitVotes.includes(messageKey(r)))
     const evidence = candidates.evidence
       .map(evidenceRef)
       .filter((r) => omitEvidence.includes(evidenceRefKey(r)))
@@ -667,7 +675,7 @@ export function InterventionPanel({ session }: InterventionPanelProps) {
           ) : (
             <div className="validator-checks">
               {candidates.votes.map((v) => {
-                const key = voteRefKey(voteRef(v))
+                const key = messageKey(voteRef(v))
                 const label = `${validatorName(v.validator)} の投票（s${v.slot}, head ${blockName(v.head)}）`
                 return (
                   <label key={key} className="check-inline">

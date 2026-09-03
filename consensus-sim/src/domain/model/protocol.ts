@@ -15,12 +15,12 @@ import {
   type ChainState,
   type ChainStateIndex,
 } from "./chainState";
-import type { SimulationConfig } from "./config";
+import type { InitialConditions } from "./initialConditions";
 import { checkpointFor, epochOf } from "./finality";
 import { ghostHead, type ForkChoiceWeights } from "./forkChoice";
 import { buildBody, equivocatingVoters, type Omission } from "./inclusion";
-import { compareBlockIndex } from "./order";
-import { committeeForSlot, proposerForSlot } from "./schedule";
+import { compareBlockIndex, compareVoteContent } from "./order";
+import { proposerForSlot, type Schedule } from "./schedule";
 import {
   type BlockIndex,
   type Checkpoint,
@@ -54,7 +54,7 @@ export interface Resolution {
 export function boostedBlock(
   view: View,
   atSlot: SlotIndex,
-  config: SimulationConfig,
+  config: InitialConditions,
 ): BlockIndex | undefined {
   if (config.params.boost <= 0) return undefined;
   const proposer = proposerForSlot(atSlot, config);
@@ -73,31 +73,32 @@ export function boostedBlock(
 /** Total stake of `slot`'s committee in `stakes`. */
 export function committeeWeight(
   slot: SlotIndex,
-  config: SimulationConfig,
+  schedule: Schedule,
   stakes: ReadonlyMap<ValidatorIndex, Stake>,
 ): Stake {
   let total = 0;
-  for (const v of committeeForSlot(slot, config)) total += stakes.get(v) ?? 0;
+  for (const v of schedule.committeeOf(slot)) total += stakes.get(v) ?? 0;
   return total;
 }
 
 /**
  * Run chain-state derivation and fork choice over a view, as a fork choice
- * computed at `atSlot` (the view's own slot unless the caller acts later,
- * as a proposer does on its view of the slots before its own). A vote
- * weighs the voter's stake in the chain state of the head it votes for
- * (ESSENCE 必須 25: a validator's weight is its stake in its head's chain
- * state), so a penalty included on a branch bites exactly there; the timely
- * proposal of `atSlot` gets its committee's weight × boost on top. The
- * mitigations (緩和策, 必須 27) apply here: the fork-choice rule picks the
- * counted votes, the equivocation discount zeroes a voter this view has
- * seen double-voting, and the checkpoint-switching rule chooses the root
+ * computed at `atSlot` (the slot the validator acts in — a proposer acts at
+ * its own slot on its view of the slots before it). A vote weighs the
+ * voter's stake in the chain state of the head it votes for (ESSENCE 必須
+ * 25: a validator's weight is its stake in its head's chain state), so a
+ * penalty included on a branch bites exactly there; the timely proposal of
+ * `atSlot` gets its committee's weight × boost on top. The mitigations
+ * (緩和策, 必須 27) apply here: the fork-choice rule picks the counted
+ * votes, the equivocation discount zeroes a voter this view has seen
+ * double-voting, and the checkpoint-switching rule chooses the root
  * (`window`) or prunes the candidates (`unrealized`).
  */
 export function resolveView(
   view: View,
-  config: SimulationConfig,
-  atSlot: SlotIndex = view.slot,
+  config: InitialConditions,
+  schedule: Schedule,
+  atSlot: SlotIndex,
 ): Resolution {
   const { params } = config;
   const states = chainStatesOf(view.blockTree, config);
@@ -118,7 +119,7 @@ export function resolveView(
         : {
             block: boosted,
             weight:
-              committeeWeight(atSlot, config, states.get(boosted)!.stakes) *
+              committeeWeight(atSlot, schedule, states.get(boosted)!.stakes) *
               config.params.boost,
           },
   };
@@ -161,15 +162,45 @@ export function buildProposal(
 }
 
 /**
- * The vote an attester casts at `slot` from its view: head by fork choice,
- * source = the justified checkpoint of the head's chain state, target = the
- * current epoch's checkpoint on the head's chain. `override` (投票先指定)
- * replaces any of the three: a designated head (a block of the view) moves
- * source and target onto its chain by the same FFG rule; a designated
- * target is a block of the view standing as the checkpoint of the slot's
- * epoch (the epoch follows from the slot); a designated source is a
- * checkpoint of a branch of the view. A designation the view does not hold
- * is ignored.
+ * The FFG part a validator settled on for `epoch`, if it has voted in that
+ * epoch already: the (source, target) of its first vote of the epoch in the
+ * view (the earliest slot; under a double vote, the content order breaks
+ * the tie).
+ */
+function ffgSettledIn(
+  view: View,
+  validator: ValidatorIndex,
+  epoch: number,
+): Pick<Vote, "source" | "target"> | undefined {
+  let first: Vote | undefined;
+  for (const vote of view.votes) {
+    if (vote.validator !== validator || epochOf(vote.slot) !== epoch) continue;
+    if (
+      first === undefined ||
+      vote.slot < first.slot ||
+      (vote.slot === first.slot && compareVoteContent(vote, first) < 0)
+    ) {
+      first = vote;
+    }
+  }
+  return first === undefined ? undefined : { source: first.source, target: first.target };
+}
+
+/**
+ * The vote an attester casts at `slot` from its view. The head follows fork
+ * choice every slot (the LMD part); the FFG part (source, target) is
+ * decided once per epoch: in the first slot the validator votes in during
+ * the epoch it is read off the head's chain — source = the justified
+ * checkpoint of the head's chain state, target = the epoch's checkpoint on
+ * the head's chain — and every later vote of the same epoch repeats it (an
+ * honest validator never contradicts its own FFG vote, as Ethereum attests
+ * once per epoch). `override` (投票先指定) replaces any of the three: a
+ * designated head (a block of the view) moves a freshly decided FFG part
+ * onto its chain; a designated target is a block of the view standing as
+ * the checkpoint of the slot's epoch (the epoch follows from the slot); a
+ * designated source is a checkpoint of a branch of the view — a designated
+ * FFG part that differs from the one already cast this epoch is evidence.
+ * A designation the view does not hold is ignored.
  */
 export function buildAttestation(
   view: View,
@@ -183,18 +214,17 @@ export function buildAttestation(
     b !== undefined && tree.blocks.has(b) ? b : undefined;
   const head = known(override.head) ?? resolution.head;
   const epoch = epochOf(slot);
+  const settled = ffgSettledIn(view, validator, epoch);
   const source =
     override.source !== undefined && known(override.source.block) !== undefined
       ? override.source
-      : resolution.states.get(head)!.justified;
-  const target = known(override.target);
-  return {
-    validator,
-    slot,
-    head,
-    source,
-    target: target === undefined ? checkpointFor(tree, head, epoch) : { epoch, block: target },
-  };
+      : (settled?.source ?? resolution.states.get(head)!.justified);
+  const designatedTarget = known(override.target);
+  const target =
+    designatedTarget !== undefined
+      ? { epoch, block: designatedTarget }
+      : (settled?.target ?? checkpointFor(tree, head, epoch));
+  return { validator, slot, head, source, target };
 }
 
 /** 投票先指定: what an attester's vote is steered to, each optional — the
@@ -211,7 +241,7 @@ export interface VoteOverride {
  * primary, endorsing `head` when it is designated, held by the view and
  * differs from the primary head, otherwise the primary head's parent —
  * deterministic, and a genuine equivocation whenever the two heads differ.
- * The target follows the FFG rule on the alternative head's chain; the
+ * The target is the epoch's checkpoint on the alternative head's chain; the
  * source stays the primary's (the justified checkpoint the validator votes
  * from). Returns undefined when no distinct alternative exists (primary
  * head = anchor and nothing designated).

@@ -6,18 +6,12 @@
 
 import { addBlock, createBlockTree, type BlockTree } from "../model/blockTree";
 import type { ChainState } from "../model/chainState";
-import type { SimulationConfig } from "../model/config";
-import type { MessageRef } from "../model/messageRef";
-import {
-  refOfBlock,
-  refOfVote,
-  senderOfBlock,
-  senderOfVote,
-  type MessageLog,
-  type PublishedBlock,
-} from "./messages";
+import type { InitialConditions } from "../model/initialConditions";
+import { blockRef, voteRef, type MessageRef } from "../model/messageRef";
+import type { MessageLog, PublishedBlock } from "./messages";
 import { resolveView } from "../model/protocol";
-import type { BlockIndex, SlotIndex, ValidatorIndex } from "../model/types";
+import { scheduleOf } from "./schedule";
+import { atEnd, type BlockIndex, type Instant, type SlotIndex, type ValidatorIndex } from "../model/types";
 import type { View } from "../model/view";
 
 /**
@@ -59,37 +53,43 @@ function visibleTree(
 }
 
 /**
- * `observer`'s view at the end of `slot` (reference type View). `votesThrough`
- * lets the protocol cut vote visibility earlier than block visibility: an
- * attester at slot s acts on blocks through s but votes through s-1, so all
- * attestations of a slot are simultaneous and order-independent.
+ * `observer`'s view at `instant` (reference type View; the observer and the
+ * instant are its coordinates). Blocks are published at the proposal
+ * instant and votes at the vote instant, and each shows up from the next
+ * instant on: at (s, proposal) the view holds everything through the end
+ * of s−1; at (s, vote) also the blocks of s — so the timely proposal is
+ * there to vote on — but still only the votes through s−1, so every
+ * attester of a slot votes simultaneously and order-independently; at
+ * (s, end) everything through s. Delivery decides what has arrived.
  */
 export function viewOf(
   log: MessageLog,
   observer: ValidatorIndex,
-  slot: SlotIndex,
+  instant: Instant,
   delivery: Delivery = instantDelivery,
-  votesThrough: SlotIndex = slot,
 ): View {
+  const { slot, phase } = instant;
+  const arrivedBy = phase === "proposal" ? slot - 1 : slot;
+  const votesThrough = phase === "end" ? slot : slot - 1;
   const blocks = log.blocks.filter(
     (m) =>
-      m.publishedAt <= slot &&
-      delivery(senderOfBlock(m), m.publishedAt, observer, slot, refOfBlock(m)),
+      m.publishedAt <= arrivedBy &&
+      delivery(m.block.proposer, m.publishedAt, observer, arrivedBy, blockRef(m.block)),
   );
   const votes = log.votes
     .filter(
       (m) =>
         m.publishedAt <= votesThrough &&
-        delivery(senderOfVote(m), m.publishedAt, observer, slot, refOfVote(m)),
+        delivery(m.vote.validator, m.publishedAt, observer, arrivedBy, voteRef(m.vote)),
     )
     .map((m) => m.vote);
-  return { validator: observer, slot, blockTree: visibleTree(blocks), votes };
+  return { blockTree: visibleTree(blocks), votes };
 }
 
 /**
- * What a validator knows at one instant, bundled for observation: its view,
- * its fork-choice head, and the chain state of that head — which is what the
- * view's justified / finalized / stakes mean.
+ * What a validator knows at the end of `slot`, bundled for observation: its
+ * view, its fork-choice head, and the chain state of that head — which is
+ * what the view's justified / finalized / stakes mean.
  */
 export interface LocalObservation {
   readonly view: View;
@@ -101,10 +101,10 @@ export function observe(
   log: MessageLog,
   observer: ValidatorIndex,
   slot: SlotIndex,
-  config: SimulationConfig,
+  config: InitialConditions,
   delivery: Delivery = instantDelivery,
 ): LocalObservation {
-  const view = viewOf(log, observer, slot, delivery);
-  const { head, chainState } = resolveView(view, config);
+  const view = viewOf(log, observer, atEnd(slot), delivery);
+  const { head, chainState } = resolveView(view, config, scheduleOf(config), slot);
   return { view, head, chainState };
 }

@@ -6,7 +6,7 @@
 // an attack, the same generated actions.
 
 import { evaluateGoal, type GoalTrace } from "../model/attackGoal";
-import type { SimulationConfig } from "../model/config";
+import type { InitialConditions } from "../model/initialConditions";
 import { generateActions, type AttackInstance, type GeneratedAction } from "./attackRun";
 import { compileDelivery, directivesForSlot, type Intervention } from "./intervention";
 import type { Delivery } from "./localView";
@@ -14,7 +14,7 @@ import { advanceSlot, initialState, type SimulationState } from "./simulation";
 import { START_SLOT, type SlotIndex } from "../model/types";
 
 export interface Scenario {
-  readonly config: SimulationConfig;
+  readonly config: InitialConditions;
   /** The manual interventions (手動介入の列). */
   readonly interventions: readonly Intervention[];
   /** 高々 1 つの攻撃. */

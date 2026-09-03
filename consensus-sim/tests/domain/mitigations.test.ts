@@ -11,6 +11,7 @@ import {
   EMPTY_BODY,
   PRESETS,
   addBlock,
+  atEnd,
   chainStatesOf,
   createBlockTree,
   epochOf,
@@ -21,8 +22,10 @@ import {
   resolveView,
   scenarioDelivery,
   scenarioStates,
+  scheduleOf,
   viableBlocks,
   viewOf,
+  voteRef,
   type BlockBody,
   type CheckpointSwitch,
   type Intervention,
@@ -30,11 +33,11 @@ import {
   type ProposedBlock,
   type ProtocolParams,
   type Scenario,
-  type SimulationConfig,
+  type InitialConditions,
   type Vote,
 } from "../../src/domain";
 
-const configOf = (params: ProtocolParams = DEFAULT_PARAMS): SimulationConfig => ({
+const configOf = (params: ProtocolParams = DEFAULT_PARAMS): InitialConditions => ({
   validatorCount: 4,
   seed: 0,
   params,
@@ -82,8 +85,10 @@ describe("fork-choice rule (GHOST | LMD-GHOST)", () => {
     addBlock,
     createBlockTree(),
   );
-  const headUnder = (params: ProtocolParams, votes: Vote[]) =>
-    resolveView({ validator: 0, slot: 2, blockTree: tree, votes }, configOf(params)).head;
+  const headUnder = (params: ProtocolParams, votes: Vote[]) => {
+    const config = configOf(params);
+    return resolveView({ blockTree: tree, votes }, config, scheduleOf(config), 2).head;
+  };
 
   it("counts only each validator's latest vote under LMD-GHOST, every vote under GHOST", () => {
     // アリス voted B1 at slot 1 and B3 at slot 2; ボブ B2; キャロル B3.
@@ -117,9 +122,11 @@ describe("equivocation discount (エクイボケーション割引)", () => {
       createBlockTree(),
     );
     const votes = [vote(0, 2, 2), vote(0, 2, 3), vote(1, 2, 2)];
-    const view = { validator: 1, slot: 2, blockTree: tree, votes };
-    const on = resolveView(view, configOf(bare({ equivocationDiscount: true })));
-    const off = resolveView(view, configOf(bare({ equivocationDiscount: false })));
+    const view = { blockTree: tree, votes };
+    const onConfig = configOf(bare({ equivocationDiscount: true }));
+    const offConfig = configOf(bare({ equivocationDiscount: false }));
+    const on = resolveView(view, onConfig, scheduleOf(onConfig), 2);
+    const off = resolveView(view, offConfig, scheduleOf(offConfig), 2);
     expect(on.weights.weightOf(vote(0, 2, 2))).toBe(0);
     expect(on.weights.weightOf(vote(0, 2, 3))).toBe(0);
     expect(on.weights.weightOf(vote(1, 2, 2))).toBe(32);
@@ -143,10 +150,15 @@ describe("equivocation discount (エクイボケーション割引)", () => {
       { states, delivery }: ReturnType<typeof run>,
       observer: number,
       params: ProtocolParams,
-    ) =>
-      resolveView(viewOf(states[2]!.log, observer, 2, delivery), configOf(params)).weights.weightOf(
-        vote(1, 2, 2),
-      );
+    ) => {
+      const config = configOf(params);
+      return resolveView(
+        viewOf(states[2]!.log, observer, atEnd(2), delivery),
+        config,
+        scheduleOf(config),
+        2,
+      ).weights.weightOf(vote(1, 2, 2));
+    };
 
     it("drops the double voter the moment the pair is observed (before slashing lands)", () => {
       const merge = run(PRESETS.merge);
@@ -162,10 +174,15 @@ describe("equivocation discount (エクイボケーション割引)", () => {
 
     it("is local: a validator that saw only one of the two votes does not discount", () => {
       // アリス never receives ボブ's second vote (head = B1, the primary head's parent).
+      const base = run(PRESETS.merge);
+      const secondVote = base.states[2]!.votes.find(
+        (v) => v.validator === 1 && v.slot === 2 && v.head === 1,
+      );
+      if (!secondVote) throw new Error("expected ボブ's second vote (head = B1)");
       const states = run(PRESETS.merge, [
         {
           kind: "drop",
-          message: { kind: "vote", validator: 1, slot: 2, head: 1 },
+          message: voteRef(secondVote),
           observers: [0],
         },
       ]);
@@ -247,12 +264,15 @@ describe("justified-checkpoint switching (justified チェックポイント切�
     // Three votes on B11 against one on B7: off follows the weight, unrealized
     // never descends into B11.
     const votes = [vote(0, 10, 11), vote(1, 10, 11), vote(2, 10, 11), vote(3, 10, 7)];
-    const view = { validator: 0, slot: 10, blockTree: tree, votes };
-    expect(resolveView(view, configOf(bare({ checkpointSwitch: "off" }))).head).toBe(11);
-    expect(resolveView(view, configOf(bare({ checkpointSwitch: "unrealized" }))).head).toBe(7);
+    const view = { blockTree: tree, votes };
+    const offConfig = configOf(bare({ checkpointSwitch: "off" }));
+    const unrealizedConfig = configOf(bare({ checkpointSwitch: "unrealized" }));
+    const windowConfig = configOf(bare({ checkpointSwitch: "window" }));
+    expect(resolveView(view, offConfig, scheduleOf(offConfig), 10).head).toBe(11);
+    expect(resolveView(view, unrealizedConfig, scheduleOf(unrealizedConfig), 10).head).toBe(7);
     // window at slot 10 starts from B8 instead, where B9 and B10 tie on zero
     // weight and the smaller index wins.
-    expect(resolveView(view, configOf(bare({ checkpointSwitch: "window" }))).head).toBe(9);
+    expect(resolveView(view, windowConfig, scheduleOf(windowConfig), 10).head).toBe(9);
   });
 });
 

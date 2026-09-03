@@ -24,18 +24,21 @@ import {
   satisfiesCondition,
   scenarioStates,
   scheduleOf,
+  voteRef,
   type Action,
   type Attack,
   type AttackInstance,
   type AttackerObservation,
+  type DoubleVoteAction,
   type Intervention,
   type Scenario,
-  type SimulationConfig,
+  type InitialConditions,
   type SimulationState,
   type Strategy,
+  type Vote,
 } from "../../src/domain";
 
-const CONFIG: SimulationConfig = {
+const CONFIG: InitialConditions = {
   validatorCount: 4,
   seed: 0,
   params: DEFAULT_PARAMS,
@@ -134,7 +137,7 @@ describe("the attackers' observation (攻撃者の観測状態)", () => {
     expect(at3.view.blockTree.blocks.size).toBe(state.tree.blocks.size);
     expect(at3.view.votes.length).toBe(state.votes.length);
     expect(at3.attackers).toEqual([0, 3]);
-    expect(at3.view.slot).toBe(3);
+    expect(at3.slot).toBe(3);
     for (const slot of [4, 5, 9]) {
       expect(at3.schedule.proposerOf(slot)).toBe(proposerForSlot(slot, CONFIG));
       expect(at3.schedule.committeeOf(slot)).toEqual(new Set([0, 1, 2, 3]));
@@ -160,6 +163,16 @@ describe("the capability range (攻撃者の能力範囲, 必須 18)", () => {
   const cap = (action: Action, attackers = [1], maxDelay = 2) =>
     capabilityOf(action, attackers, schedule, maxDelay);
 
+  /** A minimal well-formed Vote, for tests that only need a concrete
+   * individual to make a message reference exact. */
+  const dummyVote = (validator: number, slot: number, head: number): Vote => ({
+    validator,
+    slot,
+    head,
+    source: { epoch: 0, block: 0 },
+    target: { epoch: 0, block: 0 },
+  });
+
   it("classifies each action by the capability it exercises", () => {
     expect(cap({ kind: "double-propose", slot: 5, validator: 1 })).toBe("equivocation");
     expect(cap({ kind: "double-vote", slot: 5, validator: 1 })).toBe("equivocation");
@@ -169,15 +182,15 @@ describe("the capability range (攻撃者の能力範囲, 必須 18)", () => {
     expect(cap({ kind: "propose-parent", slot: 5, parent: 0 })).toBe("propose-parent");
     expect(cap({ kind: "omit-inclusion", slot: 5, votes: [] })).toBe("omit-inclusion");
     expect(
-      cap({ kind: "delay", message: { kind: "proposal", proposer: 1, slot: 5 }, untilSlot: 7 }),
+      cap({ kind: "delay", message: { kind: "proposal", sender: 1, slot: 5 }, untilSlot: 7 }),
     ).toBe("withhold");
     expect(
-      cap({ kind: "drop", message: { kind: "attestation", validator: 1, slot: 5 }, observers: [2] }),
+      cap({ kind: "drop", message: { kind: "vote", sender: 1, slot: 5 }, observers: [2] }),
     ).toBe("withhold");
     expect(
-      cap({ kind: "delay", message: { kind: "proposal", proposer: 2, slot: 6 }, untilSlot: 8 }),
+      cap({ kind: "delay", message: { kind: "proposal", sender: 2, slot: 6 }, untilSlot: 8 }),
     ).toBe("delay-honest");
-    expect(cap({ kind: "drop", message: { kind: "attestation", validator: 0, slot: 6 } })).toBe(
+    expect(cap({ kind: "drop", message: { kind: "vote", sender: 0, slot: 6 } })).toBe(
       "drop-honest",
     );
     expect(cap({ kind: "partition", fromSlot: 5, groups: [[0, 2]] })).toBe("partition");
@@ -192,47 +205,71 @@ describe("the capability range (攻撃者の能力範囲, 必須 18)", () => {
     expect(cap({ kind: "omit-inclusion", slot: 6 })).toBeUndefined();
     // d = 2: a delay may hold a message at most 2 slots past its slot.
     expect(
-      cap({ kind: "delay", message: { kind: "proposal", proposer: 1, slot: 5 }, untilSlot: 8 }),
+      cap({ kind: "delay", message: { kind: "proposal", sender: 1, slot: 5 }, untilSlot: 8 }),
     ).toBeUndefined();
-    // Messages are named ahead of publication; a block index names a block
-    // already published, and an honest vote's head is not the attacker's to
-    // know in advance.
-    expect(cap({ kind: "delay", message: { kind: "block", block: 3 }, untilSlot: 6 })).toBeUndefined();
+    // An honest message named by its individual (exact ref) is outside the
+    // range: its content is not the attacker's to know in advance.
     expect(
-      cap({ kind: "drop", message: { kind: "vote", validator: 0, slot: 5, head: 4 } }),
+      cap({
+        kind: "delay",
+        message: { kind: "proposal", sender: 2, slot: 6, block: 3 },
+        untilSlot: 6,
+      }),
+    ).toBeUndefined();
+    expect(
+      cap({ kind: "drop", message: { kind: "vote", sender: 0, slot: 5, vote: dummyVote(0, 5, 4) } }),
     ).toBeUndefined();
   });
 
-  it("lets the attacker name one half of its own double vote by its designated head (selective delivery)", () => {
-    expect(
-      cap({ kind: "delay", message: { kind: "vote", validator: 1, slot: 5, head: 4 }, untilSlot: 7 }),
-    ).toBe("withhold");
-    expect(
-      cap({ kind: "drop", message: { kind: "vote", validator: 1, slot: 5, head: 4 }, observers: [0] }),
-    ).toBe("withhold");
+  it("splits a double vote's two halves between two observer sets before untilSlot (選択配送)", () => {
+    // Validator 1's double vote at slot 5: the primary half (head 4) reaches
+    // `first` at once, the secondary half (the designated head 9) reaches
+    // `second` at once, everyone else gets both only from slot 7 on.
+    const primary = voteRef(dummyVote(1, 5, 4));
+    const secondary = voteRef(dummyVote(1, 5, 9));
+    const split: DoubleVoteAction = {
+      kind: "double-vote",
+      slot: 5,
+      validator: 1,
+      head: 9,
+      split: { first: [0], second: [2], untilSlot: 7 },
+    };
+    const delivery = compileDelivery([split]);
+    // Before untilSlot: observer 0 sees only the primary half…
+    expect(delivery(1, 5, 0, 5, primary)).toBe(true);
+    expect(delivery(1, 5, 0, 5, secondary)).toBe(false);
+    // …and observer 2 sees only the secondary half.
+    expect(delivery(1, 5, 2, 5, primary)).toBe(false);
+    expect(delivery(1, 5, 2, 5, secondary)).toBe(true);
+    // The sender always sees both.
+    expect(delivery(1, 5, 1, 5, primary)).toBe(true);
+    expect(delivery(1, 5, 1, 5, secondary)).toBe(true);
+    // From untilSlot on, both halves reach everyone.
+    expect(delivery(1, 5, 0, 7, secondary)).toBe(true);
+    expect(delivery(1, 5, 2, 7, primary)).toBe(true);
   });
 
-  it("names messages ahead of publication: proposal / attestation references cover what the sender publishes in the slot", () => {
-    const proposal = { kind: "proposal", proposer: 1, slot: 5 } as const;
-    expect(coversMessage(proposal, { kind: "block", block: 9 }, 1, 5)).toBe(true);
-    expect(coversMessage(proposal, { kind: "block", block: 9 }, 2, 5)).toBe(false);
-    expect(coversMessage(proposal, { kind: "block", block: 9 }, 1, 6)).toBe(false);
-    expect(coversMessage(proposal, { kind: "vote", validator: 1, slot: 5, head: 9 }, 1, 5)).toBe(
-      false,
-    );
-    const attestation = { kind: "attestation", validator: 1, slot: 5 } as const;
-    expect(coversMessage(attestation, { kind: "vote", validator: 1, slot: 5, head: 9 }, 1, 5)).toBe(
+  it("names messages ahead of publication: proposal / vote references cover what the sender publishes in the slot", () => {
+    const proposal = { kind: "proposal", sender: 1, slot: 5 } as const;
+    expect(coversMessage(proposal, { kind: "proposal", sender: 1, slot: 5, block: 9 })).toBe(true);
+    expect(coversMessage(proposal, { kind: "proposal", sender: 2, slot: 5, block: 9 })).toBe(false);
+    expect(coversMessage(proposal, { kind: "proposal", sender: 1, slot: 6, block: 9 })).toBe(false);
+    expect(
+      coversMessage(proposal, { kind: "vote", sender: 1, slot: 5, vote: dummyVote(1, 5, 9) }),
+    ).toBe(false);
+    const vote = { kind: "vote", sender: 1, slot: 5 } as const;
+    expect(coversMessage(vote, { kind: "vote", sender: 1, slot: 5, vote: dummyVote(1, 5, 9) })).toBe(
       true,
     );
-    expect(coversMessage(attestation, { kind: "vote", validator: 1, slot: 5, head: 4 }, 1, 5)).toBe(
+    expect(coversMessage(vote, { kind: "vote", sender: 1, slot: 5, vote: dummyVote(1, 5, 4) })).toBe(
       true,
     );
-    expect(coversMessage(attestation, { kind: "vote", validator: 1, slot: 6, head: 9 }, 1, 6)).toBe(
+    expect(coversMessage(vote, { kind: "vote", sender: 1, slot: 6, vote: dummyVote(1, 6, 9) })).toBe(
       false,
     );
-    expect(sameRef(proposal, { kind: "proposal", proposer: 1, slot: 5 })).toBe(true);
-    expect(sameRef(proposal, attestation)).toBe(false);
-    expect(sameRef(attestation, { kind: "attestation", validator: 1, slot: 4 })).toBe(false);
+    expect(sameRef(proposal, { kind: "proposal", sender: 1, slot: 5 })).toBe(true);
+    expect(sameRef(proposal, vote)).toBe(false);
+    expect(sameRef(vote, { kind: "vote", sender: 1, slot: 4 })).toBe(false);
   });
 
   it("withholds the attacker's own proposal by reference before it exists (保留と選択配送)", () => {
@@ -241,7 +278,7 @@ describe("the capability range (攻撃者の能力範囲, 必須 18)", () => {
     // see the block at slot 2.
     const hold: Action = {
       kind: "delay",
-      message: { kind: "proposal", proposer: 1, slot: 1 },
+      message: { kind: "proposal", sender: 1, slot: 1 },
       untilSlot: 2,
     };
     const run = runScenario(scenario([], instance(emitAt(0, [hold]), [1], 1)), 2);
@@ -293,7 +330,7 @@ describe("discards (破棄の印付き)", () => {
     const manualStop: Intervention = { kind: "stop", fromSlot: 5, toSlot: 6, validators: [1] };
     const manualDelay: Intervention = {
       kind: "delay",
-      message: { kind: "attestation", validator: 1, slot: 7 },
+      message: { kind: "vote", sender: 1, slot: 7 },
       untilSlot: 8,
     };
     const manualPartition: Intervention = { kind: "partition", fromSlot: 4, toSlot: 5, groups: [[0, 1]] };
@@ -301,7 +338,7 @@ describe("discards (破棄の印付き)", () => {
     const parent: Action = { kind: "propose-parent", slot: 5, parent: 0 };
     const withhold: Action = {
       kind: "delay",
-      message: { kind: "attestation", validator: 1, slot: 7 },
+      message: { kind: "vote", sender: 1, slot: 7 },
       untilSlot: 9,
     };
     const partition: Action = { kind: "partition", fromSlot: 5, toSlot: 6, groups: [[1, 2]] };

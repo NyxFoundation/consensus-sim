@@ -8,11 +8,11 @@ import {
   initialState,
   proposerForSlot,
   stateAtSlot,
-  type SimulationConfig,
+  type InitialConditions,
   type SimulationState,
 } from "../../src/domain";
 
-const config: SimulationConfig = {
+const config: InitialConditions = {
   validatorCount: DEFAULT_VALIDATOR_COUNT,
   seed: 42,
   params: DEFAULT_PARAMS,

@@ -8,9 +8,9 @@
 //   (attackGoal.ts), judged stage by stage.
 // - The strategy (戦略) is a rule that, at every slot boundary, maps what the
 //   attackers observe — the merge of their views (attackers share everything
-//   instantly and completely) and the proposer schedule — to their actions
-//   for the slots ahead, within the capability range (必須 18). A fixed
-//   action list is the special case of a strategy that ignores its input.
+//   instantly and completely) and the schedule — to their actions for the
+//   slots ahead, within the capability range (必須 18). A fixed action list
+//   is the special case of a strategy that ignores its input.
 //
 // Changing the triple, the capability range or the predicates' semantics is
 // a human decision (ESSENCE 思想 (c)); this module states them as they are.
@@ -18,10 +18,10 @@
 import type { Action } from "./action";
 import type { AttackGoal } from "./attackGoal";
 import { addBlock, createBlockTree, type BlockTree } from "./blockTree";
-import type { SimulationConfig } from "./config";
+import type { InitialConditions } from "./initialConditions";
 import { voteKey } from "./inclusion";
-import { refSender, refSlot } from "./messageRef";
-import { committeeForSlot, proposerForSlot } from "./schedule";
+import { isExactRef } from "./messageRef";
+import type { Schedule } from "./schedule";
 import type { Block, SlotIndex, ValidatorIndex, Vote } from "./types";
 import type { View } from "./view";
 
@@ -45,7 +45,7 @@ export type AttackerCondition =
 /** The attackers' share of the total initial stake. */
 export function attackerStakeRatio(
   attackers: readonly ValidatorIndex[],
-  config: SimulationConfig,
+  config: InitialConditions,
 ): number {
   let mine = 0;
   let total = 0;
@@ -59,26 +59,11 @@ export function attackerStakeRatio(
 export function satisfiesCondition(
   condition: AttackerCondition,
   attackers: readonly ValidatorIndex[],
-  config: SimulationConfig,
+  config: InitialConditions,
 ): boolean {
   return condition.kind === "count"
     ? attackers.length >= condition.atLeast
     : attackerStakeRatio(attackers, config) >= condition.atLeast;
-}
-
-/** The proposer schedule (プロポーザー予定表) and the committees — public
- * information every validator, attackers included, derives from
- * (slot, ProtocolParams, seed). */
-export interface ProposerSchedule {
-  proposerOf(slot: SlotIndex): ValidatorIndex;
-  committeeOf(slot: SlotIndex): ReadonlySet<ValidatorIndex>;
-}
-
-export function scheduleOf(config: SimulationConfig): ProposerSchedule {
-  return {
-    proposerOf: (slot) => proposerForSlot(slot, config),
-    committeeOf: (slot) => committeeForSlot(slot, config),
-  };
 }
 
 /**
@@ -92,19 +77,18 @@ export interface AttackerObservation {
   readonly attackers: readonly ValidatorIndex[];
   /** The merged view: every block and vote any attacker holds. */
   readonly view: View;
-  readonly schedule: ProposerSchedule;
-  readonly config: SimulationConfig;
+  readonly schedule: Schedule;
+  readonly config: InitialConditions;
 }
 
 /**
  * The merge of views taken at one instant: the union of their blocks (a
  * block whose parent no view holds stays out, as in any view) and of their
- * votes (deduplicated, first occurrence kept). Labelled with the first
- * view's validator; the merge is symmetric.
+ * votes (deduplicated, first occurrence kept). A View like any other — the
+ * merge has no coordinate of its own.
  */
 export function mergeViews(views: readonly View[]): View {
-  const first = views[0];
-  if (first === undefined) throw new Error("mergeViews needs at least one view");
+  if (views.length === 0) throw new Error("mergeViews needs at least one view");
   const blocks = new Map<number, Block>();
   for (const view of views) {
     for (const block of view.blockTree.blocks.values()) blocks.set(block.index, block);
@@ -125,22 +109,23 @@ export function mergeViews(views: readonly View[]): View {
       votes.push(vote);
     }
   }
-  return { validator: first.validator, slot: first.slot, blockTree, votes };
+  return { blockTree, votes };
 }
 
-/** The attackers' observation from their individual views (one per
- * attacker, in attacker order, all at the same slot). */
+/** The attackers' observation at the end of `slot` from their individual
+ * views at that instant (one per attacker, in attacker order). */
 export function observeAsAttackers(
   attackers: readonly ValidatorIndex[],
   views: readonly View[],
-  config: SimulationConfig,
+  slot: SlotIndex,
+  config: InitialConditions,
+  schedule: Schedule,
 ): AttackerObservation {
   if (attackers.length === 0) throw new Error("the attacker set must not be empty");
   if (views.length !== attackers.length) {
     throw new Error("one view per attacker is required");
   }
-  const view = mergeViews(views);
-  return { slot: view.slot, attackers, view, schedule: scheduleOf(config), config };
+  return { slot, attackers, view: mergeViews(views), schedule, config };
 }
 
 /** A strategy: the attackers' actions for the slots after the observed
@@ -181,16 +166,16 @@ export type Capability =
  * The capability `action` exercises for these attackers, or undefined when
  * the action lies outside the range: acting as a validator that is not an
  * attacker, proposing (parent / omission) in a slot an honest validator
- * proposes, naming a message other than ahead of its publication (a block
- * by index; a vote by its head unless it is the attacker's own, whose head
- * the attacker designates — one half of its double vote for selective
- * delivery), or delaying a message more than `maxDelay` slots past its
- * publication.
+ * proposes, naming an honest message by its individual (an honest message
+ * is named ahead of its publication — by sender, slot and kind — because
+ * its content is not the attacker's to know in advance; the attacker's own
+ * messages it may name either way), or delaying a message more than
+ * `maxDelay` slots past its publication.
  */
 export function capabilityOf(
   action: Action,
   attackers: readonly ValidatorIndex[],
-  schedule: ProposerSchedule,
+  schedule: Schedule,
   maxDelay: number,
 ): Capability | undefined {
   const own = (v: ValidatorIndex): boolean => attackers.includes(v);
@@ -210,12 +195,9 @@ export function capabilityOf(
       return "partition";
     case "delay":
     case "drop": {
-      const sender = refSender(action.message);
-      const slot = refSlot(action.message);
+      const { sender, slot } = action.message;
       if (
-        sender === undefined ||
-        slot === undefined ||
-        (action.message.kind === "vote" && !own(sender)) ||
+        (!own(sender) && isExactRef(action.message)) ||
         (action.kind === "delay" && action.untilSlot - slot > maxDelay)
       ) {
         return undefined;

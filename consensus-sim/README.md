@@ -110,12 +110,16 @@ npm run build      # static bundle in dist/ (no backend; plain static SPA)
 
 - **Validators** (4–10, default 4) act as proposers and attesters, and carry
   recognizable katakana names (アリス, ボブ, キャロル, …) throughout the UI.
-  Time advances in slots; epoch boundaries fall every 4 slots. The proposer
-  of a slot (round-robin) and its **committee** — everyone; `c` validators
-  drawn per slot from the seed; or an **epoch split**, Ethereum's committee
-  structure, in which every validator attests in exactly one seed-assigned
-  slot of each epoch — derive deterministically from (slot, protocol
-  parameters, seed) and are public to every validator.
+  Time advances in slots, each with three **instants** — proposal, vote,
+  end — and epoch boundaries fall every 4 slots. The **initial conditions**
+  (validator count, initial stakes, protocol parameters, seed) determine
+  the **schedule**: the proposer of a slot (round-robin) and its
+  **committee** — everyone; `c` validators drawn per slot from the seed; or
+  an **epoch split**, Ethereum's committee structure, in which every
+  validator attests in exactly one seed-assigned slot of each epoch. The
+  schedule is public to every validator; the model states only the
+  structure of each assignment, the seeded permutation it is drawn with
+  belongs to the simulator.
 - **Protocol parameters** (`ProtocolParams`) make the skeleton's knobs
   explicit: committee assignment, proposer boost, fork-choice rule (GHOST /
   LMD-GHOST), equivocation discount, justified-checkpoint switching
@@ -131,7 +135,12 @@ npm run build      # static bundle in dist/ (no backend; plain static SPA)
   included. An honest proposer includes everything in its view that no
   ancestor of the parent has included yet.
 - **Votes** are `{validator, slot, head, source, target}`: an LMD-GHOST-style
-  head endorsement plus an FFG-style pair of **checkpoints**. A checkpoint
+  head endorsement plus an FFG-style pair of **checkpoints**. The head
+  follows fork choice every slot; the FFG pair is decided once per epoch —
+  in the first slot a validator votes in during the epoch, read off its
+  head's chain — and repeated in its later votes of that epoch, so an
+  honest validator never contradicts its own FFG vote (Ethereum attests
+  once per epoch). A checkpoint
   is `{epoch, block}` — the latest block of a branch at or before the
   epoch's first slot; when that boundary slot is empty the same block stands
   for consecutive epochs, so the epoch is part of the identity (the UI
@@ -182,9 +191,17 @@ npm run build      # static bundle in dist/ (no backend; plain static SPA)
   starts from the highest justified checkpoint but never descends into a
   branch whose included votes justify only an older one.
 - **Local views** are pure filters over a global append-only message log: a
-  delivery rule decides who has seen what by when. Instant broadcast is the
-  default; partitions, delays and drops plug in as stricter delivery rules
-  without touching the engine.
+  **view** is `{blockTree, votes}`, the knowledge read for one validator at
+  one instant (both are the view's coordinates, not its content — the
+  merge of several attackers' views is a view too). A block is published
+  at the proposal instant, votes at the vote instant, and a delivery rule
+  decides who has seen what by when. Instant broadcast is the default;
+  partitions, delays and drops plug in as stricter delivery rules without
+  touching the engine. A **message reference** names a message by sender,
+  slot and kind (proposal / vote), plus — once published — the individual
+  (the block index, or the whole vote); without the individual it names
+  everything of that sender and slot, which is how an attacker's strategy
+  withholds or selectively delivers a message that does not exist yet.
 - **Attacks** are a formal triple: an **attacker set** (a non-empty subset
   of the validators, fixed by a library attack up to a condition such as a
   stake share), an **attack goal** (a non-empty sequence of god-view
@@ -192,13 +209,14 @@ npm run build      # static bundle in dist/ (no backend; plain static SPA)
   attacker stake ratio ≥ θ — judged stage by stage) and a **strategy**: a
   pure rule that, at every slot boundary, maps what the attackers observe
   (the merge of their views — attackers share everything instantly — and
-  the proposer schedule) to their actions for the slots ahead. The action
+  the schedule) to their actions for the slots ahead. The action
   vocabulary is the intervention set within a capability range: an
-  attacker's own equivocation, parent designation, vote designation,
-  silence, withholding and selective delivery of its own messages
-  (referenced ahead of publication), omitted inclusion in its own
-  proposal, and delay / drop / partition of honest messages, delays bounded
-  by the attack's `maxDelay`. A scenario holds at most one attack beside
+  attacker's own equivocation (a double vote may split its two halves
+  between two receiver sets, the rest receiving them later), parent
+  designation, vote designation, silence, withholding and selective
+  delivery of its own messages (referenced ahead of publication), omitted
+  inclusion in its own proposal, and delay / drop / partition of honest
+  messages, delays bounded by the attack's `maxDelay`. A scenario holds at most one attack beside
   its manual interventions; the strategy's actions are generated as
   interventions marked as the attackers', and an action that is not
   causal, outside the range, contradicted by a manual intervention of the
@@ -218,14 +236,16 @@ npm run build      # static bundle in dist/ (no backend; plain static SPA)
 ```
 src/domain/        pure TypeScript domain layer — no React, no DOM, no I/O
 src/domain/model/  essential specification (本質的仕様): the types a formalization
-                   takes as its object — the identifier sorts / Checkpoint / View /
-                   Vote / Block (anchor | proposed) / BlockTree / Equivocation /
-                   ChainState / ProtocolParams and presets, the skeleton's total
-                   orders, fork choice, finality, inclusion, the schedule, the
-                   initial conditions, the attack triple, the action vocabulary and
-                   the goal predicates
+                   takes as its object — the identifier sorts / Checkpoint / the
+                   instants and the coordinate-free View / Vote / Block (anchor |
+                   proposed) / BlockTree / Equivocation / ChainState /
+                   ProtocolParams and presets / the initial conditions and the
+                   schedule they determine / message references, the skeleton's
+                   total orders, fork choice, finality, inclusion, the attack
+                   triple, the action vocabulary and the goal predicates
 src/domain/sim/    simulation constraints (シミュレーション上の制約): message log
-                   and delivery, the slot driver, interventions, attack execution
+                   and delivery, the seeded permutation the schedule is drawn
+                   with, the slot driver, interventions, attack execution
                    (generated actions and their discards), scenarios and their
                    codec, validator names and the 4–10 bound, the fork limit
 src/ui/            React shell and SVG views, consuming only src/domain exports

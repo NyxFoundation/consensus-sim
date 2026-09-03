@@ -1,101 +1,74 @@
-// Message identity (メッセージの同一性) — how a message is named. A published
-// message is named exactly: a block by its index, a vote by
-// (validator, slot, head) — under equivocation the two votes of one validator
-// in one slot differ in head, so each stays addressable. A message can also
-// be named ahead of its publication, by who publishes it and when: the
-// proposal(s) of `proposer` at `slot`, or the attestation(s) of `validator`
-// at `slot` — the form an attacker's strategy uses to hold back or delay a
-// message that does not exist yet (under equivocation it names both halves).
-// Inclusion omissions (取り込みの省略) and delay / drop actions refer to
-// messages through this type.
+// Message reference (メッセージ参照) — how a message is named: by its sender,
+// its slot and its kind (proposal | vote), plus — once it is published — the
+// individual: a block by its index, a vote by its whole content (under
+// equivocation the sender's two messages of one slot differ only there). A
+// reference without the individual names every message the sender publishes
+// in that slot of that kind, so a message can be named ahead of its
+// publication — the form an attacker's strategy uses to withhold or
+// selectively deliver a message that does not exist yet. Inclusion omissions
+// (取り込みの省略) and delay / drop actions refer to messages through this
+// type.
 
-import type { BlockIndex, SlotIndex, ValidatorIndex, Vote } from "./types";
+import { compareVoteContent } from "./order";
+import type { BlockIndex, ProposedBlock, SlotIndex, ValidatorIndex, Vote } from "./types";
 
 export type MessageRef =
-  | { readonly kind: "block"; readonly block: BlockIndex }
+  | {
+      readonly kind: "proposal";
+      readonly sender: ValidatorIndex;
+      readonly slot: SlotIndex;
+      readonly block?: BlockIndex;
+    }
   | {
       readonly kind: "vote";
-      readonly validator: ValidatorIndex;
+      readonly sender: ValidatorIndex;
       readonly slot: SlotIndex;
-      readonly head: BlockIndex;
-    }
-  | { readonly kind: "proposal"; readonly proposer: ValidatorIndex; readonly slot: SlotIndex }
-  | { readonly kind: "attestation"; readonly validator: ValidatorIndex; readonly slot: SlotIndex };
+      readonly vote?: Vote;
+    };
 
-export const voteRef = (vote: Vote): MessageRef => ({
-  kind: "vote",
-  validator: vote.validator,
-  slot: vote.slot,
-  head: vote.head,
+/** The exact reference of a published block. */
+export const blockRef = (block: ProposedBlock): MessageRef => ({
+  kind: "proposal",
+  sender: block.proposer,
+  slot: block.slot,
+  block: block.index,
 });
 
-/** Whether two references name the same thing, form for form. */
+/** The exact reference of a published vote. */
+export const voteRef = (vote: Vote): MessageRef => ({
+  kind: "vote",
+  sender: vote.validator,
+  slot: vote.slot,
+  vote,
+});
+
+/** Whether two references name the same thing: same sender, slot and kind,
+ * and the same individual (or both without one). */
 export function sameRef(a: MessageRef, b: MessageRef): boolean {
-  if (a.kind !== b.kind) return false;
-  switch (a.kind) {
-    case "block":
-      return a.block === (b as typeof a).block;
-    case "vote": {
-      const v = b as typeof a;
-      return a.validator === v.validator && a.slot === v.slot && a.head === v.head;
-    }
-    case "proposal": {
-      const p = b as typeof a;
-      return a.proposer === p.proposer && a.slot === p.slot;
-    }
-    case "attestation": {
-      const t = b as typeof a;
-      return a.validator === t.validator && a.slot === t.slot;
-    }
-  }
+  if (a.kind !== b.kind || a.sender !== b.sender || a.slot !== b.slot) return false;
+  if (a.kind === "proposal") return a.block === (b as typeof a).block;
+  const other = (b as typeof a).vote;
+  if (a.vote === undefined || other === undefined) return a.vote === other;
+  return compareVoteContent(a.vote, other) === 0;
 }
 
-/**
- * Whether `selector` names the published message `message` (an exact
- * reference), given who published it and when: an exact selector matches
- * the identical reference, a proposal / attestation selector matches every
- * block / vote its sender published in its slot.
- */
-export function coversMessage(
-  selector: MessageRef,
-  message: MessageRef,
-  sender: ValidatorIndex,
-  publishedAt: SlotIndex,
-): boolean {
-  switch (selector.kind) {
-    case "block":
-    case "vote":
-      return sameRef(selector, message);
-    case "proposal":
-      return (
-        message.kind === "block" &&
-        sender === selector.proposer &&
-        publishedAt === selector.slot
-      );
-    case "attestation":
-      return (
-        message.kind === "vote" &&
-        message.validator === selector.validator &&
-        message.slot === selector.slot
-      );
+/** Whether `selector` names the published message `message` (an exact
+ * reference): the identical reference, or — when the selector carries no
+ * individual — any message of that sender, slot and kind. */
+export function coversMessage(selector: MessageRef, message: MessageRef): boolean {
+  const individual = selector.kind === "proposal" ? selector.block : selector.vote;
+  if (individual === undefined) {
+    return (
+      selector.kind === message.kind &&
+      selector.sender === message.sender &&
+      selector.slot === message.slot
+    );
   }
+  return sameRef(selector, message);
 }
 
-/** The slot a reference is published in, when the reference itself says so
- * (votes and ahead-of-publication references); a block index alone does not. */
-export function refSlot(ref: MessageRef): SlotIndex | undefined {
-  return ref.kind === "block" ? undefined : ref.slot;
-}
-
-/** The publisher a reference names, when the reference itself says so. */
-export function refSender(ref: MessageRef): ValidatorIndex | undefined {
-  switch (ref.kind) {
-    case "block":
-      return undefined;
-    case "proposal":
-      return ref.proposer;
-    case "vote":
-    case "attestation":
-      return ref.validator;
-  }
+/** Whether a reference names the individual message (published) rather than
+ * everything of its sender, slot and kind. */
+export function isExactRef(ref: MessageRef): boolean {
+  return (ref.kind === "proposal" ? ref.block : ref.vote) !== undefined;
 }

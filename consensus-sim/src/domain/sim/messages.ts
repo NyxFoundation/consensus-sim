@@ -3,8 +3,7 @@
 // the god view's (神視点) source of truth and is append-only, so rewind can
 // re-derive any past view.
 
-import { voteRef, type MessageRef } from "../model/messageRef";
-import type { ProposedBlock, SlotIndex, ValidatorIndex, Vote } from "../model/types";
+import type { ProposedBlock, SlotIndex, Vote } from "../model/types";
 
 export interface PublishedBlock {
   readonly block: ProposedBlock;
@@ -22,20 +21,6 @@ export interface MessageLog {
   readonly blocks: readonly PublishedBlock[];
   readonly votes: readonly PublishedVote[];
 }
-
-export const senderOfBlock = (m: PublishedBlock): ValidatorIndex =>
-  m.block.proposer;
-export const senderOfVote = (m: PublishedVote): ValidatorIndex =>
-  m.vote.validator;
-
-/** The identity (MessageRef) of a published message, so a delivery rule can
- * target one specifically (遅延・欠落). */
-export const refOfBlock = (m: PublishedBlock): MessageRef => ({
-  kind: "block",
-  block: m.block.index,
-});
-
-export const refOfVote = (m: PublishedVote): MessageRef => voteRef(m.vote);
 
 export function emptyLog(): MessageLog {
   return { blocks: [], votes: [] };

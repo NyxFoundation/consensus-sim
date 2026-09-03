@@ -22,7 +22,7 @@ import type {
   ForkChoiceRule,
   PresetName,
   ProtocolParams,
-  SimulationConfig,
+  InitialConditions,
 } from '../domain'
 import { Button } from './components/Button'
 import { Disclosure } from './components/Disclosure'
@@ -132,7 +132,7 @@ export function ParamsPanel({ session }: ParamsPanelProps) {
   const validators = Array.from({ length: config.validatorCount }, (_, v) => v)
   const preset = presetOf(params)
 
-  const setConfig = (patch: Partial<SimulationConfig>) =>
+  const setConfig = (patch: Partial<InitialConditions>) =>
     session.setConfig({ ...config, ...patch })
   const setParams = (patch: Partial<ProtocolParams>) =>
     setConfig({ params: { ...params, ...patch } })

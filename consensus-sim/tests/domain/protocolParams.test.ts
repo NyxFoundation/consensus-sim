@@ -13,8 +13,8 @@ import {
   EMPTY_BODY,
   PRESETS,
   addBlock,
+  atEnd,
   boostedBlock,
-  committeeForSlot,
   createBlockTree,
   equalStakes,
   ghostHead,
@@ -23,12 +23,13 @@ import {
   proposerForSlot,
   resolveView,
   scenarioStates,
+  scheduleOf,
   stateAtSlot,
   viewOf,
   type Intervention,
   type ProposedBlock,
   type ProtocolParams,
-  type SimulationConfig,
+  type InitialConditions,
   type Vote,
 } from "../../src/domain";
 
@@ -36,12 +37,16 @@ const withParams = (
   params: ProtocolParams,
   validatorCount = 4,
   seed = 0,
-): SimulationConfig => ({
+): InitialConditions => ({
   validatorCount,
   seed,
   params,
   initialStakes: equalStakes(validatorCount),
 });
+
+/** The committee schedule.ts derives for `config`, at `slot`. */
+const committeeForSlot = (slot: number, config: InitialConditions) =>
+  scheduleOf(config).committeeOf(slot);
 
 describe("presets (プロトコルプリセット)", () => {
   it("match the Essence table", () => {
@@ -150,7 +155,7 @@ describe("schedule (プロポーザー予定表・committee)", () => {
     it("varies the assignment with the epoch and the seed, deterministically", () => {
       const a = withParams(split, 8, 1);
       const b = withParams(split, 8, 2);
-      const row = (config: SimulationConfig, epoch: number) =>
+      const row = (config: InitialConditions, epoch: number) =>
         [0, 1, 2, 3].map((i) => [...committeeForSlot(epoch * 4 + i, config)].join()).join("/");
       expect(row(a, 1)).toBe(row(withParams(split, 8, 1), 1));
       expect(new Set([row(a, 0), row(a, 1), row(a, 2)]).size).toBeGreaterThan(1);
@@ -224,19 +229,19 @@ describe("proposer boost in fork choice", () => {
 
   it("boosts only the current slot's proposal by its scheduled proposer", () => {
     const config = withParams(PRESETS.merge);
-    const view = { validator: 0, slot: 3, blockTree: tree, votes: [] };
+    const view = { blockTree: tree, votes: [] };
     expect(boostedBlock(view, 3, config)).toBe(3);
     // Computed at a later slot (e.g. the block arrived late), no boost.
     expect(boostedBlock(view, 4, config)).toBeUndefined();
     // Block 2 was proposed at slot 2 by validator 2 — its slot has passed.
-    expect(boostedBlock({ ...view, slot: 2 }, 2, config)).toBe(2);
+    expect(boostedBlock(view, 2, config)).toBe(2);
     expect(boostedBlock(view, 3, withParams(PRESETS.phase0))).toBeUndefined();
   });
 
   it("weighs the boost as committee weight × boost with root-state stakes", () => {
     const config = withParams(PRESETS.merge);
-    const view = { validator: 0, slot: 3, blockTree: tree, votes: [] };
-    const { weights } = resolveView(view, config);
+    const view = { blockTree: tree, votes: [] };
+    const { weights } = resolveView(view, config, scheduleOf(config), 3);
     expect(weights.weightOf(vote(0, 3, 3))).toBe(32);
     expect(weights.boost).toEqual({ block: 3, weight: 4 * 32 * 0.4 });
   });
@@ -265,7 +270,7 @@ describe("proposer boost in the simulation (観測可能な効果)", () => {
       ...interventions,
       {
         kind: "delay",
-        message: { kind: "block", block: 3 },
+        message: { kind: "proposal", sender: proposerForSlot(3, withParams(PRESETS.merge)), slot: 3 },
         untilSlot: 4,
         observers: [0, 1, 2],
       },
@@ -282,7 +287,7 @@ describe("proposer boost in the simulation (観測可能な効果)", () => {
     expect(b4.parent).toBe(2);
     expect([...states[4]!.heads.values()]).toEqual([4, 4, 4, 4]);
     // The proposer of slot 4 never boosts a past proposal in its own fork choice.
-    const proposerView = viewOf(states[3]!.log, 0, 3);
+    const proposerView = viewOf(states[3]!.log, 0, atEnd(3));
     expect(boostedBlock(proposerView, 4, withParams(PRESETS.merge))).toBeUndefined();
   });
 });

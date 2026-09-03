@@ -46,19 +46,30 @@ export interface DoubleProposeAction {
 
 /** At `slot`, the validator casts a second conflicting vote alongside its
  * first one: for `head` when designated (a block of its view other than the
- * first vote's head — an attacker's selective delivery names it), otherwise
- * for the first head's parent. */
+ * first vote's head), otherwise for the first head's parent. `split` is the
+ * attacker's selective delivery of the two halves (選択配送): the first vote
+ * reaches `first` and the second (the one for `head`, which must then be
+ * designated) reaches `second` at once, everyone else only from
+ * `untilSlot` on — the two publications of one slot that a message
+ * reference names together before they exist. */
 export interface DoubleVoteAction {
   readonly kind: "double-vote";
   readonly slot: SlotIndex;
   readonly validator: ValidatorIndex;
   readonly head?: BlockIndex;
+  readonly split?: SplitDelivery;
+}
+
+export interface SplitDelivery {
+  readonly first: readonly ValidatorIndex[];
+  readonly second: readonly ValidatorIndex[];
+  readonly untilSlot: SlotIndex;
 }
 
 /** The named message reaches the targeted observers only from `untilSlot`
  * on. The sender always sees its own message. Named ahead of publication
- * (proposal / attestation reference), this is the sender's own withholding
- * and selective delivery (保留と選択配送). */
+ * (a reference without the individual), this is the sender's own
+ * withholding and selective delivery (保留と選択配送). */
 export interface DelayAction {
   readonly kind: "delay";
   readonly message: MessageRef;

@@ -7,7 +7,7 @@
 import type { ProtocolParams } from "./protocolParams";
 import type { Stake, ValidatorIndex } from "./types";
 
-export interface SimulationConfig {
+export interface InitialConditions {
   readonly validatorCount: number;
   /** Drives every seeded derivation (sized committees); part of the
    * scenario identity, so the same scenario always replays identically. */

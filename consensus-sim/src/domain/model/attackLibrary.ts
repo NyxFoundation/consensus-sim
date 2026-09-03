@@ -16,10 +16,14 @@
 // as long as the essence is reproduced).
 
 import type { Action } from "./action";
-import type { Attack, AttackerObservation, ProposerSchedule, Strategy } from "./attack";
+import type { Attack, AttackerObservation, Strategy } from "./attack";
+import type { Schedule } from "./schedule";
 import type { AttackGoal } from "./attackGoal";
 import { childrenOf, isAncestor, leavesUnder, type BlockTree } from "./blockTree";
-import { validatorIndices, type SimulationConfig } from "./config";
+import { chainStatesOf } from "./chainState";
+import { latestVotes } from "./forkChoice";
+import { validatorIndices, type InitialConditions } from "./initialConditions";
+import type { View } from "./view";
 import {
   SLOTS_PER_EPOCH,
   checkpointFor,
@@ -31,6 +35,7 @@ import {
   ANCHOR_BLOCK_INDEX,
   ANCHOR_CHECKPOINT,
   type BlockIndex,
+  type Checkpoint,
   type SlotIndex,
   type ValidatorIndex,
 } from "./types";
@@ -38,7 +43,7 @@ import {
 /** The validators that are not attackers, in index order. */
 function honestOf(
   attackers: readonly ValidatorIndex[],
-  config: SimulationConfig,
+  config: InitialConditions,
 ): ValidatorIndex[] {
   return validatorIndices(config.validatorCount).filter((v) => !attackers.includes(v));
 }
@@ -66,14 +71,14 @@ function voteAll(
 // phase0 (no boost); under the merge preset the boost saves the honest block,
 // so the goal stays out of reach (成功条件 19). d = 2.
 export const exAnteReorgA01: Strategy = once([
-  { kind: "delay", message: { kind: "proposal", proposer: 1, slot: 1 }, untilSlot: 3 },
-  { kind: "delay", message: { kind: "attestation", validator: 1, slot: 1 }, untilSlot: 3 },
-  { kind: "delay", message: { kind: "attestation", validator: 0, slot: 2 }, untilSlot: 4 },
-  { kind: "delay", message: { kind: "attestation", validator: 2, slot: 2 }, untilSlot: 4 },
-  { kind: "delay", message: { kind: "attestation", validator: 3, slot: 2 }, untilSlot: 4 },
-  { kind: "delay", message: { kind: "attestation", validator: 0, slot: 3 }, untilSlot: 5 },
-  { kind: "delay", message: { kind: "attestation", validator: 2, slot: 3 }, untilSlot: 5 },
-  { kind: "delay", message: { kind: "attestation", validator: 3, slot: 3 }, untilSlot: 5 },
+  { kind: "delay", message: { kind: "proposal", sender: 1, slot: 1 }, untilSlot: 3 },
+  { kind: "delay", message: { kind: "vote", sender: 1, slot: 1 }, untilSlot: 3 },
+  { kind: "delay", message: { kind: "vote", sender: 0, slot: 2 }, untilSlot: 4 },
+  { kind: "delay", message: { kind: "vote", sender: 2, slot: 2 }, untilSlot: 4 },
+  { kind: "delay", message: { kind: "vote", sender: 3, slot: 2 }, untilSlot: 4 },
+  { kind: "delay", message: { kind: "vote", sender: 0, slot: 3 }, untilSlot: 5 },
+  { kind: "delay", message: { kind: "vote", sender: 2, slot: 3 }, untilSlot: 5 },
+  { kind: "delay", message: { kind: "vote", sender: 3, slot: 3 }, untilSlot: 5 },
 ]);
 
 const REORG: AttackGoal = { kind: "reorg", count: 1 };
@@ -93,9 +98,9 @@ export const ATTACK_A01: Attack = {
 // enables (前提 merge). d = 2.
 export const boostReversalA02: Strategy = once([
   { kind: "vote-target", slot: 4, validator: 1, head: 3 },
-  { kind: "delay", message: { kind: "attestation", validator: 0, slot: 4 }, untilSlot: 6 },
-  { kind: "delay", message: { kind: "attestation", validator: 2, slot: 4 }, untilSlot: 6 },
-  { kind: "delay", message: { kind: "attestation", validator: 3, slot: 4 }, untilSlot: 6 },
+  { kind: "delay", message: { kind: "vote", sender: 0, slot: 4 }, untilSlot: 6 },
+  { kind: "delay", message: { kind: "vote", sender: 2, slot: 4 }, untilSlot: 6 },
+  { kind: "delay", message: { kind: "vote", sender: 3, slot: 4 }, untilSlot: 6 },
   { kind: "propose-parent", slot: 5, parent: 3 },
 ]);
 
@@ -126,9 +131,9 @@ export const ATTACK_A02: Attack = {
 // arrives in its slot with 0.4 × 160 = 64 extra weight and the camp that sees
 // it flips (成功条件 19).
 //
-// A04 casts two votes per slot (二重投票), one per branch, delivered
-// selectively: each camp receives the half for its own branch at once and
-// the other half two slots late. Under LMD-GHOST a camp then always counts
+// A04 casts two votes per slot (二重投票), one per branch, published
+// selectively (the double vote's split): each camp receives the half for
+// its own branch at once and the other half two slots late. Under LMD-GHOST a camp then always counts
 // the attacker's latest slot with only the half for its own branch visible,
 // so the balance holds — under merge + discount off, with the honest
 // proposals delayed one slot to the other camp and its own proposals to
@@ -183,14 +188,14 @@ function balancingOf({
  * B at slot q while camp A, seeing both, votes A; camp A's slot-q votes are
  * held back from camp B two slots so that camp B keeps seeing B ahead. */
 function balancingSetup(b: Balancing): Action[] {
-  const root = { kind: "proposal", proposer: b.attacker, slot: b.p } as const;
+  const root = { kind: "proposal", sender: b.attacker, slot: b.p } as const;
   return [
     { kind: "delay", message: root, untilSlot: b.p + 1, observers: b.campA },
     { kind: "delay", message: root, untilSlot: b.p + 2, observers: b.campB },
     ...b.campA.map(
       (validator): Action => ({
         kind: "delay",
-        message: { kind: "attestation", validator, slot: b.q },
+        message: { kind: "vote", sender: validator, slot: b.q },
         untilSlot: b.q + 2,
         observers: b.campB,
       }),
@@ -222,7 +227,7 @@ export const balancingA03: Strategy = (observation) => {
   }
   actions.push({
     kind: "delay",
-    message: { kind: "attestation", validator: b.attacker, slot: t },
+    message: { kind: "vote", sender: b.attacker, slot: t },
     untilSlot: t + SWING_DELAY,
     observers: branch === "A" ? b.campB : b.campA,
   });
@@ -239,10 +244,29 @@ export const ATTACK_A03: Attack = {
   strategy: balancingA03,
 };
 
+/** Whether the honest camps have left the balance: once the split exists,
+ * every honest validator's latest vote lies on the same branch root. The
+ * attacker reads this off the votes it holds (they reach it at once). */
+function campsConverged(b: Balancing, view: View, t: SlotIndex): boolean {
+  if (t <= b.q + 1 || b.rootA === undefined || b.rootB === undefined) return false;
+  const latest = latestVotes(view.votes);
+  const roots = new Set<BlockIndex | undefined>();
+  for (const v of [...b.campA, ...b.campB]) {
+    const vote = latest.get(v);
+    if (vote === undefined) return false;
+    roots.add(branchOf(view.blockTree, [b.rootA, b.rootB], vote.head));
+  }
+  return roots.size === 1;
+}
+
 export const lmdBalancingA04: Strategy = (observation) => {
   const b = balancingOf(observation);
   if (b === undefined) return [];
   const t = observation.slot + 1;
+  // Balancing is over once the camps sit on one branch (the discount has
+  // zeroed the swing votes): the attacker stops — keeping the proposal
+  // delays up would only split the epoch targets, a different attack (A06).
+  if (campsConverged(b, observation.view, t)) return [];
   const actions: Action[] = observation.slot === 0 ? balancingSetup(b) : [];
   // No proposal is ever boosted in a camp that did not build it: honest
   // proposals reach the other camp one slot late, the attacker's own reach
@@ -251,13 +275,13 @@ export const lmdBalancingA04: Strategy = (observation) => {
   if (proposer === b.attacker && t > b.p) {
     actions.push({
       kind: "delay",
-      message: { kind: "proposal", proposer, slot: t },
+      message: { kind: "proposal", sender: proposer, slot: t },
       untilSlot: t + 1,
     });
   } else if (t >= b.q && (b.campA.includes(proposer) || b.campB.includes(proposer))) {
     actions.push({
       kind: "delay",
-      message: { kind: "proposal", proposer, slot: t },
+      message: { kind: "proposal", sender: proposer, slot: t },
       untilSlot: t + 1,
       observers: b.campA.includes(proposer) ? b.campB : b.campA,
     });
@@ -271,30 +295,38 @@ export const lmdBalancingA04: Strategy = (observation) => {
     }
     actions.push({
       kind: "delay",
-      message: { kind: "attestation", validator: b.attacker, slot: t },
+      message: { kind: "vote", sender: b.attacker, slot: t },
       untilSlot: t + SWING_DELAY,
       observers: b.campB,
     });
     return actions;
   }
-  const half = (head: BlockIndex, observers: readonly ValidatorIndex[]): Action => ({
-    kind: "delay",
-    message: { kind: "vote", validator: b.attacker, slot: t, head },
-    untilSlot: t + SWING_DELAY,
-    observers,
-  });
+  // The two halves are published selectively: the vote for A reaches camp A
+  // and the vote for B camp B at once, each the other camp two slots later.
   actions.push(
     { kind: "vote-target", slot: t, validator: b.attacker, head: b.rootA },
-    { kind: "double-vote", slot: t, validator: b.attacker, head: b.rootB },
-    half(b.rootA, b.campB),
-    half(b.rootB, b.campA),
+    {
+      kind: "double-vote",
+      slot: t,
+      validator: b.attacker,
+      head: b.rootB,
+      split: { first: b.campA, second: b.campB, untilSlot: t + SWING_DELAY },
+    },
   );
   return actions;
 };
 
+/** A04's stall threshold: once the discount breaks the balance the camps
+ * converge within an epoch, but each validator's FFG part is settled for
+ * the epoch it converged in, so the first finalization after the
+ * convergence comes an epoch later than the honest slot 9 (slot 13 in the
+ * default run) — the threshold sits well above that, so the mitigated run
+ * stays unachieved while the balanced one reaches it. */
+const LMD_STALL: AttackGoal = { kind: "liveness-stall", slots: 20 };
+
 export const ATTACK_A04: Attack = {
   attackers: { kind: "count", atLeast: 1 },
-  goal: [STALL],
+  goal: [LMD_STALL],
   strategy: lmdBalancingA04,
 };
 
@@ -325,7 +357,7 @@ export const boundaryDelayA06: Strategy = ({ slot, attackers, schedule, config }
   return [
     {
       kind: "delay",
-      message: { kind: "proposal", proposer, slot: boundary },
+      message: { kind: "proposal", sender: proposer, slot: boundary },
       untilSlot: boundary + params.maxDelay,
       observers: hidden,
     },
@@ -395,7 +427,7 @@ export const ATTACK_A06: Attack = {
 
 /** The slot of `epoch` in which `validator` attests, if any. */
 function attestationSlotOf(
-  schedule: ProposerSchedule,
+  schedule: Schedule,
   validator: ValidatorIndex,
   epoch: number,
 ): SlotIndex | undefined {
@@ -408,7 +440,7 @@ function attestationSlotOf(
 
 /** The first slot of `epoch` proposed by one of `proposers`, if any. */
 function proposalSlotIn(
-  schedule: ProposerSchedule,
+  schedule: Schedule,
   proposers: readonly ValidatorIndex[],
   epoch: number,
 ): SlotIndex | undefined {
@@ -449,9 +481,9 @@ export const bouncingA05: Strategy = (observation) => {
   const attest = (v: ValidatorIndex, e: number): SlotIndex | undefined =>
     attestationSlotOf(schedule, v, e);
   const proposalOf = (proposer: ValidatorIndex, at: SlotIndex) =>
-    ({ kind: "proposal", proposer, slot: at }) as const;
+    ({ kind: "proposal", sender: proposer, slot: at }) as const;
   const attestationOf = (validator: ValidatorIndex, at: SlotIndex) =>
-    ({ kind: "attestation", validator, slot: at }) as const;
+    ({ kind: "vote", sender: validator, slot: at }) as const;
   const boundary1 = epochBoundarySlot(1);
   const rootSlot = 1;
   // Roles of the opening: the boundary proposer (F) proposes the epoch-1
@@ -570,7 +602,7 @@ export const bouncingA05: Strategy = (observation) => {
       }
       actions.push({
         kind: "delay",
-        message: { kind: "attestation", validator: attacker, slot: mine },
+        message: { kind: "vote", sender: attacker, slot: mine },
         untilSlot: release,
       });
     }
@@ -594,7 +626,7 @@ export const bouncingA05: Strategy = (observation) => {
       if (v === late?.[0] || at < proposal) continue;
       actions.push({
         kind: "delay",
-        message: { kind: "proposal", proposer: attacker, slot: proposal },
+        message: { kind: "proposal", sender: attacker, slot: proposal },
         untilSlot: at + 1,
         observers: [v],
       });
@@ -665,29 +697,29 @@ export const ATTACK_A11: Attack = {
 // discount, plus boost on the honest proposal) never moves (成功条件 19).
 // Premise phase0 + forkChoice GHOST, d = 5.
 export const avalancheA07: Strategy = once([
-  { kind: "delay", message: { kind: "proposal", proposer: 1, slot: 1 }, untilSlot: 6 },
-  { kind: "delay", message: { kind: "attestation", validator: 1, slot: 1 }, untilSlot: 6 },
-  { kind: "delay", message: { kind: "attestation", validator: 1, slot: 2 }, untilSlot: 6 },
-  { kind: "delay", message: { kind: "attestation", validator: 1, slot: 3 }, untilSlot: 6 },
-  { kind: "delay", message: { kind: "attestation", validator: 1, slot: 4 }, untilSlot: 6 },
-  { kind: "delay", message: { kind: "attestation", validator: 1, slot: 5 }, untilSlot: 6 },
+  { kind: "delay", message: { kind: "proposal", sender: 1, slot: 1 }, untilSlot: 6 },
+  { kind: "delay", message: { kind: "vote", sender: 1, slot: 1 }, untilSlot: 6 },
+  { kind: "delay", message: { kind: "vote", sender: 1, slot: 2 }, untilSlot: 6 },
+  { kind: "delay", message: { kind: "vote", sender: 1, slot: 3 }, untilSlot: 6 },
+  { kind: "delay", message: { kind: "vote", sender: 1, slot: 4 }, untilSlot: 6 },
+  { kind: "delay", message: { kind: "vote", sender: 1, slot: 5 }, untilSlot: 6 },
   ...voteAll([1], 2, 1),
   ...voteAll([1], 3, 1),
   ...voteAll([1], 4, 1),
   { kind: "propose-parent", slot: 5, parent: 1 },
   ...voteAll([1], 5, 5),
   { kind: "double-vote", slot: 5, validator: 1 },
-  { kind: "delay", message: { kind: "attestation", validator: 0, slot: 2 }, untilSlot: 7 },
-  { kind: "delay", message: { kind: "attestation", validator: 2, slot: 2 }, untilSlot: 7, observers: [0] },
-  { kind: "delay", message: { kind: "attestation", validator: 0, slot: 3 }, untilSlot: 7 },
-  { kind: "delay", message: { kind: "attestation", validator: 2, slot: 3 }, untilSlot: 7 },
-  { kind: "delay", message: { kind: "attestation", validator: 3, slot: 3 }, untilSlot: 7 },
-  { kind: "delay", message: { kind: "attestation", validator: 0, slot: 4 }, untilSlot: 8 },
-  { kind: "delay", message: { kind: "attestation", validator: 2, slot: 4 }, untilSlot: 8 },
-  { kind: "delay", message: { kind: "attestation", validator: 3, slot: 4 }, untilSlot: 8 },
-  { kind: "delay", message: { kind: "attestation", validator: 0, slot: 5 }, untilSlot: 9 },
-  { kind: "delay", message: { kind: "attestation", validator: 2, slot: 5 }, untilSlot: 9 },
-  { kind: "delay", message: { kind: "attestation", validator: 3, slot: 5 }, untilSlot: 9 },
+  { kind: "delay", message: { kind: "vote", sender: 0, slot: 2 }, untilSlot: 7 },
+  { kind: "delay", message: { kind: "vote", sender: 2, slot: 2 }, untilSlot: 7, observers: [0] },
+  { kind: "delay", message: { kind: "vote", sender: 0, slot: 3 }, untilSlot: 7 },
+  { kind: "delay", message: { kind: "vote", sender: 2, slot: 3 }, untilSlot: 7 },
+  { kind: "delay", message: { kind: "vote", sender: 3, slot: 3 }, untilSlot: 7 },
+  { kind: "delay", message: { kind: "vote", sender: 0, slot: 4 }, untilSlot: 8 },
+  { kind: "delay", message: { kind: "vote", sender: 2, slot: 4 }, untilSlot: 8 },
+  { kind: "delay", message: { kind: "vote", sender: 3, slot: 4 }, untilSlot: 8 },
+  { kind: "delay", message: { kind: "vote", sender: 0, slot: 5 }, untilSlot: 9 },
+  { kind: "delay", message: { kind: "vote", sender: 2, slot: 5 }, untilSlot: 9 },
+  { kind: "delay", message: { kind: "vote", sender: 3, slot: 5 }, untilSlot: 9 },
 ]);
 
 export const ATTACK_A07: Attack = {
@@ -703,33 +735,50 @@ export const ATTACK_A07: Attack = {
 // slot 4 on each honest validator extends its own branch — A: B1→B2→B4→…,
 // B: B1→B3→B5→…. The attackers cast their FFG votes of the same epoch for
 // both branches' checkpoints in different slots (時機: B4 at slot 4, B3 at
-// slot 5, then B8 at slot 8 and B7 at slot 9), extend both branches from
-// their own proposal slots, and each branch's honest validator completes
-// its link: {0,2,3} on A, {1,2,3} on B, 3/4 each. Both branches finalize —
-// B4 on A, B3 on B — two finalized checkpoints in conflict (安全性違反).
-// Slashing (on under merge) never fires: the contradictory target votes are
-// cast in different slots, and only same-slot conflicts are evidence in
-// this model (the FFG-level double vote is the simplification recorded for
-// this attack). Premise merge.
+// slot 5, then B8 at slot 8 and B7 at slot 9 — the second target of each
+// epoch designated explicitly, since an undesignated FFG part repeats the
+// epoch's first), extend both branches from their own proposal slots, and
+// each branch's honest validator completes its link: {0,2,3} on A, {1,2,3}
+// on B, 3/4 each. Both branches finalize — B4 on A, B3 on B — two finalized
+// checkpoints in conflict (安全性違反). The contradictory target votes are
+// FFG double votes cast in different slots. Premise merge.
 const SPLIT_HONEST: readonly Action[] = [
-  { kind: "drop", message: { kind: "proposal", proposer: 3, slot: 3 }, observers: [0] },
-  { kind: "drop", message: { kind: "proposal", proposer: 0, slot: 4 }, observers: [1] },
-  { kind: "drop", message: { kind: "attestation", validator: 0, slot: 2 }, observers: [1] },
-  { kind: "drop", message: { kind: "attestation", validator: 0, slot: 3 }, observers: [1] },
+  { kind: "drop", message: { kind: "proposal", sender: 3, slot: 3 }, observers: [0] },
+  { kind: "drop", message: { kind: "proposal", sender: 0, slot: 4 }, observers: [1] },
+  { kind: "drop", message: { kind: "vote", sender: 0, slot: 2 }, observers: [1] },
+  { kind: "drop", message: { kind: "vote", sender: 0, slot: 3 }, observers: [1] },
 ];
+
+/** The same FFG-explicit vote designation for every attacker at `slot`. */
+function voteAllFfg(
+  attackers: readonly ValidatorIndex[],
+  slot: SlotIndex,
+  head: BlockIndex,
+  target: BlockIndex,
+  source?: Checkpoint,
+): Action[] {
+  return attackers.map((validator) => ({
+    kind: "vote-target",
+    slot,
+    validator,
+    head,
+    target,
+    ...(source === undefined ? {} : { source }),
+  }));
+}
 
 export const doubleFinalityA10: Strategy = once([
   { kind: "propose-parent", slot: 3, parent: 1 },
   ...SPLIT_HONEST,
   ...voteAll([2, 3], 3, 3),
   ...voteAll([2, 3], 4, 4),
-  ...voteAll([2, 3], 5, 5),
+  ...voteAllFfg([2, 3], 5, 5, 3),
   { kind: "propose-parent", slot: 6, parent: 4 },
   ...voteAll([2, 3], 6, 6),
   { kind: "propose-parent", slot: 7, parent: 5 },
   ...voteAll([2, 3], 7, 7),
   ...voteAll([2, 3], 8, 8),
-  ...voteAll([2, 3], 9, 9),
+  ...voteAllFfg([2, 3], 9, 9, 7, { epoch: 1, block: 3 }),
   { kind: "propose-parent", slot: 10, parent: 8 },
   { kind: "propose-parent", slot: 11, parent: 9 },
 ]);
@@ -776,7 +825,11 @@ export const ATTACK_A12: Attack = {
 // honest validators build two branches, A (the isolated one's) and B (the
 // rest's), neither seeing the other's blocks. The attackers see both and
 // vote on both every epoch: the second slot of each epoch on A's tip, the
-// third on B's tip. On A only the isolated validator and the attackers are
+// third on B's tip — each with the FFG part of that branch designated
+// (source = the branch's justified checkpoint, target = its checkpoint of
+// the epoch), so both branches count the attackers as active; an
+// undesignated FFG part would repeat the epoch's first vote and count on
+// one branch only. On A only the isolated validator and the attackers are
 // active, so finality stalls and, once it lags by more than N epochs, the
 // rest leak stake there every epoch (罰則 inactivity leak) while the
 // attackers never leak. Stage 1: the attackers' share of A's chain state,
@@ -785,7 +838,7 @@ export const ATTACK_A12: Attack = {
 // of A, so A finalizes its own checkpoints — in conflict with B's, which the
 // attackers' votes kept finalizing all along (安全性違反). Premise merge.
 function proposalSlotOf(
-  schedule: ProposerSchedule,
+  schedule: Schedule,
   proposers: readonly ValidatorIndex[],
   from: SlotIndex,
   validatorCount: number,
@@ -834,10 +887,10 @@ export const leakAmplificationA14: Strategy = ({ slot, attackers, view, schedule
   const actions: Action[] = [];
   if (slot === 0) {
     actions.push(
-      { kind: "drop", message: { kind: "proposal", proposer: isolated, slot: splitA }, observers: rest },
+      { kind: "drop", message: { kind: "proposal", sender: isolated, slot: splitA }, observers: rest },
       {
         kind: "drop",
-        message: { kind: "proposal", proposer: schedule.proposerOf(splitB), slot: splitB },
+        message: { kind: "proposal", sender: schedule.proposerOf(splitB), slot: splitB },
         observers: [isolated],
       },
     );
@@ -850,7 +903,13 @@ export const leakAmplificationA14: Strategy = ({ slot, attackers, view, schedule
       : phase === 2
         ? blockBy(view.blockTree, schedule.proposerOf(splitB), splitB)
         : undefined;
-  if (fork !== undefined) actions.push(...voteAll(attackers, next, tipUnder(view.blockTree, fork)));
+  if (fork !== undefined) {
+    const tree = view.blockTree;
+    const tip = tipUnder(tree, fork);
+    const justified = chainStatesOf(tree, config).get(tip)!.justified;
+    const target = checkpointFor(tree, tip, epochOf(next)).block;
+    actions.push(...voteAllFfg(attackers, next, tip, target, justified));
+  }
   return actions;
 };
 

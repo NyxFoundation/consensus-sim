@@ -19,7 +19,7 @@ import {
   observe,
   validatorName,
 } from '../../domain'
-import type { Delivery, SimulationConfig, SimulationState } from '../../domain'
+import type { Delivery, InitialConditions, SimulationState } from '../../domain'
 import { BlockTreeView } from '../BlockTreeView'
 import { BlockBodyView, ChainStateTable } from '../ChainStateDetail'
 import { Button } from '../components/Button'
@@ -34,7 +34,7 @@ import { VoteTable } from '../VoteTable'
 export interface ChainModeProps {
   readonly state: SimulationState
   /** The scenario's initial conditions — local views resolve under them. */
-  readonly config: SimulationConfig
+  readonly config: InitialConditions
   /** The scenario's delivery rule — local views are filtered through it. */
   readonly delivery?: Delivery | undefined
 }

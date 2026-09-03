@@ -13,7 +13,7 @@ import {
   type Intervention,
   type ProposedBlock,
   type Scenario,
-  type SimulationConfig,
+  type InitialConditions,
   type SimulationState,
 } from "../../src/domain";
 
@@ -27,6 +27,7 @@ import {
   operatingStateAt,
   proposerForSlot,
   scenarioDelivery,
+  voteRef,
   type SpanIntervention,
 } from "../../src/domain";
 
@@ -43,7 +44,7 @@ const scenario = (
   interventions,
 });
 
-const CONFIG4: SimulationConfig = scenario([]).config;
+const CONFIG4: InitialConditions = scenario([]).config;
 
 const statesAt = (s: Scenario, slot: number): SimulationState[] =>
   scenarioStates(s, slot);
@@ -198,7 +199,11 @@ describe("propose-parent intervention (フォーク作成)", () => {
     // Slot 3's proposer is V3; drop B1 for it, so B1 (and orphaned B2) are
     // invisible and its honest head is the anchor.
     const s = scenario([
-      { kind: "drop", message: { kind: "block", block: 1 }, observers: [3] },
+      {
+        kind: "drop",
+        message: { kind: "proposal", sender: proposerForSlot(1, CONFIG4), slot: 1 },
+        observers: [3],
+      },
       { kind: "propose-parent", slot: 3, parent: 1 },
     ]);
     const state = statesAt(s, 3)[3];
@@ -282,7 +287,11 @@ describe("equivocation interventions (二重提案・二重投票)", () => {
 describe("delay / drop interventions (遅延・欠落)", () => {
   it("a delayed block is invisible to its targets until untilSlot", () => {
     const s = scenario([
-      { kind: "delay", message: { kind: "block", block: 1 }, untilSlot: 3 },
+      {
+        kind: "delay",
+        message: { kind: "proposal", sender: proposerForSlot(1, CONFIG4), slot: 1 },
+        untilSlot: 3,
+      },
     ]);
     const states = statesAt(s, 3);
     const delivery = scenarioDelivery(s);
@@ -303,7 +312,7 @@ describe("delay / drop interventions (遅延・欠落)", () => {
     const s = scenario([
       {
         kind: "drop",
-        message: { kind: "block", block: 1 },
+        message: { kind: "proposal", sender: proposerForSlot(1, CONFIG4), slot: 1 },
         observers: [2, 3],
       },
     ]);
@@ -328,12 +337,7 @@ describe("delay / drop interventions (遅延・欠落)", () => {
     const dropped = scenario([
       {
         kind: "drop",
-        message: {
-          kind: "vote",
-          validator: vote.validator,
-          slot: vote.slot,
-          head: vote.head,
-        },
+        message: voteRef(vote),
         observers: [0],
       },
     ]);
@@ -356,7 +360,11 @@ describe("scenario determinism (決定性)", () => {
       { kind: "stop", fromSlot: 3, toSlot: 4, validators: [2] },
       { kind: "double-propose", slot: 5, validator: proposerForSlot(5, CONFIG4) },
       { kind: "double-vote", slot: 6, validator: 1 },
-      { kind: "drop", message: { kind: "block", block: 2 }, observers: [3] },
+      {
+        kind: "drop",
+        message: { kind: "proposal", sender: proposerForSlot(2, CONFIG4), slot: 2 },
+        observers: [3],
+      },
       { kind: "offline", fromSlot: 7, toSlot: 8, validators: [0] },
       { kind: "propose-parent", slot: 9, parent: 1 },
     ];

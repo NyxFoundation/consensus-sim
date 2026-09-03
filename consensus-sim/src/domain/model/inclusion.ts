@@ -150,7 +150,7 @@ export function sameEvidenceRef(a: EvidenceRef, b: EvidenceRef): boolean {
 }
 
 /** Items a proposer deliberately leaves out (取り込みの省略): votes by
- * message reference (exact, or every attestation of a validator in a slot),
+ * message reference (exact, or every vote of a validator in a slot),
  * evidence by equivocator / slot / kind. */
 export interface Omission {
   readonly votes?: readonly MessageRef[];
@@ -174,11 +174,7 @@ export function buildBody(
   for (const vote of votes) {
     const key = voteKey(vote);
     if (already.votes.has(key) || seen.has(key)) continue;
-    if (
-      omit.votes?.some((r) => coversMessage(r, voteRef(vote), vote.validator, vote.slot))
-    ) {
-      continue;
-    }
+    if (omit.votes?.some((r) => coversMessage(r, voteRef(vote)))) continue;
     seen.add(key);
     bodyVotes.push(vote);
   }

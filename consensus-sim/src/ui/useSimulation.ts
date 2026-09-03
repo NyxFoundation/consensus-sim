@@ -24,12 +24,12 @@ import type {
   Delivery,
   Intervention,
   Scenario,
-  SimulationConfig,
+  InitialConditions,
   SimulationState,
 } from '../domain'
 
 export interface SimulationSession {
-  readonly config: SimulationConfig
+  readonly config: InitialConditions
   readonly interventions: readonly Intervention[]
   /** Compiled delivery rule — local views must be filtered through this. */
   readonly delivery: Delivery
@@ -49,7 +49,7 @@ export interface SimulationSession {
    * stakes). With the validator count unchanged the interventions and the
    * run length stay and the whole history recomputes; a new validator count
    * starts a fresh run from slot 0. */
-  setConfig(config: SimulationConfig): void
+  setConfig(config: InitialConditions): void
   /** Replaces the scenario (new validator count ⇒ new run from slot 0,
    * keeping the protocol parameters and the seed). */
   setValidatorCount(count: number): void
@@ -61,20 +61,20 @@ export interface SimulationSession {
 const DEFAULT_SEED = 0
 
 interface SessionCore {
-  readonly config: SimulationConfig
+  readonly config: InitialConditions
   readonly interventions: readonly Intervention[]
   readonly runSlot: number
   readonly cursor: number
 }
 
-const freshCore = (config: SimulationConfig): SessionCore => ({
+const freshCore = (config: InitialConditions): SessionCore => ({
   config,
   interventions: [],
   runSlot: 0,
   cursor: 0,
 })
 
-const defaultConfig = (validatorCount: number): SimulationConfig => ({
+const defaultConfig = (validatorCount: number): InitialConditions => ({
   validatorCount,
   seed: DEFAULT_SEED,
   params: DEFAULT_PARAMS,
@@ -115,7 +115,7 @@ export function useSimulation(): SimulationSession {
     [],
   )
 
-  const setConfig = useCallback((next: SimulationConfig) => {
+  const setConfig = useCallback((next: InitialConditions) => {
     setCore((c) =>
       next.validatorCount === c.config.validatorCount
         ? { ...c, config: next }

@@ -70,6 +70,21 @@ async function select(label: string, value: string) {
   })
 }
 
+/** Select the option whose visible label starts with `textPrefix` — the
+ * option's value is an internal key not asserted on here. */
+async function selectByLabel(label: string, textPrefix: string) {
+  const el = container.querySelector(`select[aria-label="${label}"]`)
+  if (!(el instanceof HTMLSelectElement)) throw new Error(`select ${label} not found`)
+  const option = [...el.querySelectorAll('option')].find((o) =>
+    o.textContent?.startsWith(textPrefix),
+  ) as HTMLOptionElement | undefined
+  if (!option) throw new Error(`option starting with ${textPrefix} not found in ${label}`)
+  await act(async () => {
+    el.value = option.value
+    el.dispatchEvent(new Event('change', { bubbles: true }))
+  })
+}
+
 /** Rows of the chain display's vote table as [validator, slot, head]. */
 function voteRows(): string[][] {
   return all('.chain-mode .panel-row .vote-table tbody tr').map((r) =>
@@ -156,7 +171,7 @@ describe('omitted inclusion (取り込みの省略)', () => {
 describe('receiver set of a delay / drop (受信者集合)', () => {
   it('scopes a drop to the chosen observers', async () => {
     await advance(1)
-    await select('対象メッセージ', 'block:1')
+    await selectByLabel('対象メッセージ', 'ブロック B1')
     // The message fieldset's 対象 checkboxes carry the validator names; pick ボブ.
     const group = all('.intervention-group').find((g) =>
       g.querySelector('legend')?.textContent?.includes('メッセージの遅延・欠落'),

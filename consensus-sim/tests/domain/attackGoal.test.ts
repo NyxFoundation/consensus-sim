@@ -26,11 +26,11 @@ import {
   type Intervention,
   type ProposedBlock,
   type Scenario,
-  type SimulationConfig,
+  type InitialConditions,
   type Vote,
 } from "../../src/domain";
 
-const CONFIG: SimulationConfig = {
+const CONFIG: InitialConditions = {
   validatorCount: 4,
   seed: 0,
   params: DEFAULT_PARAMS,
@@ -39,7 +39,7 @@ const CONFIG: SimulationConfig = {
 
 const scenario = (
   interventions: Intervention[],
-  config: SimulationConfig = CONFIG,
+  config: InitialConditions = CONFIG,
 ): Scenario => ({ config, interventions });
 
 const history = (s: Scenario, through: number): GodView[] => scenarioStates(s, through);
@@ -49,7 +49,7 @@ const at = (
   h: readonly GodView[],
   slot: number,
   attackers: number[] = [0],
-  config: SimulationConfig = CONFIG,
+  config: InitialConditions = CONFIG,
 ) => evaluatePredicate(goal, h, slot, attackers, config);
 
 describe("safety violation (安全性違反)", () => {

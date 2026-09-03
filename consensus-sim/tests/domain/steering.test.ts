@@ -11,22 +11,31 @@ import {
   bodyOf,
   equalStakes,
   parseScenario,
+  proposerForSlot,
   scenarioStates,
   serializeScenario,
+  type InitialConditions,
   type Intervention,
   type Scenario,
   type Vote,
 } from "../../src/domain";
 
+const CONFIG: InitialConditions = {
+  validatorCount: 4,
+  seed: 0,
+  params: DEFAULT_PARAMS,
+  initialStakes: equalStakes(4),
+};
+
 const scenario = (interventions: Intervention[]): Scenario => ({
-  config: {
-    validatorCount: 4,
-    seed: 0,
-    params: DEFAULT_PARAMS,
-    initialStakes: equalStakes(4),
-  },
+  config: CONFIG,
   interventions,
 });
+
+/** The exact reference of B_n, the block published at slot n in these
+ * honest-numbering scenarios (block index = slot). */
+const blockAt = (slot: number) =>
+  ({ kind: "proposal", sender: proposerForSlot(slot, CONFIG), slot, block: slot }) as const;
 
 const votesAt = (s: Scenario, slot: number): Vote[] =>
   scenarioStates(s, slot)[slot]!.votes.filter((v) => v.slot === slot);
@@ -35,30 +44,38 @@ const bodyAt = (s: Scenario, slot: number) =>
   bodyOf(scenarioStates(s, slot)[slot]!.tree.blocks.get(slot)!);
 
 describe("vote designation (投票先指定)", () => {
-  // Honest run: B_n at slot n; at slot 6 everyone votes head B6 with
-  // source = B4 (justified in ChainState(B5)) and target = B4.
+  // Honest run: B_n at slot n; at slot 6 everyone votes head B6.
+  // T-053: the FFG part (source, target) is decided once per epoch, at the
+  // first vote of the epoch (slot 4 here) and repeated afterward, so slot
+  // 6's source is what was settled at slot 4 (nothing justified yet:
+  // ANCHOR_CHECKPOINT), not freshly derived from B6's chain state — expected
+  // changed from source {epoch:1, block:4} to ANCHOR_CHECKPOINT.
   it("follows the rules when nothing is designated", () => {
     expect(votesAt(scenario([]), 6)).toEqual(
       [0, 1, 2, 3].map((v) => ({
         validator: v,
         slot: 6,
         head: 6,
-        source: { epoch: 1, block: 4 },
+        source: ANCHOR_CHECKPOINT,
         target: { epoch: 1, block: 4 },
       })),
     );
   });
 
-  it("steers the head and derives source / target from the designated head's chain", () => {
+  it("steers the head and repeats the FFG part already settled for the epoch", () => {
     const votes = votesAt(scenario([{ kind: "vote-target", slot: 6, validator: 1, head: 3 }]), 6);
-    // B3's chain state has nothing justified; epoch 1's checkpoint on that
-    // chain is B3 itself (the last block at or before slot 4).
+    // T-053: validator 1 already settled its epoch-1 FFG part at slot 4
+    // (following the main chain, target B4); a later designated head no
+    // longer moves a freshly decided FFG part onto its own chain once the
+    // epoch's FFG part is settled — expected changed from target
+    // {epoch:1, block:3} (B3's own checkpoint) to {epoch:1, block:4}
+    // (the settled target, repeated).
     expect(votes[1]).toEqual({
       validator: 1,
       slot: 6,
       head: 3,
       source: ANCHOR_CHECKPOINT,
-      target: { epoch: 1, block: 3 },
+      target: { epoch: 1, block: 4 },
     });
     expect(votes.filter((v) => v.validator !== 1).map((v) => v.head)).toEqual([6, 6, 6]);
   });
@@ -83,9 +100,9 @@ describe("vote designation (投票先指定)", () => {
     const s = scenario([
       { kind: "vote-target", slot: 6, validator: 1, head: 99, target: 2 },
       // B2 is dropped for ボブ, so target B2 is unknown to it while B99 never exists.
-      { kind: "drop", message: { kind: "block", block: 2 }, observers: [1] },
+      { kind: "drop", message: blockAt(2), observers: [1] },
     ]);
-    const honest = scenario([{ kind: "drop", message: { kind: "block", block: 2 }, observers: [1] }]);
+    const honest = scenario([{ kind: "drop", message: blockAt(2), observers: [1] }]);
     expect(votesAt(s, 6)).toEqual(votesAt(honest, 6));
   });
 
@@ -96,18 +113,20 @@ describe("vote designation (投票先指定)", () => {
     ]);
     expect(votesAt(stopped, 6).map((v) => v.validator)).toEqual([0, 2, 3]);
     const steered = scenario([{ kind: "vote-target", slot: 6, validator: 1, head: 3 }]);
+    // T-053: see the same settled-FFG explanation above — target changed
+    // from {epoch:1, block:3} to {epoch:1, block:4}.
     expect(bodyAt(steered, 7).votes).toContainEqual({
       validator: 1,
       slot: 6,
       head: 3,
       source: ANCHOR_CHECKPOINT,
-      target: { epoch: 1, block: 3 },
+      target: { epoch: 1, block: 4 },
     });
   });
 });
 
 describe("omitted inclusion (取り込みの省略)", () => {
-  const aliceAt2 = { kind: "vote", validator: 0, slot: 2, head: 2 } as const;
+  const aliceAt2 = { kind: "vote", sender: 0, slot: 2 } as const;
 
   it("leaves the named vote out of the proposer's block; a later block includes it", () => {
     const s = scenario([{ kind: "omit-inclusion", slot: 3, votes: [aliceAt2] }]);
@@ -158,7 +177,7 @@ describe("scenario codec", () => {
     {
       kind: "omit-inclusion",
       slot: 3,
-      votes: [{ kind: "vote", validator: 0, slot: 2, head: 2 }],
+      votes: [{ kind: "vote", sender: 0, slot: 2 }],
       evidence: [{ kind: "double-vote", validator: 1, slot: 2 }],
     },
   ];
@@ -184,9 +203,9 @@ describe("scenario codec", () => {
     expect(() => parseScenario(withFirst({ validator: 4 }))).toThrow(/validator/);
     expect(() => parseScenario(withFirst({ head: -1 }))).toThrow(/head/);
     expect(() => parseScenario(withFirst({ source: 1.5 }))).toThrow(/source/);
-    expect(() => parseScenario(withSecond({ votes: [{ kind: "block", block: 2 }] }))).toThrow(
-      /must be a vote/,
-    );
+    expect(() =>
+      parseScenario(withSecond({ votes: [{ kind: "proposal", sender: 0, slot: 2 }] })),
+    ).toThrow(/must be a vote/);
     expect(() => parseScenario(withSecond({ votes: "x" }))).toThrow(/array/);
     expect(() =>
       parseScenario(withSecond({ evidence: [{ kind: "triple", validator: 1, slot: 2 }] })),

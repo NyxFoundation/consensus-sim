@@ -27,7 +27,7 @@ import {
   type ProposedBlock,
   type ProtocolParams,
   type Scenario,
-  type SimulationConfig,
+  type InitialConditions,
 } from "../../src/domain";
 
 /** Narrow a tree block to its proposed shape, for tests that already know
@@ -37,7 +37,7 @@ function asProposed(block: Block): ProposedBlock {
   return block;
 }
 
-function configFor(a: LibraryAttack, params: ProtocolParams): SimulationConfig {
+function configFor(a: LibraryAttack, params: ProtocolParams): InitialConditions {
   return {
     validatorCount: a.defaultRun.validatorCount,
     seed: a.defaultRun.seed,

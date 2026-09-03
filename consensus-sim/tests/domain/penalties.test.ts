@@ -12,6 +12,7 @@ import {
   EMPTY_BODY,
   PRESETS,
   addBlock,
+  atEnd,
   bodyOf,
   chainStateOf,
   createBlockTree,
@@ -19,6 +20,7 @@ import {
   equalStakes,
   resolveView,
   scenarioStates,
+  scheduleOf,
   viewOf,
   type BlockBody,
   type Equivocation,
@@ -26,14 +28,14 @@ import {
   type ProposedBlock,
   type ProtocolParams,
   type Scenario,
-  type SimulationConfig,
+  type InitialConditions,
   type Vote,
 } from "../../src/domain";
 
 const configOf = (
   params: ProtocolParams = DEFAULT_PARAMS,
   initialStakes: readonly number[] = equalStakes(4),
-): SimulationConfig => ({
+): InitialConditions => ({
   validatorCount: initialStakes.length,
   seed: 0,
   params,
@@ -74,7 +76,7 @@ const chain = (upToSlot: number, bodies: Record<number, BlockBody> = {}) => {
   return tree;
 };
 
-const stakesOf = (config: SimulationConfig, tree: ReturnType<typeof chain>, at: number) =>
+const stakesOf = (config: InitialConditions, tree: ReturnType<typeof chain>, at: number) =>
   [...chainStateOf(tree, at, config).stakes.values()];
 
 describe("initial stakes (初期ステーク)", () => {
@@ -82,7 +84,7 @@ describe("initial stakes (初期ステーク)", () => {
   //       └─ B2 (slot 2)      voted by validators 1 and 2
   const tree = [block(1, 0, 1, 1), block(2, 0, 2, 2)].reduce(addBlock, createBlockTree());
   const votes = [vote(0, 2, 1), vote(1, 2, 2), vote(2, 2, 2)];
-  const view = { validator: 0, slot: 2, blockTree: tree, votes };
+  const view = { blockTree: tree, votes };
 
   it("default to equal stakes for everyone", () => {
     expect(equalStakes(5)).toEqual([32, 32, 32, 32, 32]);
@@ -90,8 +92,10 @@ describe("initial stakes (初期ステーク)", () => {
   });
 
   it("weigh fork choice: one heavy validator outweighs two light ones", () => {
-    expect(resolveView(view, configOf(PRESETS.phase0)).head).toBe(2);
-    expect(resolveView(view, configOf(PRESETS.phase0, [100, 32, 32, 32])).head).toBe(1);
+    const light = configOf(PRESETS.phase0);
+    const heavy = configOf(PRESETS.phase0, [100, 32, 32, 32]);
+    expect(resolveView(view, light, scheduleOf(light), 2).head).toBe(2);
+    expect(resolveView(view, heavy, scheduleOf(heavy), 2).head).toBe(1);
   });
 
   it("weigh the FFG threshold: 2/3 of the stake, not of the validators", () => {
@@ -148,7 +152,12 @@ describe("slashing (スラッシング)", () => {
 
   it("excludes the equivocator's votes from fork choice on the evidence branch", () => {
     const { tree, config } = withEvidence(DEFAULT_PARAMS);
-    const { weights } = resolveView({ validator: 0, slot: 5, blockTree: tree, votes: [] }, config);
+    const { weights } = resolveView(
+      { blockTree: tree, votes: [] },
+      config,
+      scheduleOf(config),
+      5,
+    );
     expect(weights.weightOf(vote(3, 5, 5))).toBe(0);
     expect(weights.weightOf(vote(3, 5, 6))).toBe(32);
     expect(weights.weightOf(vote(0, 5, 5))).toBe(32);
@@ -172,7 +181,13 @@ describe("slashing (スラッシング)", () => {
     expect(stakeAt(4, 1)).toBe(0);
     // Every validator's head is on the slashed branch, so ボブ's vote weighs 0
     // in everyone's fork choice from then on.
-    const { weights } = resolveView(viewOf(states[4]!.log, 0, 4), configOf());
+    const finalConfig = configOf();
+    const { weights } = resolveView(
+      viewOf(states[4]!.log, 0, atEnd(4)),
+      finalConfig,
+      scheduleOf(finalConfig),
+      4,
+    );
     expect(weights.weightOf(vote(1, 4, 4))).toBe(0);
     expect(weights.weightOf(vote(0, 4, 4))).toBe(32);
     expect(run({ ...DEFAULT_PARAMS, slashing: false })[4]!.chainStates.get(4)!.stakes.get(1)).toBe(32);

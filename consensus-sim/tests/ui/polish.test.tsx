@@ -108,8 +108,11 @@ describe('message selector grouped by publish slot', () => {
     )
     expect(perGroup).toEqual([5, 5])
 
+    const b1Option = [...select.querySelectorAll('option')].find((o) =>
+      o.textContent?.startsWith('ブロック B1'),
+    ) as HTMLOptionElement
     await act(async () => {
-      select.value = 'block:1'
+      select.value = b1Option.value
       select.dispatchEvent(new Event('change', { bubbles: true }))
     })
     await click(buttonByText('適用'))

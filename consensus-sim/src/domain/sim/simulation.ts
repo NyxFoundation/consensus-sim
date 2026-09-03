@@ -2,19 +2,23 @@
 // fully deterministically (決定性): the state at any slot is a pure function
 // of the scenario, so rewind (巻き戻し) is recomputation from the anchor.
 //
-// Protocol sequencing within a slot s (all order-independent by design):
-//   1. the proposer builds on its view of slots < s (parent by fork choice,
-//      body by inclusion of everything unincluded on that branch),
-//   2. the slot's committee attests on blocks through s (the timely proposal
-//      of s carrying the proposer boost) but votes through s-1,
-//   3. observers read end-of-slot views (blocks and votes through s).
+// Protocol sequencing within a slot s — the three instants (観測時点), all
+// order-independent by design:
+//   1. (s, proposal): the proposer builds on its view of the slots before s
+//      (parent by fork choice, body by inclusion of everything unincluded on
+//      that branch) and publishes the block,
+//   2. (s, vote): the slot's committee attests on blocks through s (the
+//      timely proposal of s carrying the proposer boost) and votes through
+//      s-1, and publishes the votes,
+//   3. (s, end): observers read end-of-slot views (blocks and votes
+//      through s).
 // Delivery decides who sees what; the default is instant broadcast, and
 // interventions plug in as stricter Delivery rules. Who acts — proposer and
-// committee — comes from (slot, ProtocolParams, seed) via schedule.ts.
+// committee — is the schedule the initial conditions determine.
 
 import { addBlock, createBlockTree, type BlockTree } from "../model/blockTree";
 import { chainStatesOf, type ChainStateIndex } from "../model/chainState";
-import { validatorIndices, type SimulationConfig } from "../model/config";
+import { validatorIndices, type InitialConditions } from "../model/initialConditions";
 import type { Omission } from "../model/inclusion";
 import { instantDelivery, viewOf, type Delivery } from "./localView";
 import { emptyLog, publishBlock, publishVotes, type MessageLog } from "./messages";
@@ -25,10 +29,13 @@ import {
   resolveView,
   type VoteOverride,
 } from "../model/protocol";
-import { committeeForSlot, proposerForSlot } from "../model/schedule";
+import { scheduleOf } from "./schedule";
 import {
   ANCHOR_BLOCK_INDEX,
   START_SLOT,
+  atEnd,
+  atProposal,
+  atVote,
   type BlockIndex,
   type ProposedBlock,
   type SlotIndex,
@@ -54,7 +61,7 @@ export interface SimulationState {
 }
 
 /** State at slot 0: only the anchor block, no votes, everyone on the anchor. */
-export function initialState(config: SimulationConfig): SimulationState {
+export function initialState(config: InitialConditions): SimulationState {
   assertValidatorCount(config.validatorCount);
   const tree = createBlockTree();
   const heads = new Map<ValidatorIndex, BlockIndex>(
@@ -105,7 +112,7 @@ export interface SlotDirectives {
  * omitted inclusions); a stopped proposer leaves the slot empty.
  */
 export function advanceSlot(
-  config: SimulationConfig,
+  config: InitialConditions,
   state: SimulationState,
   delivery: Delivery = instantDelivery,
   directives: SlotDirectives = {},
@@ -113,16 +120,18 @@ export function advanceSlot(
   const slot = state.slot + 1;
   const validators = validatorIndices(config.validatorCount);
   const stopped = directives.stopped ?? new Set<ValidatorIndex>();
+  const schedule = scheduleOf(config);
 
-  // 1. Proposal, from the proposer's view of everything before this slot
-  // (a fork choice computed at this slot, so no earlier proposal is boosted).
-  // A stopped proposer publishes nothing; a double proposal is a second
-  // block on the same parent (conflicting siblings in the same slot).
-  const proposer = proposerForSlot(slot, config);
+  // 1. Proposal, from the proposer's view at (slot, proposal) — everything
+  // before this slot (a fork choice computed at this slot, so no earlier
+  // proposal is boosted). A stopped proposer publishes nothing; a double
+  // proposal is a second block on the same parent (conflicting siblings in
+  // the same slot).
+  const proposer = schedule.proposerOf(slot);
   const proposals: ProposedBlock[] = [];
   if (!stopped.has(proposer)) {
-    const proposerView = viewOf(state.log, proposer, slot - 1, delivery);
-    const resolution = resolveView(proposerView, config, slot);
+    const proposerView = viewOf(state.log, proposer, atProposal(slot), delivery);
+    const resolution = resolveView(proposerView, config, schedule, slot);
     const proposal = buildProposal(
       proposerView,
       resolution,
@@ -140,16 +149,16 @@ export function advanceSlot(
   let log = state.log;
   for (const block of proposals) log = publishBlock(log, block, slot);
 
-  // 2. Attestations by the slot's committee: blocks through this slot,
-  // votes through the previous one, so every attester of the slot votes
-  // simultaneously. Stopped validators skip; double voters add a
-  // conflicting second vote.
-  const committee = committeeForSlot(slot, config);
+  // 2. Attestations by the slot's committee from their views at
+  // (slot, vote): blocks through this slot, votes through the previous one,
+  // so every attester of the slot votes simultaneously. Stopped validators
+  // skip; double voters add a conflicting second vote.
+  const committee = schedule.committeeOf(slot);
   const attestations: Vote[] = [];
   for (const validator of validators) {
     if (stopped.has(validator) || !committee.has(validator)) continue;
-    const view = viewOf(log, validator, slot, delivery, slot - 1);
-    const resolution = resolveView(view, config);
+    const view = viewOf(log, validator, atVote(slot), delivery);
+    const resolution = resolveView(view, config, schedule, slot);
     const vote = buildAttestation(
       view,
       resolution,
@@ -169,14 +178,14 @@ export function advanceSlot(
   }
   log = publishVotes(log, attestations, slot);
 
-  // 3. God view and per-validator end-of-slot heads.
+  // 3. God view and per-validator heads at (slot, end).
   let tree = state.tree;
   for (const block of proposals) tree = addBlock(tree, block);
   const votes = [...state.votes, ...attestations];
   const heads = new Map<ValidatorIndex, BlockIndex>(
     validators.map((v) => [
       v,
-      resolveView(viewOf(log, v, slot, delivery), config).head,
+      resolveView(viewOf(log, v, atEnd(slot), delivery), config, schedule, slot).head,
     ]),
   );
   return {
@@ -197,7 +206,7 @@ export function advanceSlot(
  * equivocate validators, use `scenarioStates`, which compiles both axes.
  */
 export function stateAtSlot(
-  config: SimulationConfig,
+  config: InitialConditions,
   slot: SlotIndex,
   delivery: Delivery = instantDelivery,
 ): SimulationState {

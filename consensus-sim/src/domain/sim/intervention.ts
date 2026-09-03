@@ -13,16 +13,18 @@
 import type {
   Action,
   DelayAction,
+  DoubleVoteAction,
   DropAction,
   OmitInclusionAction,
   PartitionAction,
   ProposeParentAction,
+  SplitDelivery,
   StopAction,
 } from "../model/action";
-import type { SimulationConfig } from "../model/config";
+import type { InitialConditions } from "../model/initialConditions";
 import type { Omission } from "../model/inclusion";
 import type { Delivery } from "./localView";
-import { coversMessage } from "../model/messageRef";
+import { coversMessage, type MessageRef } from "../model/messageRef";
 import type { VoteOverride } from "../model/protocol";
 import { proposerForSlot } from "../model/schedule";
 import type { SlotDirectives } from "./simulation";
@@ -121,6 +123,26 @@ const targets = (
   observer: ValidatorIndex,
 ): boolean => observers === undefined || observers.includes(observer);
 
+/** The selective deliveries of double votes, each with the half it holds
+ * back from an observer: the split of a double vote at (validator, slot)
+ * applies to that validator's votes of the slot — the one for the
+ * designated head is the second half, any other the first — and holds a
+ * half back from every observer outside its receiver set. */
+interface HeldHalf {
+  readonly validator: ValidatorIndex;
+  readonly slot: SlotIndex;
+  readonly head: BlockIndex | undefined;
+  readonly split: SplitDelivery;
+}
+
+const holdsBack = (h: HeldHalf, message: MessageRef, observer: ValidatorIndex): boolean => {
+  if (message.kind !== "vote" || message.sender !== h.validator || message.slot !== h.slot) {
+    return false;
+  }
+  const second = message.vote !== undefined && message.vote.head === h.head;
+  return !(second ? h.split.second : h.split.first).includes(observer);
+};
+
 /**
  * Compile the interventions into one Delivery rule.
  *
@@ -144,16 +166,16 @@ export function compileDelivery(
   );
   const delays = interventions.filter((i): i is DelayAction => i.kind === "delay");
   const drops = interventions.filter((i): i is DropAction => i.kind === "drop");
+  const halves: HeldHalf[] = interventions
+    .filter((i): i is DoubleVoteAction => i.kind === "double-vote" && i.split !== undefined)
+    .map((i) => ({ validator: i.validator, slot: i.slot, head: i.head, split: i.split! }));
 
   return (sender, publishedAt, observer, atSlot, message) => {
     if (publishedAt > atSlot) return false;
     if (observer === sender) return true;
 
     for (const drop of drops) {
-      if (
-        coversMessage(drop.message, message, sender, publishedAt) &&
-        targets(drop.observers, observer)
-      ) {
+      if (coversMessage(drop.message, message) && targets(drop.observers, observer)) {
         return false;
       }
     }
@@ -161,18 +183,18 @@ export function compileDelivery(
     if (
       partitions.length === 0 &&
       offlines.length === 0 &&
-      delays.length === 0
+      delays.length === 0 &&
+      halves.length === 0
     ) {
       return true;
     }
     const deliverableAt = (u: SlotIndex): boolean =>
       delays.every(
         (d) =>
-          !(
-            coversMessage(d.message, message, sender, publishedAt) &&
-            targets(d.observers, observer)
-          ) || u >= d.untilSlot,
+          !(coversMessage(d.message, message) && targets(d.observers, observer)) ||
+          u >= d.untilSlot,
       ) &&
+      halves.every((h) => !holdsBack(h, message, observer) || u >= h.split.untilSlot) &&
       !partitions.some(
         (p) =>
           spanCovers(p.fromSlot, p.toSlot, u) &&
@@ -196,7 +218,7 @@ export function compileDelivery(
 export function directivesForSlot(
   interventions: readonly Intervention[],
   slot: SlotIndex,
-  config: SimulationConfig,
+  config: InitialConditions,
 ): SlotDirectives {
   const stopped = new Set<ValidatorIndex>();
   for (const i of interventions) {

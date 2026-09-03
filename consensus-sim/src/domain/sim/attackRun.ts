@@ -16,16 +16,15 @@ import type { Action } from "../model/action";
 import {
   capabilityOf,
   observeAsAttackers,
-  scheduleOf,
   type Attack,
   type AttackParams,
   type AttackerObservation,
 } from "../model/attack";
 import { forkCountAfter } from "../model/chainState";
-import type { SimulationConfig } from "../model/config";
-import { refSlot, sameRef, type MessageRef } from "../model/messageRef";
+import type { InitialConditions } from "../model/initialConditions";
+import { coversMessage, type MessageRef } from "../model/messageRef";
 import { proposerForSlot } from "../model/schedule";
-import type { SlotIndex, ValidatorIndex } from "../model/types";
+import { atEnd, type SlotIndex, type ValidatorIndex } from "../model/types";
 import {
   MAX_FORKS,
   pendingForkParents,
@@ -33,6 +32,7 @@ import {
   type Intervention,
 } from "./intervention";
 import { viewOf, type Delivery } from "./localView";
+import { scheduleOf } from "./schedule";
 import type { SimulationState } from "./simulation";
 
 /** An attack bound into a scenario: which attack (`id` names it in the
@@ -63,22 +63,24 @@ export interface GeneratedAction {
 export function attackerObservation(
   state: SimulationState,
   instance: AttackInstance,
-  config: SimulationConfig,
+  config: InitialConditions,
   delivery: Delivery,
 ): AttackerObservation {
-  const views = instance.attackers.map((a) => viewOf(state.log, a, state.slot, delivery));
-  return observeAsAttackers(instance.attackers, views, config);
+  const views = instance.attackers.map((a) =>
+    viewOf(state.log, a, atEnd(state.slot), delivery),
+  );
+  return observeAsAttackers(instance.attackers, views, state.slot, config, scheduleOf(config));
 }
 
-/** The first slot an action takes effect in, when the action says so. */
-function effectSlot(action: Action): SlotIndex | undefined {
+/** The first slot an action takes effect in. */
+function effectSlot(action: Action): SlotIndex {
   switch (action.kind) {
     case "partition":
     case "stop":
       return action.fromSlot;
     case "delay":
     case "drop":
-      return refSlot(action.message);
+      return action.message.slot;
     default:
       return action.slot;
   }
@@ -91,7 +93,7 @@ interface ActorSpan {
 }
 
 /** Who an intervention makes act (or not) and when — the action axis. */
-function actorSpan(i: Intervention, config: SimulationConfig): ActorSpan | undefined {
+function actorSpan(i: Intervention, config: InitialConditions): ActorSpan | undefined {
   switch (i.kind) {
     case "stop":
     case "offline":
@@ -121,18 +123,11 @@ const shareValidator = (
   b: readonly ValidatorIndex[],
 ): boolean => a.some((v) => b.includes(v));
 
-/** Whether two message references can name the same message: the same
- * reference, or an exact vote reference inside an attestation reference. */
-function messagesOverlap(a: MessageRef, b: MessageRef): boolean {
-  if (sameRef(a, b)) return true;
-  const [exact, ahead] = a.kind === "vote" ? [a, b] : [b, a];
-  return (
-    exact.kind === "vote" &&
-    ahead.kind === "attestation" &&
-    exact.validator === ahead.validator &&
-    exact.slot === ahead.slot
-  );
-}
+/** Whether two message references can name the same message: one covers
+ * the other (the same reference, or an exact reference inside a reference
+ * to everything of its sender, slot and kind). */
+const messagesOverlap = (a: MessageRef, b: MessageRef): boolean =>
+  coversMessage(a, b) || coversMessage(b, a);
 
 /**
  * Whether a generated action contradicts a manual intervention — same slot,
@@ -140,7 +135,7 @@ function messagesOverlap(a: MessageRef, b: MessageRef): boolean {
  * in that slot, both bend the delivery of the same message, or both
  * partition a validator in that slot.
  */
-function conflicts(action: Action, manual: Intervention, config: SimulationConfig): boolean {
+function conflicts(action: Action, manual: Intervention, config: InitialConditions): boolean {
   const a = actorSpan(action, config);
   const m = actorSpan(manual, config);
   if (a && m) return shareValidator(a.validators, m.validators) && spansOverlap(a, m);
@@ -171,22 +166,24 @@ function conflicts(action: Action, manual: Intervention, config: SimulationConfi
 export function generateActions(
   state: SimulationState,
   instance: AttackInstance,
-  config: SimulationConfig,
+  config: InitialConditions,
   manual: readonly Intervention[],
   effective: Intervention[],
   delivery: Delivery,
 ): GeneratedAction[] {
   const observation = attackerObservation(state, instance, config, delivery);
-  const schedule = scheduleOf(config);
   const boundary = state.slot;
   const generated: GeneratedAction[] = [];
   for (const action of instance.attack.strategy(observation, instance.params)) {
     const reason = ((): DiscardReason | undefined => {
-      const effect = effectSlot(action);
-      if (effect === undefined || effect <= boundary) return "not-causal";
+      if (effectSlot(action) <= boundary) return "not-causal";
       if (
-        capabilityOf(action, instance.attackers, schedule, instance.params.maxDelay) ===
-        undefined
+        capabilityOf(
+          action,
+          instance.attackers,
+          observation.schedule,
+          instance.params.maxDelay,
+        ) === undefined
       ) {
         return "outside-capability";
       }

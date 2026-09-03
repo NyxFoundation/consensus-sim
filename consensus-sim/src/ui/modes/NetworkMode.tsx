@@ -24,7 +24,7 @@ import type {
   Delivery,
   Intervention,
   LocalObservation,
-  SimulationConfig,
+  InitialConditions,
   SimulationState,
   ValidatorIndex,
 } from '../../domain'
@@ -36,7 +36,7 @@ import { validatorColor } from '../validatorColor'
 export interface NetworkModeProps {
   readonly state: SimulationState
   /** The scenario's initial conditions — local views resolve under them. */
-  readonly config: SimulationConfig
+  readonly config: InitialConditions
   /** The scenario's delivery rule — local views are filtered through it. */
   readonly delivery?: Delivery | undefined
   /** The scenario's interventions — the cards read the operating states. */

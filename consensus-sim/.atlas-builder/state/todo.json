@@ -1950,7 +1950,7 @@
     {
       "id": "T-053",
       "title": "型の改訂 (2) 観測時点と座標を持たない View・FFG 部分のエポック単位決定・初期条件と予定表・MessageRef の統一: Instant = {slot, phase: 提案|投票|末} を導入し View = {blockTree, votes}(validator と観測時点は View の座標 = 関数引数)、ブロックは提案時・投票は投票時に公開され配送を経て以後の観測時点の View に現れる(到達細部は裁量)、正直者の FFG 部分 (source, target) をエポック最初の投票スロットで head の枝から定めて同エポックの以後の投票で繰り返す、InitialConditions = {validatorCount, initialStakes, params, seed} と Schedule = {proposerOf, committeeOf} を本質的仕様に置きシードからの具体的導出(乱数生成器)を制約側へ、MessageRef を (送信者, スロット, 種別) + 公開済みなら個体 に統一、攻撃ライブラリ・codec・UI・型一覧の追随+テスト",
-      "status": "pending",
+      "status": "done",
       "priority": "must",
       "spec": [
         "S-018",
@@ -1965,7 +1965,31 @@
       "batch_group": "e5-type-revision",
       "context_cost": 5,
       "risk_level": "normal",
-      "notes": "遂行順序 1。FFG のエポック単位決定は正直者の骨格規則(Ethereum の attestation がエポックに 1 回であることに対応し、正直者は FFG 相反を起こさない)。finality のタイムラインが変わり得るため、攻撃ライブラリ 12 件の達成/未達テストをこの段階で再調整して緑に保つ(A10/A12 の新機構への置換は T-055)。"
+      "notes": "遂行順序 1。FFG のエポック単位決定は正直者の骨格規則(Ethereum の attestation がエポックに 1 回であることに対応し、正直者は FFG 相反を起こさない)。正直な即時配送の実行では finality の推移は不変(エポック 2 スロット目以降の投票は従来 source = target のエポックで無効だったものが正当な繰り返しに変わるだけ)。統一 MessageRef では未公開の二重投票の片方を名指せないため、二重投票の介入に split(1 票目 → first、2 票目 → second、他は untilSlot から)を持たせて A04 の選択配送を記述した(公開基底の糖衣、能力範囲は不変、R-010)。A10 / A14 は同一エポックの第 2 の target を投票先指定で明示(未指定だとエポック最初の FFG が繰り返される)、A04 は両陣営が収束したら戦略を止め L = 20 に(割引下の最初の finalize は slot 13)。A10 / A14 の明示 target は FFG 二重投票なので T-054 の証拠 3 形で証拠化される — T-055 の再設計(選択配送で分ける)と同バッチで扱う。",
+      "evidence": [
+        {
+          "type": "diff",
+          "summary": "Model: types.ts (Instant = {slot, phase: proposal|vote|end}, atProposal/atVote/atEnd), view.ts (View = {blockTree, votes}, coordinate-free), config.ts → initialConditions.ts (InitialConditions = {validatorCount, initialStakes, params, seed}; SimulationConfig renamed across src/tests/docs), schedule.ts (Schedule = {proposerOf, committeeOf}, Permutation type, committeeForSlot(slot, config, permute) states only the structure per assignment, deriveSchedule), new sim/schedule.ts (hash32 + mulberry32 Fisher–Yates seededPermutation, scheduleOf(config)), messageRef.ts (MessageRef = {kind: proposal, sender, slot, block?} | {kind: vote, sender, slot, vote?}; blockRef/voteRef/sameRef/coversMessage(selector, message)/isExactRef; the 4 former forms and refSlot/refSender removed), protocol.ts (resolveView(view, config, schedule, atSlot); committeeWeight(slot, schedule, stakes); buildAttestation decides the FFG part once per epoch — ffgSettledIn — and repeats it, designations override), action.ts (DoubleVoteAction.split: SplitDelivery = {first, second, untilSlot}), attack.ts (Schedule from schedule.ts, mergeViews/observeAsAttackers(attackers, views, slot, config, schedule) coordinate-free, capabilityOf: honest exact refs outside / own refs withhold), attackLibrary.ts (refs rewritten; A04 split + campsConverged abandonment + LMD_STALL 20; A10 voteAllFfg explicit targets at slots 5 and 9; A14 per-branch FFG designation via chainStatesOf/checkpointFor). Sim: localView.ts (viewOf(log, observer, instant, delivery); observe uses atEnd + scheduleOf), messages.ts (refOfBlock/refOfVote/senderOf* removed), simulation.ts (three instants, schedule from scheduleOf), intervention.ts (compileDelivery honours double-vote splits: HeldHalf/holdsBack), attackRun.ts (attackerObservation at atEnd(slot) with schedule; effectSlot from message.slot; messagesOverlap via coversMessage), scenarioCodec.ts (SCENARIO_VERSION 2; messageRefOf for the unified shape with voteOf; splitOf; split requires head), sim/attackLibrary.ts (A04 throughSlot 21). UI: InterventionPanel (messageLabel/messageKey for the unified refs, split shown in the list, viewOf with atEnd/atProposal, resolveView with scheduleOf). Docs: README (instants, coordinate-free views, FFG once per epoch, initial conditions/schedule, message references, double-vote split), docs/INSPECTION.md addendum (T-053 items). Tests: 13 domain + 4 UI test files adapted (3 builders; 3 expectation changes in tests/domain/steering.test.ts marked T-053 and reviewed: the FFG part settled at slot 4 is repeated at slot 6 even under a head designation — Essence rule), new tests: double-vote split delivery (attack.test.ts), split codec round-trip and split-without-head rejection (scenarioCodec.test.ts), typeGraph pins Instant/Schedule/InitialConditions."
+        },
+        {
+          "type": "command",
+          "command": "npm run typecheck",
+          "exit_code": 0,
+          "summary": "tsc --noEmit exits 0 on src and tests."
+        },
+        {
+          "type": "command",
+          "command": "npx vitest run",
+          "exit_code": 0,
+          "summary": "31 files / 370 tests pass, including tests/domain/attackLibrary.test.ts (14): all 12 attacks reach their goal under their default run; A01/A03/A04/A07 miss under merge; A04 is broken by the discount alone; A10/A12 finalize conflicting checkpoints with no evidence included; A14 reaches its two stages in order; A05 window/unrealized observations unchanged."
+        },
+        {
+          "type": "command",
+          "command": "npm run build",
+          "exit_code": 0,
+          "summary": "tsc --noEmit && vite build exits 0 (dist/ static bundle)."
+        }
+      ]
     },
     {
       "id": "T-054",

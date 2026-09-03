@@ -65,17 +65,19 @@ describe('domain type catalog (実装との一致)', () => {
       'ValidatorIndex',
       'SlotIndex',
       'BlockIndex',
+      'Instant',
       'Block',
       'BlockBody',
       'Vote',
       'View',
       'BlockTree',
+      'Schedule',
       'Equivocation',
       'ChainState',
       'ProtocolParams',
       'PresetName',
       'MessageRef',
-      'SimulationConfig',
+      'InitialConditions',
       'Attack',
       'AttackerCondition',
       'AttackGoal',
@@ -123,9 +125,7 @@ describe('domain type catalog (実装との一致)', () => {
       'SlotIndex',
       'ValidatorIndex',
     ])
-    expect(byName.get('View')?.dependsOn).toEqual(
-      expect.arrayContaining(['BlockTree', 'Vote']),
-    )
+    expect(byName.get('View')?.dependsOn).toEqual(['BlockTree', 'Vote'])
     expect(byName.get('ChainState')?.dependsOn).toEqual(
       expect.arrayContaining(['Checkpoint', 'Stake', 'ValidatorIndex']),
     )

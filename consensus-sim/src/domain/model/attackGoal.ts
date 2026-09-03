@@ -14,7 +14,7 @@ import {
   totalStake,
   type ChainStateIndex,
 } from "./chainState";
-import { validatorIndices, type SimulationConfig } from "./config";
+import { validatorIndices, type InitialConditions } from "./initialConditions";
 import { compareBlockIndex, sameCheckpoint } from "./order";
 import type { BlockIndex, Checkpoint, SlotIndex, ValidatorIndex } from "./types";
 
@@ -89,7 +89,7 @@ export type GoalEvidence =
 
 const honestValidators = (
   attackers: readonly ValidatorIndex[],
-  config: SimulationConfig,
+  config: InitialConditions,
 ): ValidatorIndex[] =>
   validatorIndices(config.validatorCount).filter((v) => !attackers.includes(v));
 
@@ -102,7 +102,7 @@ export function evaluatePredicate(
   history: readonly GodView[],
   at: number,
   attackers: readonly ValidatorIndex[],
-  config: SimulationConfig,
+  config: InitialConditions,
 ): GoalEvidence {
   const view = history[at];
   if (view === undefined) throw new Error(`no god view at index ${at}`);
@@ -211,7 +211,7 @@ export function evaluateGoal(
   goal: readonly AttackGoal[],
   history: readonly GodView[],
   attackers: readonly ValidatorIndex[],
-  config: SimulationConfig,
+  config: InitialConditions,
 ): GoalTrace {
   if (goal.length === 0) throw new Error("an attack goal must have at least one stage");
   const achievedAt: (SlotIndex | undefined)[] = goal.map(() => undefined);

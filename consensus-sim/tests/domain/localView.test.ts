@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_PARAMS,
   DEFAULT_VALIDATOR_COUNT,
+  atEnd,
   equalStakes,
   instantDelivery,
   isProposed,
@@ -9,10 +10,10 @@ import {
   stateAtSlot,
   viewOf,
   type Delivery,
-  type SimulationConfig,
+  type InitialConditions,
 } from "../../src/domain";
 
-const config: SimulationConfig = {
+const config: InitialConditions = {
   validatorCount: DEFAULT_VALIDATOR_COUNT,
   seed: 42,
   params: DEFAULT_PARAMS,
@@ -23,9 +24,7 @@ describe("local views under instant delivery", () => {
   it("every local view equals the god view", () => {
     const state = stateAtSlot(config, 8);
     for (let v = 0; v < config.validatorCount; v++) {
-      const view = viewOf(state.log, v, state.slot);
-      expect(view.validator).toBe(v);
-      expect(view.slot).toBe(state.slot);
+      const view = viewOf(state.log, v, atEnd(state.slot));
       expect(view.blockTree).toEqual(state.tree);
       expect(view.votes).toEqual(state.votes);
     }
@@ -42,7 +41,7 @@ describe("local views under instant delivery", () => {
 
   it("a past-slot view sees only messages published by then", () => {
     const state = stateAtSlot(config, 8);
-    const view = viewOf(state.log, 0, 3);
+    const view = viewOf(state.log, 0, atEnd(3));
     expect(view.blockTree.blocks.size).toBe(4); // anchor + slots 1..3
     expect(view.votes.length).toBe(3 * config.validatorCount);
   });
@@ -66,7 +65,7 @@ describe("local views under a partition", () => {
   it("views diverge across camps and stay equal within a camp", () => {
     const state = stateAtSlot(config, 6, never);
     const [a, b, c, d] = [0, 1, 2, 3].map((v) =>
-      viewOf(state.log, v, state.slot, never),
+      viewOf(state.log, v, atEnd(state.slot), never),
     );
     expect(a!.blockTree).toEqual(b!.blockTree);
     expect(c!.blockTree).toEqual(d!.blockTree);
@@ -90,7 +89,7 @@ describe("local views under a partition", () => {
     const heal = partitioned(9);
     const state = stateAtSlot(config, 10, heal);
     const views = [0, 1, 2, 3].map((v) =>
-      viewOf(state.log, v, state.slot, heal),
+      viewOf(state.log, v, atEnd(state.slot), heal),
     );
     for (const view of views.slice(1)) {
       expect(view.blockTree).toEqual(views[0]!.blockTree);
@@ -107,7 +106,7 @@ describe("local views under a partition", () => {
       return observer !== 0 || sender % 2 === 0;
     };
     const state = stateAtSlot(config, 4, oddDropped);
-    const view = viewOf(state.log, 0, state.slot, oddDropped);
+    const view = viewOf(state.log, 0, atEnd(state.slot), oddDropped);
     // proposers rotate 1,2,3,0 → blocks from proposers 2 and 0 are sent, but
     // the chain is linear, so a missing odd ancestor orphans what follows.
     expect(view.blockTree.blocks.size).toBeLessThan(state.tree.blocks.size);

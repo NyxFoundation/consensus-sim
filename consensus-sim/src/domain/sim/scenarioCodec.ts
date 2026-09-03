@@ -7,8 +7,9 @@
 // as a built one. Pure data in, pure data out: no DOM, no storage — I/O
 // belongs to the UI layer.
 
+import type { SplitDelivery } from "../model/action";
 import type { Attack, AttackParams } from "../model/attack";
-import { equalStakes, type SimulationConfig } from "../model/config";
+import { equalStakes, type InitialConditions } from "../model/initialConditions";
 import type { EvidenceRef } from "../model/inclusion";
 import type { Intervention } from "./intervention";
 import type { MessageRef } from "../model/messageRef";
@@ -21,14 +22,16 @@ import {
   type ProtocolParams,
 } from "../model/protocolParams";
 import type { Scenario } from "./scenario";
-import { START_SLOT, type Checkpoint } from "../model/types";
+import { START_SLOT, type Checkpoint, type Vote } from "../model/types";
 import {
   MAX_VALIDATOR_COUNT,
   MIN_VALIDATOR_COUNT,
 } from "./validatorSet";
 
 export const SCENARIO_FORMAT = "consensus-sim.scenario";
-export const SCENARIO_VERSION = 1;
+/** Bumped with every change of the saved shape (2: message references by
+ * sender / slot / kind, double-vote splits). */
+export const SCENARIO_VERSION = 2;
 
 /** A saved run: the scenario plus how far it had advanced. */
 export interface SavedRun {
@@ -48,7 +51,7 @@ export interface SerializedAttack {
 export interface SerializedScenario {
   readonly format: typeof SCENARIO_FORMAT;
   readonly version: number;
-  readonly config: SimulationConfig;
+  readonly config: InitialConditions;
   readonly runSlot: number;
   readonly interventions: readonly Intervention[];
   readonly attack?: SerializedAttack;
@@ -246,42 +249,55 @@ function checkpointOf(x: unknown, what: string): Checkpoint {
   return { epoch, block };
 }
 
+function voteOf(x: unknown, validatorCount: number, what: string): Vote {
+  if (!isRecord(x)) throw new ParseError(`${what} must be an object`);
+  const head = integer(x.head, `${what}.head`);
+  if (head < 0) throw new ParseError(`${what}.head must be ≥ 0`);
+  return {
+    validator: validatorOf(x.validator, validatorCount, `${what}.validator`),
+    slot: slotOf(x.slot, `${what}.slot`),
+    head,
+    source: checkpointOf(x.source, `${what}.source`),
+    target: checkpointOf(x.target, `${what}.target`),
+  };
+}
+
 function messageRefOf(
   x: unknown,
   validatorCount: number,
   what: string,
 ): MessageRef {
   if (!isRecord(x)) throw new ParseError(`${what} must be an object`);
-  if (x.kind === "block") {
+  const sender = validatorOf(x.sender, validatorCount, `${what}.sender`);
+  const slot = slotOf(x.slot, `${what}.slot`);
+  if (x.kind === "proposal") {
+    if (x.block === undefined) return { kind: "proposal", sender, slot };
     const block = integer(x.block, `${what}.block`);
     if (block <= 0) throw new ParseError(`${what}.block must be positive`);
-    return { kind: "block", block };
+    return { kind: "proposal", sender, slot, block };
   }
   if (x.kind === "vote") {
-    return {
-      kind: "vote",
-      validator: validatorOf(x.validator, validatorCount, `${what}.validator`),
-      slot: slotOf(x.slot, `${what}.slot`),
-      head: integer(x.head, `${what}.head`),
-    };
+    if (x.vote === undefined) return { kind: "vote", sender, slot };
+    const vote = voteOf(x.vote, validatorCount, `${what}.vote`);
+    if (vote.validator !== sender || vote.slot !== slot) {
+      throw new ParseError(`${what}.vote must be the sender's vote of the slot`);
+    }
+    return { kind: "vote", sender, slot, vote };
   }
-  if (x.kind === "proposal") {
-    return {
-      kind: "proposal",
-      proposer: validatorOf(x.proposer, validatorCount, `${what}.proposer`),
-      slot: slotOf(x.slot, `${what}.slot`),
-    };
-  }
-  if (x.kind === "attestation") {
-    return {
-      kind: "attestation",
-      validator: validatorOf(x.validator, validatorCount, `${what}.validator`),
-      slot: slotOf(x.slot, `${what}.slot`),
-    };
-  }
-  throw new ParseError(
-    `${what}.kind must be "block", "vote", "proposal" or "attestation"`,
-  );
+  throw new ParseError(`${what}.kind must be "proposal" or "vote"`);
+}
+
+function splitOf(
+  x: unknown,
+  validatorCount: number,
+  what: string,
+): SplitDelivery {
+  if (!isRecord(x)) throw new ParseError(`${what} must be an object`);
+  return {
+    first: validatorsOf(x.first, validatorCount, `${what}.first`),
+    second: validatorsOf(x.second, validatorCount, `${what}.second`),
+    untilSlot: slotOf(x.untilSlot, `${what}.untilSlot`),
+  };
 }
 
 function attackParamsOf(x: unknown, what: string): AttackParams {
@@ -395,11 +411,17 @@ function interventionOf(
     case "double-vote": {
       const head = x.head === undefined ? undefined : integer(x.head, `${what}.head`);
       if (head !== undefined && head < 0) throw new ParseError(`${what}.head must be ≥ 0`);
+      const split =
+        x.split === undefined ? undefined : splitOf(x.split, validatorCount, `${what}.split`);
+      if (split !== undefined && head === undefined) {
+        throw new ParseError(`${what}.split requires a designated head`);
+      }
       return {
         kind: "double-vote",
         slot: slotOf(x.slot, `${what}.slot`),
         validator: validatorOf(x.validator, validatorCount, `${what}.validator`),
         ...(head === undefined ? {} : { head }),
+        ...(split === undefined ? {} : { split }),
       };
     }
     case "delay":
@@ -443,7 +465,7 @@ function interventionOf(
           : {
               votes: listOf(x.votes, `${what}.votes`).map((v, i) => {
                 const ref = messageRefOf(v, validatorCount, `${what}.votes[${i}]`);
-                if (ref.kind !== "vote" && ref.kind !== "attestation") {
+                if (ref.kind !== "vote") {
                   throw new ParseError(`${what}.votes[${i}] must be a vote reference`);
                 }
                 return ref;

@@ -34,7 +34,7 @@ import {
   pathToAnchor,
   type BlockTree,
 } from "./blockTree";
-import type { SimulationConfig } from "./config";
+import type { InitialConditions } from "./initialConditions";
 import {
   JUSTIFIED_SWITCH_WINDOW_SLOTS,
   checkpointFor,
@@ -100,7 +100,7 @@ interface Link {
 function deriveBranch(
   tree: BlockTree,
   branch: readonly Block[],
-  config: SimulationConfig,
+  config: InitialConditions,
 ): BranchState {
   const { slashing, inactivityLeak } = config.params;
   const tip = branch[branch.length - 1]!.index;
@@ -209,7 +209,7 @@ function deriveBranch(
 
 function deriveAll(
   tree: BlockTree,
-  config: SimulationConfig,
+  config: InitialConditions,
 ): Map<BlockIndex, BranchState> {
   const out = new Map<BlockIndex, BranchState>();
   for (const block of tree.blocks.values()) {
@@ -222,7 +222,7 @@ function deriveAll(
 /** ChainState(block) for every block of the tree. */
 export function chainStatesOf(
   tree: BlockTree,
-  config: SimulationConfig,
+  config: InitialConditions,
 ): ChainStateIndex {
   const out = new Map<BlockIndex, ChainState>();
   for (const [index, { chain }] of deriveAll(tree, config)) {
@@ -235,7 +235,7 @@ export function chainStatesOf(
 export function chainStateOf(
   tree: BlockTree,
   block: BlockIndex,
-  config: SimulationConfig,
+  config: InitialConditions,
 ): ChainState {
   const branch = pathToAnchor(tree, block).reverse();
   if (branch.length === 0) throw new Error(`block ${block} is not in the tree`);
@@ -249,7 +249,7 @@ export function chainStateOf(
  */
 export function checkpointStatus(
   tree: BlockTree,
-  config: SimulationConfig,
+  config: InitialConditions,
 ): CheckpointStatus {
   const justified = new Set<BlockIndex>();
   const finalizedFrontier = new Set<BlockIndex>();

@@ -22,12 +22,12 @@ import {
   type BlockBody,
   type Checkpoint,
   type ProposedBlock,
-  type SimulationConfig,
+  type InitialConditions,
   type SlotIndex,
   type Vote,
 } from "../../src/domain";
 
-const config: SimulationConfig = {
+const config: InitialConditions = {
   validatorCount: 4,
   seed: 0,
   params: DEFAULT_PARAMS,
