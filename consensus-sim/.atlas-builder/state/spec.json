@@ -297,7 +297,7 @@
     {
       "id": "S-019",
       "title": "任意: 自動再生の速度調整、および攻撃を伴わないシナリオでのスロット送りの自動再生と一時停止(攻撃の自動再生は必須 31)",
-      "status": "pending",
+      "status": "active",
       "priority": "should",
       "essence_refs": [
         "自動再生の速度調整、および攻撃を伴わないシナリオでのスロット送りの自動再生と",
@@ -307,7 +307,7 @@
     {
       "id": "S-020",
       "title": "介入・シナリオ操作のキーボードショートカット",
-      "status": "pending",
+      "status": "active",
       "priority": "should",
       "essence_refs": [
         "介入・シナリオ操作のキーボードショートカット。"
@@ -316,7 +316,7 @@
     {
       "id": "S-022",
       "title": "シナリオへのメモ・命名",
-      "status": "pending",
+      "status": "active",
       "priority": "should",
       "essence_refs": [
         "シナリオへのメモ・命名(この実験は何を確かめたかを残す)。"

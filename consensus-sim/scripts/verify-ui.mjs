@@ -274,6 +274,38 @@ try {
   await page.click('.mode-tabs button:has-text("チェーン表示")')
   await page.selectOption('.field-inline select', '7')
   check('7体設定でスロット0へ', (await slotText())?.includes('0') === true)
+
+  // Optional items (任意対応事項): auto-play without an attack at a chosen
+  // speed, pausable; the keyboard shortcuts; a named, annotated scenario
+  // saved with the S key.
+  const slotNumber = async () => Number(await page.textContent('.slot-current strong'))
+  check('攻撃なしでも自動再生の操作がある', (await page.textContent('.play-toggle')) === '自動再生')
+  await page.click('.play-speed button:has-text("×2")')
+  await page.click('.play-toggle')
+  await page.waitForFunction(
+    () => Number(document.querySelector('.slot-current strong')?.textContent) >= 3,
+    null,
+    { timeout: 5_000 },
+  )
+  await page.click('.play-toggle')
+  const pausedAt = await slotNumber()
+  await page.waitForTimeout(800)
+  check('攻撃なしの自動再生を一時停止で止める', (await slotNumber()) === pausedAt, String(pausedAt))
+  await page.keyboard.press('n')
+  check('N キーで 1 スロット進む', (await slotNumber()) === pausedAt + 1)
+  await page.keyboard.press('ArrowLeft')
+  check('← キーでカーソルが 1 スロット戻る', (await slotNumber()) === pausedAt)
+  await page.fill('.scenario-save-form [aria-label="シナリオ名"]', '実機確認')
+  await page.fill('.scenario-save-form [aria-label="メモ"]', '自動再生と保存の確認')
+  await page.keyboard.press('s')
+  check('入力欄では S キーが保存しない', (await page.$('.scenario-entry')) === null)
+  await page.click('.slot-next')
+  await page.keyboard.press('s')
+  check(
+    'S キーで名前とメモ付きのシナリオが保存される',
+    (await page.textContent('.scenario-entry .scenario-name')) === '実機確認' &&
+      (await page.textContent('.scenario-entry .scenario-note')) === '自動再生と保存の確認',
+  )
 } finally {
   await browser.close()
 }

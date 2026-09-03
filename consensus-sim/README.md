@@ -13,8 +13,9 @@ text is Japanese; code and documentation are English.
 **Status:** feature-complete for the most-abstract level. The pure domain
 layer is fully tested (including adversarial combinations of every
 intervention at once), and the UI ships the three pages described below with
-the intervention panel, the attack library with auto-play, slot rewind and
-localStorage-backed scenarios.
+the intervention panel, the attack library with auto-play (adjustable speed,
+also for scenarios without an attack), slot rewind, keyboard shortcuts and
+localStorage-backed scenarios that carry a name and a note.
 Every scenario operation is discoverable from the UI itself: panels
 collapse but summarize their contents, empty lists explain the next step,
 and the message selector groups the log per publish slot.
@@ -32,7 +33,7 @@ proposal, the votes and each validator's head update.
 The screen is laid out as an instrument: one header bar (display tabs,
 validator count 4–10, theme), a **stage** on the left and the **operation
 dock** (操作盤) on the right. The stage carries the slot bar — cursor,
-rewind, advance — and the selected display; on a standard PC width the
+rewind, auto-play, advance — and the selected display; on a standard PC width the
 chain display and the state table fill it from the first paint, with about
 ten slot columns visible before horizontal scrolling. The dock is a fixed
 narrow column holding every other control (attack, protocol parameters,
@@ -140,30 +141,45 @@ the attack goal per slot — the predicate's indicator (stalled slots, reorg
 count, stake ratio, conflicting checkpoints), whether it holds, and the
 slot the stage was achieved at, with the full grounds on hover.
 
-With an attack bound, the slot bar carries the **auto-play** control:
-**実行開始** advances one slot every 600 ms without further input — the
-proposals, the votes, the generated actions and the goal verdicts appear
-slot by slot — **一時停止** pauses, **再開** continues, and playback stops
-by itself at the slot the attack goal is judged achieved, or at the run's
-end slot (終了スロット, proposed by the default run and editable in the
-攻撃 section) when the goal is missed — the way to watch a mitigation work
-is to choose the attack, switch the preset to `merge` and press 実行開始.
-After a stop the cursor rewinds as usual, interventions can be added and
-parameters changed, and 再開 from an achievement stop carries the run on to
-its end slot. Moving the cursor during playback pauses it.
+The slot bar carries the **auto-play** control: a speed (×0.5 / ×1 / ×2 —
+one slot every 1200 / 600 / 300 ms, changeable mid-run) and one toggle.
+With an attack bound, **実行開始** advances slot by slot without further
+input — the proposals, the votes, the generated actions and the goal
+verdicts appear as they happen — **一時停止** pauses, **再開** continues, and
+playback stops by itself at the slot the attack goal is judged achieved, or
+at the run's end slot (終了スロット, proposed by the default run and
+editable in the 攻撃 section) when the goal is missed — the way to watch a
+mitigation work is to choose the attack, switch the preset to `merge` and
+press 実行開始. After a stop the cursor rewinds as usual, interventions can
+be added and parameters changed, and 再開 from an achievement stop carries
+the run on to its end slot. Without an attack, **自動再生** plays the
+scenario from the cursor for 16 slots (four epochs) and stops; pressing it
+again continues, and 一時停止 works the same way. Moving the cursor during
+playback pauses it.
+
+The slot bar's operations also answer the keyboard while the chain display
+is shown and no text entry has the focus: `←` / `→` move the cursor one
+slot, `Home` / `End` jump to the first / latest slot, `Space` starts and
+pauses auto-play, `N` advances one slot (＋1 スロット進める) and `S` saves the
+current scenario. The bound buttons announce their key (`aria-keyshortcuts`)
+and the ⓘ next to the cursor lists them.
 
 The シナリオ section of the dock saves the current run — initial conditions plus the
 manual intervention list, the attack (by id, attacker set and parameters;
 generated actions are never saved) and how far it advanced — to a
 browser-local list, and reloading replays it deterministically to the
-identical states, generated actions and verdicts. The protocol parameters,
-the seed and the initial stakes are part of the saved identity, and the
-list shows each entry's preset and attack.
+identical states, generated actions and verdicts. A save may carry a
+**name** and a **note** (what the experiment set out to confirm), both
+optional and editable afterwards (編集) so the outcome can be recorded once
+the run has been read; the list shows the name over the entry's summary
+(time, validators, preset, interventions, attack, slot) with the note
+beneath. The protocol parameters, the seed and the initial stakes are part
+of the saved identity.
 
 Sanity check:
 
 ```bash
-npm test           # vitest — model, chain state, fork choice, protocol params, stakes and penalties, attack execution and goal judgment, determinism, rewind, UI shell, attack list and auto-play, design contract
+npm test           # vitest — model, chain state, fork choice, protocol params, stakes and penalties, attack execution and goal judgment, determinism, rewind, UI shell, attack list and auto-play, keyboard shortcuts, scenarios, design contract
 npm run typecheck  # tsc --noEmit
 npm run build      # static bundle in dist/ (no backend; plain static SPA)
 ```

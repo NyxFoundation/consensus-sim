@@ -9,13 +9,16 @@
  * the goal is missed (A01 under the merge preset — the mitigation case),
  * and after the stop the cursor rewinds and manual operation continues.
  * The achievement slots themselves are fixed by tests/domain/attackLibrary.
+ * The optional items (任意): auto-play without an attack — from the cursor,
+ * pausable, stopping FREE_PLAY_SPAN slots after it started — and the speed
+ * control, whose interval applies to both kinds of run.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { App } from '../../src/ui/App'
-import { PLAY_INTERVAL_MS } from '../../src/ui/useSimulation'
+import { FREE_PLAY_SPAN, PLAY_INTERVALS_MS, PLAY_INTERVAL_MS } from '../../src/ui/useSimulation'
 
 declare global {
   var IS_REACT_ACT_ENVIRONMENT: boolean
@@ -239,5 +242,94 @@ describe('a missed goal stops at the end slot (成功条件 19, 28)', () => {
     expect(playToggle().disabled).toBe(true)
     await tick(2)
     expect(slot()).toBe('6')
+  })
+})
+
+describe('auto-play without an attack (任意)', () => {
+  it('plays from the cursor, pauses, and stops FREE_PLAY_SPAN slots after it started', async () => {
+    expect(playToggle().textContent).toBe('自動再生')
+    expect(container.querySelector('.play-readout')).toBeNull()
+    expect(container.querySelector('.goal-table')).toBeNull()
+
+    await click(playToggle())
+    expect(playToggle().textContent).toBe('一時停止')
+    expect(text('.play-readout')).toBe(`再生中 終了 s${FREE_PLAY_SPAN}`)
+    await tick(3)
+    expect(slot()).toBe('3')
+    expect(all('.tree-block')).toHaveLength(4)
+
+    await click(playToggle())
+    expect(playToggle().textContent).toBe('自動再生')
+    expect(container.querySelector('.play-readout')).toBeNull()
+    await tick(2)
+    expect(slot()).toBe('3')
+
+    // Playing again spans FREE_PLAY_SPAN slots from the new start.
+    await click(playToggle())
+    expect(text('.play-readout')).toBe(`再生中 終了 s${3 + FREE_PLAY_SPAN}`)
+    await tick(FREE_PLAY_SPAN + 3)
+    expect(slot()).toBe(String(3 + FREE_PLAY_SPAN))
+    expect(playToggle().textContent).toBe('自動再生')
+    expect(playToggle().disabled).toBe(false)
+  })
+
+  it('pauses on a cursor move and plays on from a past slot by truncating the future', async () => {
+    await click(playToggle())
+    await tick(4)
+    await click(container.querySelector('[aria-label="1 スロット戻る"]'))
+    await click(container.querySelector('[aria-label="1 スロット戻る"]'))
+    expect(slot()).toBe('2')
+    expect(playToggle().textContent).toBe('自動再生')
+    await tick(2)
+    expect(slot()).toBe('2')
+    await click(playToggle())
+    await tick(1)
+    expect(slot()).toBe('3')
+    expect(text('.slot-current')).not.toContain('最新')
+  })
+})
+
+describe('auto-play speed (任意)', () => {
+  const speedButton = (label: string) =>
+    [...(container.querySelector('.play-speed')?.querySelectorAll('button') ?? [])].find(
+      (b) => b.textContent === label,
+    )
+
+  it('offers ×0.5 / ×1 / ×2 with ×1 = PLAY_INTERVAL_MS by default', () => {
+    expect(all('.play-speed button').map((b) => b.textContent)).toEqual(['×0.5', '×1', '×2'])
+    expect(speedButton('×1')?.getAttribute('aria-pressed')).toBe('true')
+    expect(PLAY_INTERVALS_MS.normal).toBe(PLAY_INTERVAL_MS)
+    expect(PLAY_INTERVALS_MS.fast).toBeLessThan(PLAY_INTERVALS_MS.normal)
+    expect(PLAY_INTERVALS_MS.slow).toBeGreaterThan(PLAY_INTERVALS_MS.normal)
+  })
+
+  it('advances per the chosen interval, also when changed mid-run, and carries to an attack run', async () => {
+    await click(speedButton('×2'))
+    await click(playToggle())
+    await act(async () => {
+      vi.advanceTimersByTime(PLAY_INTERVALS_MS.fast)
+    })
+    expect(slot()).toBe('1')
+
+    // Slower mid-run: the next slot waits for the full slow interval.
+    await click(speedButton('×0.5'))
+    await act(async () => {
+      vi.advanceTimersByTime(PLAY_INTERVALS_MS.slow - 1)
+    })
+    expect(slot()).toBe('1')
+    await act(async () => {
+      vi.advanceTimersByTime(1)
+    })
+    expect(slot()).toBe('2')
+    await click(playToggle())
+
+    // The speed is the session's: an attack proposed afterwards plays at it.
+    await chooseFromList('A11')
+    expect(speedButton('×0.5')?.getAttribute('aria-pressed')).toBe('true')
+    await click(playToggle())
+    await tick(1)
+    expect(slot()).toBe('0')
+    await tick(1)
+    expect(slot()).toBe('1')
   })
 })

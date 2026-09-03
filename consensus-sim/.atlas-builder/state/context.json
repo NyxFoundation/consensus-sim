@@ -6,11 +6,11 @@
     "stop_after_infra_fails": 2
   },
   "progress": {
-    "last_signature": "d94ff7fa9eb0a67d975a93cf533e3096e68e048257b14ddb3d73bdb0b097f0d6",
+    "last_signature": "9ff6e57db299ab02fdeedfdeec61c295282b168aaff0a6fa3f07bfb2f474ed81",
     "idle_cycles_since_progress": 0,
     "infra_fails_since_ok": 0,
-    "last_progress_at": "2026-09-03T23:14:08+09:00",
-    "last_checked_at": "2026-09-03T23:14:08+09:00",
+    "last_progress_at": "2026-09-04T01:16:32+09:00",
+    "last_checked_at": "2026-09-04T01:16:32+09:00",
     "usage_limited_since_ok": 0
   },
   "reset_policy": {
@@ -21,19 +21,23 @@
     "reset_after_decisions": 5
   },
   "counters": {
-    "context_usage_estimate": 0.7,
+    "context_usage_estimate": 0.3,
     "failed_attempts_since_reset": 0,
-    "changed_files_since_reset": 40,
+    "changed_files_since_reset": 17,
     "completed_todos_since_reset": 3,
-    "important_decisions_since_reset": 7,
+    "important_decisions_since_reset": 3,
     "major_spec_rewrite_since_reset": false,
     "high_risk_change_completed": false
   },
   "handoff": {
-    "written_at": "2026-09-04T00:55:06+09:00",
-    "summary": "Human resume: must 境界ゲート R-LG-20260903T231408+0900-3860 を承認し、should フェーズ(approve-should)へ進める: 57/57 の must(最終は T-044 総点検の再実施、typecheck 0 / vitest 37 files 425 tests 0 / build 0 / clean copy で npm ci・test・build 0)を確認済みの上で、ESSENCE 任意対応事項に対応する should 3 件(T-014 自動再生の速度調整と攻撃なし自動再生、T-015 キーボードショートカット、T-017 シナリオのメモ・命名)に自律予算を与える。\nESSENCE.md と essences/ は無変更。次サイクルは handoff の next_actions に従い batch_policy の範囲で should 3 件を着手し、実ブラウザ確認(verify-ui.mjs)は従来どおり人間の手元実行に委ねる。",
-    "next_actions": [],
+    "written_at": "2026-09-04T01:14:00+09:00",
+    "summary": "cycle 44(should フェーズ初回): 残っていた should 3 件 T-014 / T-015 / T-017 を 1 バッチ(phase6-optional、context_cost 6 ≤ 8)で done。これで must 57 + should 3 = 全 60 Todo と全 Spec が done。(1) T-014 自動再生: 速度 ×0.5 / ×1 / ×2(1200 / 600 / 300 ms、セッション状態)を PlayControl の Segmented で、攻撃なしのシナリオでも『自動再生』で開始位置から FREE_PLAY_SPAN = 16 スロット進んで停止(再度押すと続き)、停止判定は playEnd に一本化。(2) T-015 ショートカット: src/ui/shortcuts.ts の useShortcuts(← → Home End Space N、ScenarioPanel の S)、入力欄・修飾キー・ボタン上の Space では無効、チェーン表示ページのみ、aria-keyshortcuts とスロットバーの ⓘ で発見性を確保。(3) T-017 命名・メモ: UI 層の scenarioStore に name / note(任意、空白は欠落、文字列以外は無視、codec の version 据え置き)、保存フォーム(新部品 TextField / TextArea)と一覧の名前 / 要約 / メモ(data-quoted)、保存後の『編集』。ゲート: typecheck 0 / vitest 38 files 438 tests 0(+13)/ build 0 / clean copy で npm ci・test・build 0、dist は ./assets/ 参照のみ。README と verify-ui.mjs(実機検査 8 件追記、sandbox では実行不可)を更新。\n運用上の発見: sandbox が `ps` を禁止しており single-flight lock の祖先継承が失敗した(validate が pid 99995 = ループ自身の保持で拒否)。.agent/tmp/loop.lock/token を ATLAS_BUILDER_LOCK_TOKEN として渡す設計上の継承経路で全状態コマンドを実行し、R-015(Non-blocking)と lessons に記録した。",
+    "next_actions": [
+      "全 Todo(must 57 / should 3)が done なので自律作業は残っていない。ループの should-complete / 完了判定に従う。人間が ESSENCE を改訂して resume したら、ESSENCE を再読して Spec/Todo を再投影する(その際 projected_from_essence_sha256 を新しいハッシュで更新)。",
+      "人間の手元での実ブラウザ確認: `npm run build && node scripts/verify-ui.mjs`(攻撃なし自動再生 ×2 → 一時停止、N / ← キー、入力欄内の S は無効・外では名前とメモ付き保存、の 8 check を今回追記済み)。失敗する check があれば次サイクルで対処する。",
+      "R-015(sandbox の ps 禁止によるロック祖先継承の失敗)の人間判断を待つ。次サイクルでも validate / apply-projection が同じ理由で拒否されるなら、`ATLAS_BUILDER_LOCK_TOKEN=$(cat .agent/tmp/loop.lock/token)` を前置して実行する(ロックの再取得・解放はしない)。"
+    ],
     "open_questions": [],
-    "pending_cycle": true
+    "pending_cycle": false
   }
 }

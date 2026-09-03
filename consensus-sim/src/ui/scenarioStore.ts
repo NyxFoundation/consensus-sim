@@ -1,10 +1,12 @@
 /**
  * Saved-scenario store on top of localStorage: one key holding a list of
- * serialized scenarios with save metadata. All structural validation lives
- * in the domain codec (`parseScenario`, resolving a saved attack through
- * the attack library); this module only moves JSON in and out of storage
- * and never throws on a corrupt store — it just drops unreadable entries,
- * so one bad record cannot brick the list.
+ * serialized scenarios with save metadata — the save time and, optionally,
+ * a name and a note (命名・メモ: what the experiment was meant to confirm).
+ * All structural validation of the scenario itself lives in the domain
+ * codec (`parseScenario`, resolving a saved attack through the attack
+ * library); this module only moves JSON in and out of storage and never
+ * throws on a corrupt store — it drops unreadable entries and ignores a
+ * malformed name or note, so one bad record cannot brick the list.
  */
 
 import { ATTACK_REGISTRY, parseScenario, serializeScenario } from '../domain'
@@ -12,10 +14,31 @@ import type { SavedRun, Scenario, SerializedScenario } from '../domain'
 
 const STORE_KEY = 'consensus-sim.scenarios'
 
-export interface StoredScenario {
+/** The human-authored labels of a saved scenario; absent when blank. */
+export interface ScenarioMeta {
+  readonly name?: string
+  readonly note?: string
+}
+
+export interface StoredScenario extends ScenarioMeta {
   readonly id: string
   readonly savedAt: string
   readonly data: SerializedScenario
+}
+
+/** Trim both labels and keep only the non-blank ones. */
+function normalizeMeta(meta: ScenarioMeta): ScenarioMeta {
+  const name = meta.name?.trim() ?? ''
+  const note = meta.note?.trim() ?? ''
+  return { ...(name === '' ? {} : { name }), ...(note === '' ? {} : { note }) }
+}
+
+/** The labels a stored record carries, ignoring anything that is not a string. */
+function metaOf(raw: Record<string, unknown>): ScenarioMeta {
+  return normalizeMeta({
+    ...(typeof raw.name === 'string' ? { name: raw.name } : {}),
+    ...(typeof raw.note === 'string' ? { note: raw.note } : {}),
+  })
 }
 
 function readAll(storage: Storage): StoredScenario[] {
@@ -24,14 +47,24 @@ function readAll(storage: Storage): StoredScenario[] {
   try {
     const list = JSON.parse(raw)
     if (!Array.isArray(list)) return []
-    return list.filter((e): e is StoredScenario => {
+    const out: StoredScenario[] = []
+    for (const e of list) {
+      if (typeof e !== 'object' || e === null) continue
+      const record = e as Record<string, unknown>
+      if (typeof record.id !== 'string' || typeof record.savedAt !== 'string') continue
       try {
-        parseScenario(e.data, ATTACK_REGISTRY)
-        return typeof e.id === 'string' && typeof e.savedAt === 'string'
+        parseScenario(record.data, ATTACK_REGISTRY)
       } catch {
-        return false
+        continue
       }
-    })
+      out.push({
+        id: record.id,
+        savedAt: record.savedAt,
+        data: record.data as SerializedScenario,
+        ...metaOf(record),
+      })
+    }
+    return out
   } catch {
     return []
   }
@@ -48,6 +81,7 @@ export function listScenarios(storage: Storage = localStorage): StoredScenario[]
 export function saveScenario(
   scenario: Scenario,
   runSlot: number,
+  meta: ScenarioMeta = {},
   storage: Storage = localStorage,
 ): StoredScenario {
   const list = readAll(storage)
@@ -56,9 +90,24 @@ export function saveScenario(
     id: `${savedAt}-${list.length}`,
     savedAt,
     data: serializeScenario(scenario, runSlot),
+    ...normalizeMeta(meta),
   }
   writeAll(storage, [entry, ...list])
   return entry
+}
+
+/** Replace the name and note of a saved scenario; the run itself is untouched. */
+export function updateScenarioMeta(
+  id: string,
+  meta: ScenarioMeta,
+  storage: Storage = localStorage,
+): void {
+  writeAll(
+    storage,
+    readAll(storage).map((e) =>
+      e.id === id ? { id: e.id, savedAt: e.savedAt, data: e.data, ...normalizeMeta(meta) } : e,
+    ),
+  )
 }
 
 export function removeScenario(

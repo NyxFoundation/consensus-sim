@@ -11,12 +11,13 @@
  * of scope in the Essence).
  *
  * Auto-play (自動再生, 必須 31) is a timer in this hook over the same
- * `advance`: with an attack bound, `play` advances one slot every
- * PLAY_INTERVAL_MS from the cursor and stops by itself at the slot the
- * attack goal is judged achieved, or at the end slot of the run
- * (`throughSlot`); `pause` stops it, and playing again from the stop
- * resumes. The domain stays deterministic: nothing about the timer enters
- * the scenario.
+ * `advance`: `play` advances one slot per interval (the chosen speed,
+ * PLAY_INTERVALS_MS) from the cursor and stops by itself at `playEnd` — with
+ * an attack bound, the end slot of the run (`throughSlot`), or earlier at
+ * the slot the attack goal is judged achieved; without an attack (任意),
+ * FREE_PLAY_SPAN slots past where playback started. `pause` stops it, and
+ * playing again from the stop continues. The domain stays deterministic:
+ * nothing about the timer or the speed enters the scenario.
  *
  * All consensus computation lives in src/domain; this hook only holds the
  * (config, interventions, attack, runSlot, cursor) tuple as React state,
@@ -73,14 +74,21 @@ export interface SimulationSession {
   readonly current: SimulationState
   /** Whether auto-play is running (自動再生中). */
   readonly playing: boolean
+  /** The auto-play speed (再生速度); the session's, not the scenario's. */
+  readonly speed: PlaySpeed
+  /** The slot auto-play stops at (終了): the attack's end slot, or, without
+   * an attack, FREE_PLAY_SPAN slots past where playback started (idle:
+   * where it would start, the cursor). */
+  readonly playEnd: number
   /** Advance one slot from the cursor; a past cursor truncates the future. */
   advance(): void
-  /** Start auto-play from the cursor (実行開始 / 再開): one slot per
-   * PLAY_INTERVAL_MS until the goal is achieved or `throughSlot` is
-   * reached. No-op without an attack. */
+  /** Start auto-play from the cursor (実行開始 / 再開 / 自動再生): one slot per
+   * interval until `playEnd`, or — with an attack — the slot its goal is
+   * achieved at. */
   play(): void
   /** Stop auto-play (一時停止); the run stays where it is. */
   pause(): void
+  setSpeed(speed: PlaySpeed): void
   /** Move the displayed slot within [0, runSlot] (巻き戻し); pauses auto-play. */
   setCursor(slot: number): void
   /** Replace the manual intervention list; every state recomputes. */
@@ -110,12 +118,26 @@ export interface SimulationSession {
 
 const DEFAULT_SEED = 0
 
-/** Auto-play interval between slots (送りの間隔の既定値). */
-export const PLAY_INTERVAL_MS = 600
+/** Auto-play speeds (再生速度): the interval between slots per speed. */
+export type PlaySpeed = 'slow' | 'normal' | 'fast'
+
+export const PLAY_INTERVALS_MS: Readonly<Record<PlaySpeed, number>> = {
+  slow: 1200,
+  normal: 600,
+  fast: 300,
+}
+
+/** Auto-play interval between slots at the default speed (送りの間隔の既定値). */
+export const PLAY_INTERVAL_MS = PLAY_INTERVALS_MS.normal
+
+/** Without an attack, one auto-play advances this many slots (4 epochs) from
+ * where it started, then stops; playing again continues from there. */
+export const FREE_PLAY_SPAN = 16
 
 /** A running auto-play: the slot it was started from. A goal already
  * achieved at the starting slot does not stop it again, so playing from
- * an achievement stop carries the run on to its end slot. */
+ * an achievement stop carries the run on to its end slot; without an
+ * attack the stop is FREE_PLAY_SPAN slots past this slot. */
 interface Playing {
   readonly from: number
 }
@@ -174,6 +196,7 @@ export function useSimulation(): SimulationSession {
   )
 
   const [playing, setPlaying] = useState<Playing | undefined>(undefined)
+  const [speed, setSpeed] = useState<PlaySpeed>('normal')
 
   const { config, interventions, attack, throughSlot, runSlot, cursor } = core
 
@@ -212,17 +235,22 @@ export function useSimulation(): SimulationSession {
 
   const achievedAt = run.goal === undefined ? undefined : goalAchievedAt(run.goal)
 
+  const playEnd =
+    attack !== undefined && throughSlot !== undefined
+      ? throughSlot
+      : (playing?.from ?? cursor) + FREE_PLAY_SPAN
+
   useEffect(() => {
     if (playing === undefined) return
-    const atEnd = throughSlot === undefined || cursor >= throughSlot
-    const achievedHere = achievedAt === cursor && achievedAt > playing.from
-    if (attack === undefined || atEnd || achievedHere) {
+    const achievedHere =
+      achievedAt !== undefined && achievedAt === cursor && achievedAt > playing.from
+    if (cursor >= playEnd || achievedHere) {
       setPlaying(undefined)
       return
     }
-    const timer = setTimeout(advance, PLAY_INTERVAL_MS)
+    const timer = setTimeout(advance, PLAY_INTERVALS_MS[speed])
     return () => clearTimeout(timer)
-  }, [playing, cursor, attack, throughSlot, achievedAt, advance])
+  }, [playing, cursor, playEnd, achievedAt, speed, advance])
 
   const setInterventions = useCallback(
     (next: readonly Intervention[]) => {
@@ -310,9 +338,12 @@ export function useSimulation(): SimulationSession {
       cursor,
       current,
       playing: playing !== undefined,
+      speed,
+      playEnd,
       advance,
       play,
       pause,
+      setSpeed,
       setCursor,
       setInterventions,
       setConfig,
@@ -333,9 +364,12 @@ export function useSimulation(): SimulationSession {
       cursor,
       current,
       playing,
+      speed,
+      playEnd,
       advance,
       play,
       pause,
+      setSpeed,
       setCursor,
       setInterventions,
       setConfig,

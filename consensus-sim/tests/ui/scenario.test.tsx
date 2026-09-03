@@ -10,6 +10,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { App } from '../../src/ui/App'
+import { listScenarios } from '../../src/ui/scenarioStore'
 
 declare global {
   var IS_REACT_ACT_ENVIRONMENT: boolean
@@ -61,6 +62,19 @@ async function advance(times: number) {
       buttonByText('＋1 スロット進める') ?? buttonByText('ここから進める'),
     )
   }
+}
+
+/** Type into a controlled text entry (through the native value setter so
+ * React sees the change). */
+async function type(el: Element | null, value: string) {
+  if (!(el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)) {
+    throw new Error('text entry not found')
+  }
+  const setter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(el), 'value')?.set
+  await act(async () => {
+    setter?.call(el, value)
+    el.dispatchEvent(new Event('input', { bubbles: true }))
+  })
 }
 
 /** Click the operating-state button (稼働 / 停止 / オフライン) for a validator. */
@@ -134,5 +148,80 @@ describe('scenario save / reload / replay', () => {
       ),
     )
     expect(all('.scenario-panel .intervention-list li')).toHaveLength(0)
+  })
+})
+
+describe('scenario name and note (任意: 命名・メモ)', () => {
+  const STORE_KEY = 'consensus-sim.scenarios'
+
+  it('saves under a name and a note, lists them, and edits them afterwards', async () => {
+    await setOpState('ボブ', '停止')
+    await advance(2)
+    await type(container.querySelector('.scenario-save-form [aria-label="シナリオ名"]'), 'ボブ停止で finality 遅延')
+    await type(
+      container.querySelector('.scenario-save-form [aria-label="メモ"]'),
+      '停止者 1/4 でも finality が進むことを確かめる',
+    )
+    await click(buttonByText('現在のシナリオを保存'))
+    expect(text('.scenario-status')).toContain('「ボブ停止で finality 遅延」を保存しました')
+    expect(text('.scenario-entry .scenario-name')).toBe('ボブ停止で finality 遅延')
+    expect(text('.scenario-entry .scenario-note')).toBe('停止者 1/4 でも finality が進むことを確かめる')
+    expect(text('.scenario-entry .scenario-summary')).toContain('介入 1 件')
+    expect(text('.scenario-entry .scenario-summary')).toContain('スロット 2')
+    // The form clears for the next save, and the labels are in the store.
+    expect((container.querySelector('.scenario-save-form [aria-label="シナリオ名"]') as HTMLInputElement).value).toBe('')
+    expect((container.querySelector('.scenario-save-form [aria-label="メモ"]') as HTMLTextAreaElement).value).toBe('')
+    expect(listScenarios()[0]).toMatchObject({
+      name: 'ボブ停止で finality 遅延',
+      note: '停止者 1/4 でも finality が進むことを確かめる',
+    })
+
+    // Edit afterwards: the note records what the run confirmed.
+    await click(buttonByText('編集'))
+    const edit = container.querySelector('.scenario-edit')
+    expect(edit).not.toBeNull()
+    expect((edit?.querySelector('[aria-label="シナリオ名"]') as HTMLInputElement).value).toBe('ボブ停止で finality 遅延')
+    await type(edit?.querySelector('[aria-label="メモ"]') ?? null, '確認済み: スロット 8 で finalized が e1 に進んだ')
+    await click([...(edit?.querySelectorAll('button') ?? [])].find((b) => b.textContent === '保存'))
+    expect(container.querySelector('.scenario-edit')).toBeNull()
+    expect(text('.scenario-entry .scenario-note')).toBe('確認済み: スロット 8 で finalized が e1 に進んだ')
+    expect(text('.scenario-entry .scenario-name')).toBe('ボブ停止で finality 遅延')
+    expect(listScenarios()[0]?.note).toBe('確認済み: スロット 8 で finalized が e1 に進んだ')
+
+    // The run itself is untouched: reloading replays it.
+    await advance(2)
+    expect(text('.slot-current')).toContain('4')
+    await click(buttonByText('読込・再実行'))
+    expect(text('.slot-current')).toContain('2')
+    expect(text('.intervention-panel .intervention-list')).toContain('停止 ボブ')
+  })
+
+  it('cancels an edit without changing the entry', async () => {
+    await type(container.querySelector('.scenario-save-form [aria-label="シナリオ名"]'), '基準')
+    await click(buttonByText('現在のシナリオを保存'))
+    await click(buttonByText('編集'))
+    await type(container.querySelector('.scenario-edit [aria-label="シナリオ名"]'), '変更中')
+    await click([...(container.querySelector('.scenario-edit')?.querySelectorAll('button') ?? [])].find((b) => b.textContent === '取消'))
+    expect(container.querySelector('.scenario-edit')).toBeNull()
+    expect(text('.scenario-entry .scenario-name')).toBe('基準')
+  })
+
+  it('saves without a name or note as before, treats blanks as absent, and ignores malformed stored labels', async () => {
+    await type(container.querySelector('.scenario-save-form [aria-label="メモ"]'), '   ')
+    await click(buttonByText('現在のシナリオを保存'))
+    expect(text('.scenario-status')).toContain('現在のシナリオを保存しました')
+    expect(container.querySelector('.scenario-name')).toBeNull()
+    expect(container.querySelector('.scenario-note')).toBeNull()
+    expect(listScenarios()[0]?.note).toBeUndefined()
+
+    // A record whose labels are not strings (or predate them) still loads, without them.
+    const raw = JSON.parse(localStorage.getItem(STORE_KEY) ?? '[]') as Record<string, unknown>[]
+    raw[0]!.name = 42
+    raw[0]!.note = { text: 'x' }
+    localStorage.setItem(STORE_KEY, JSON.stringify(raw))
+    const [entry] = listScenarios()
+    expect(entry?.name).toBeUndefined()
+    expect(entry?.note).toBeUndefined()
+    expect(entry?.data.runSlot).toBe(0)
   })
 })

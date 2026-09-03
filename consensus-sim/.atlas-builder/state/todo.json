@@ -491,7 +491,7 @@
     {
       "id": "T-014",
       "title": "スロット送りの自動再生(速度調整付き)と一時停止",
-      "status": "pending",
+      "status": "done",
       "priority": "should",
       "spec": [
         "S-019"
@@ -501,12 +501,32 @@
       },
       "batch_group": "phase6-optional",
       "context_cost": 2,
-      "risk_level": "normal"
+      "risk_level": "normal",
+      "notes": "cycle 44(should フェーズ初回): 速度は 3 段(×0.5 / ×1 / ×2 = 1200 / 600 / 300 ms、既定 ×1 = 従来の 600 ms)でセッションの状態(シナリオには保存しない)。攻撃なしの自動再生は開始位置から FREE_PLAY_SPAN = 16 スロット(4 エポック)進んで止まり、再度押すと続きを再生する(裁量: 無限再生は避け、攻撃ありの『終了 s{n}』読み出しと同じ形で終了位置を示す)。停止規則は攻撃あり(達成スロット / 終了スロット)と共通の playEnd に一本化し、攻撃を外しても再生は止めない。ボタンの語は攻撃あり『実行開始 / 再開』、攻撃なし『自動再生』、再生中は共通『一時停止』。",
+      "evidence": [
+        {
+          "type": "diff",
+          "summary": "src/ui/useSimulation.ts: PlaySpeed = slow | normal | fast, PLAY_INTERVALS_MS = {1200, 600, 300} (PLAY_INTERVAL_MS = normal のまま既存テスト互換), FREE_PLAY_SPAN = 16; session に speed / setSpeed / playEnd(攻撃あり = throughSlot、攻撃なし = 再生開始位置 + 16)を追加し、useEffect の停止判定を cursor >= playEnd または達成スロット(開始より後)に統一、タイマー間隔は PLAY_INTERVALS_MS[speed]、attack === undefined での停止を撤去。src/ui/PlayControl.tsx: 常時表示、Segmented『再生速度』(×0.5 / ×1 / ×2、mono)、トグル(攻撃あり 実行開始/再開、攻撃なし 自動再生、再生中 一時停止、aria-keyshortcuts=Space)、読み出し『再生中 終了 s{playEnd}』(攻撃なしは再生中のみ)、ⓘ 文言更新。styles.css: .play-speed。README: 自動再生の段落を速度・攻撃なし再生込みで書き直し。scripts/verify-ui.mjs: 攻撃なし自動再生(×2)→一時停止で止まる実機検査を追記(sandbox では実行不可、人間の手元実行)。"
+        },
+        {
+          "type": "command",
+          "command": "npx vitest run tests/ui/autoplay.test.tsx",
+          "exit_code": 0,
+          "summary": "既存 7 件に加え 4 件を追加(計 11 件、fake timers): 攻撃なしで『自動再生』→ 3 刻みで slot 3・木 4 ブロック→一時停止で止まり→再開で 3 + 16 = 19 で自動停止しボタンは無効化されない; カーソル移動で一時停止し過去位置からの再生は未来を切り詰める; 速度 3 択と既定 ×1 = PLAY_INTERVAL_MS; ×2 で 300 ms 刻み、再生中に ×0.5 へ変えると次刻みは 1200 ms 後、速度は攻撃 A11 の再生にも引き継がれる(600 ms では進まず 1200 ms で slot 1)。"
+        },
+        {
+          "type": "command",
+          "command": "npx tsc --noEmit; npx vitest run; npm run build",
+          "exit_code": 0,
+          "summary": "typecheck exit 0; vitest exit 0 — 38 files / 438 tests(前サイクル 37 / 425 から +shortcuts.test.tsx 6、autoplay +4、scenario +3); vite build exit 0(dist/index.html の参照は ./assets/ のみ)。clean copy($TMPDIR/cs-clean、node_modules / dist / .atlas-builder / .git を除いて rsync)で npm ci exit 0 / vitest 38 files 438 tests exit 0 / build exit 0 — デプロイ契約を維持。"
+        }
+      ],
+      "updated_at": "2026-09-04T01:12:00+09:00"
     },
     {
       "id": "T-015",
       "title": "介入・シナリオ操作のキーボードショートカット",
-      "status": "pending",
+      "status": "done",
       "priority": "should",
       "spec": [
         "S-020"
@@ -516,12 +536,32 @@
       },
       "batch_group": "phase6-optional",
       "context_cost": 2,
-      "risk_level": "normal"
+      "risk_level": "normal",
+      "notes": "cycle 44: 範囲はスロットバーとシナリオ保存の操作に限定(← → カーソル、Home / End、Space 自動再生の開始・一時停止、N ＋1 スロット進める、S 現在のシナリオを保存)。介入フォームの入力そのものは対象外(入力欄でのキーはフォームのもの)。無効条件: 入力欄(input / textarea / select / contenteditable)にフォーカス、修飾キー併用、Space はボタン・summary・リンクにフォーカス中(ネイティブ発火との二重動作を防ぐ)。チェーン表示ページのみ有効。発見性: 対応ボタンに aria-keyshortcuts、スロットバーの ⓘ に一覧(常駐説明文は置かない)。",
+      "evidence": [
+        {
+          "type": "diff",
+          "summary": "新規 src/ui/shortcuts.ts: useShortcuts(handlers, enabled) — window keydown 1 本、最新 handlers は ref 経由、文字キーは小文字化、isTextEntry / activatesNatively(Space) / 修飾キーで抑止、一致時 preventDefault; SHORTCUT_HINT 文言。src/ui/App.tsx: チェーン表示ページで ArrowLeft / ArrowRight(端では無操作)/ Home / End / Space / n を束縛、◀ ▶ 最新へ ＋1 に aria-keyshortcuts、スロットカーソル群に ⓘ(.shortcut-hint)。src/ui/ScenarioPanel.tsx: useShortcuts({ s: save })、保存ボタンに aria-keyshortcuts=S。README: ショートカットの段落を追加。scripts/verify-ui.mjs: N / ← / S(入力欄内では無効、外では保存)の実機検査を追記。"
+        },
+        {
+          "type": "command",
+          "command": "npx vitest run tests/ui/shortcuts.test.tsx",
+          "exit_code": 0,
+          "summary": "新規 6 件(jsdom、fake timers): N / 大文字 N で 2 スロット進み木 3 ブロック、← で最新 2 の過去へ、Home / End、端での → は無操作; Space で一時停止↔自動再生; S で保存されスロット 1 の要約; シナリオ名の入力欄で n / s は無効、meta / ctrl / alt 併用は無効、フォーカス中のボタンでは Space 無効だが n / ← は有効; 型一覧・攻撃一覧ページでは無効; aria-keyshortcuts(N / Space / ArrowLeft / ArrowRight / End / S)とスロットバー ⓘ の一覧。"
+        },
+        {
+          "type": "command",
+          "command": "npx tsc --noEmit; npx vitest run; npm run build",
+          "exit_code": 0,
+          "summary": "typecheck exit 0; vitest exit 0 — 38 files / 438 tests; build exit 0。prose.test(常駐説明文なし)・designTokens.test(components/ 外の生の input / textarea なし、CSS リテラルなし)は新 UI を含めて通過。"
+        }
+      ],
+      "updated_at": "2026-09-04T01:12:00+09:00"
     },
     {
       "id": "T-017",
       "title": "シナリオへのメモ・命名",
-      "status": "pending",
+      "status": "done",
       "priority": "should",
       "spec": [
         "S-022"
@@ -531,7 +571,27 @@
       },
       "batch_group": "phase6-optional",
       "context_cost": 2,
-      "risk_level": "normal"
+      "risk_level": "normal",
+      "notes": "cycle 44: 名前とメモはシナリオ(実行の同一性、ドメインの codec)ではなく保存メタデータとして UI 層の scenarioStore(StoredScenario.name / note、任意・空白は欠落扱い)に置いた — codec の version は据え置き、旧保存や文字列でない値は無視して読み込める。保存フォームに名前(TextField)とメモ(TextArea)、一覧は名前 → 要約 → メモ(data-quoted: 利用者の文であって UI の説明文ではない)の順、各項目に『編集』(保存後に結果を書き残せる)。統一部品 TextField / TextArea を components/ に追加(data-ui=text、appearance: none)。",
+      "evidence": [
+        {
+          "type": "diff",
+          "summary": "新規 src/ui/components/TextField.tsx(TextField = input type=text、TextArea = textarea、data-ui=text)。src/ui/scenarioStore.ts: ScenarioMeta {name?, note?}、normalizeMeta(trim・空は欠落)、metaOf(文字列以外は無視)、readAll を record 単位の検証に書き換え、saveScenario(scenario, runSlot, meta, storage)、updateScenarioMeta(id, meta)。src/ui/ScenarioPanel.tsx: MetaDraft / MetaFields、保存後にフォームを空へ、状態文『「名前」を保存しました』、一覧 .scenario-entry(.scenario-name / .scenario-summary / .scenario-note[data-quoted])、編集フォーム .scenario-edit(保存 / 取消)。styles.css: [data-ui='text'](placeholder 色・textarea は縦リサイズのみ)、.scenario-* 一式。README: シナリオ節に名前・メモ・編集を追記。"
+        },
+        {
+          "type": "command",
+          "command": "npx vitest run tests/ui/scenario.test.tsx",
+          "exit_code": 0,
+          "summary": "既存 3 件に加え 3 件を追加(計 6 件): 名前とメモ付きで保存→状態文・一覧の名前 / メモ / 要約(介入 1 件・スロット 2)・フォームの空戻し・listScenarios の値→『編集』でメモを書き換え→一覧と store に反映→再読込で同一の実行(停止 ボブ が再掲、スロット 2)を再現; 編集の取消で不変; 名前なし・空白メモは従来どおり無印で保存され、store 内の文字列でない name / note は無視して読める。"
+        },
+        {
+          "type": "command",
+          "command": "npx tsc --noEmit; npx vitest run; npm run build",
+          "exit_code": 0,
+          "summary": "typecheck exit 0; vitest exit 0 — 38 files / 438 tests; build exit 0。clean copy で npm ci / test / build いずれも exit 0。"
+        }
+      ],
+      "updated_at": "2026-09-04T01:12:00+09:00"
     },
     {
       "id": "T-018",

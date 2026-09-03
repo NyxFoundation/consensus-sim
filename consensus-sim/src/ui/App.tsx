@@ -10,8 +10,11 @@
  * the type catalog page (必須 8) have their own layout: only the header bar
  * frames them — no slot bar, no dock, no validator count. Choosing an
  * attack on the list proposes its default run and returns to the chain
- * display, whose slot bar carries the auto-play control (必須 31). All
- * model computation stays behind useSimulation / src/domain.
+ * display, whose slot bar carries the auto-play control (必須 31). On the
+ * chain display the slot bar's operations — cursor, play / pause, advance —
+ * also answer keyboard shortcuts (任意; the scenario panel binds its own
+ * save key), listed in the slot bar's ⓘ. All model computation stays
+ * behind useSimulation / src/domain.
  */
 
 import { useState } from 'react'
@@ -22,6 +25,7 @@ import {
   validatorName,
 } from '../domain'
 import { Button } from './components/Button'
+import { Hint } from './components/Hint'
 import { Segmented } from './components/Segmented'
 import { Select } from './components/Select'
 import { AttacksPage } from './modes/AttacksPage'
@@ -32,6 +36,7 @@ import { InterventionPanel } from './InterventionPanel'
 import { ParamsPanel } from './ParamsPanel'
 import { PlayControl } from './PlayControl'
 import { ScenarioPanel } from './ScenarioPanel'
+import { SHORTCUT_HINT, useShortcuts } from './shortcuts'
 import { useSimulation } from './useSimulation'
 import { useThemeMode } from './useTheme'
 import type { ThemeMode } from './useTheme'
@@ -68,6 +73,23 @@ export function App() {
   const { current, config, delivery, cursor, runSlot } = session
   const inPast = cursor < runSlot
   const nextProposer = proposerForSlot(cursor + 1, config)
+
+  // The slot bar's operations from the keyboard, on the chain display only.
+  useShortcuts(
+    {
+      ArrowLeft: () => {
+        if (cursor > 0) session.setCursor(cursor - 1)
+      },
+      ArrowRight: () => {
+        if (inPast) session.setCursor(cursor + 1)
+      },
+      Home: () => session.setCursor(0),
+      End: () => session.setCursor(runSlot),
+      ' ': () => (session.playing ? session.pause() : session.play()),
+      n: () => session.advance(),
+    },
+    page === 'chain',
+  )
 
   return (
     <div className="app">
@@ -134,6 +156,7 @@ export function App() {
                 <Button
                   className="cursor-step"
                   aria-label="1 スロット戻る"
+                  aria-keyshortcuts="ArrowLeft"
                   disabled={cursor === 0}
                   onClick={() => session.setCursor(cursor - 1)}
                 >
@@ -146,22 +169,33 @@ export function App() {
                 <Button
                   className="cursor-step"
                   aria-label="1 スロット先へ"
+                  aria-keyshortcuts="ArrowRight"
                   disabled={!inPast}
                   onClick={() => session.setCursor(cursor + 1)}
                 >
                   ▶
                 </Button>
                 {inPast && (
-                  <Button className="cursor-latest" onClick={() => session.setCursor(runSlot)}>
+                  <Button
+                    className="cursor-latest"
+                    aria-keyshortcuts="End"
+                    onClick={() => session.setCursor(runSlot)}
+                  >
                     最新へ
                   </Button>
                 )}
+                <Hint className="shortcut-hint" text={SHORTCUT_HINT} />
               </div>
               <span className="slot-next">
                 次スロットの提案者: {validatorName(nextProposer)}
               </span>
               <PlayControl session={session} />
-              <Button variant="primary" className="advance" onClick={() => session.advance()}>
+              <Button
+                variant="primary"
+                className="advance"
+                aria-keyshortcuts="N"
+                onClick={() => session.advance()}
+              >
                 {inPast ? 'ここから進める（以降の履歴を破棄）' : '＋1 スロット進める'}
               </Button>
             </div>
