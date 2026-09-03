@@ -3,6 +3,7 @@ import {
   DEFAULT_PARAMS,
   DEFAULT_VALIDATOR_COUNT,
   advanceSlot,
+  bodyOf,
   equalStakes,
   initialState,
   proposerForSlot,
@@ -62,13 +63,13 @@ describe("slot progression", () => {
       const state = stateAtSlot(config, slot);
       return state.chainStates.get(state.heads.get(0)!)!;
     };
-    expect(headState(4).justified).toBe(0);
-    expect(headState(5).justified).toBe(4);
-    expect(headState(5).finalized).toBe(0);
-    expect(headState(8).finalized).toBe(0);
-    expect(headState(9).justified).toBe(8);
-    expect(headState(9).finalized).toBe(4);
-    expect(headState(13).finalized).toBe(8);
+    expect(headState(4).justified.block).toBe(0);
+    expect(headState(5).justified.block).toBe(4);
+    expect(headState(5).finalized.block).toBe(0);
+    expect(headState(8).finalized.block).toBe(0);
+    expect(headState(9).justified.block).toBe(8);
+    expect(headState(9).finalized.block).toBe(4);
+    expect(headState(13).finalized.block).toBe(8);
   });
 
   it("includes every unincluded vote in the next block (取り込み)", () => {
@@ -78,22 +79,23 @@ describe("slot progression", () => {
     const seen = new Set<string>();
     for (const block of state.tree.blocks.values()) {
       if (block.slot === 0) continue;
+      const body = bodyOf(block);
       if (block.slot > 1) {
-        expect(block.body.votes.map((v) => v.slot)).toEqual([
+        expect(body.votes.map((v) => v.slot)).toEqual([
           block.slot - 1,
           block.slot - 1,
           block.slot - 1,
           block.slot - 1,
         ]);
       } else {
-        expect(block.body.votes).toEqual([]);
+        expect(body.votes).toEqual([]);
       }
-      for (const v of block.body.votes) {
+      for (const v of body.votes) {
         const key = `${v.validator}@${v.slot}`;
         expect(seen.has(key)).toBe(false);
         seen.add(key);
       }
-      expect(block.body.evidence).toEqual([]);
+      expect(body.evidence).toEqual([]);
     }
   });
 });

@@ -30,7 +30,7 @@ import type {
 } from '../../domain'
 import { BlockTreeView } from '../BlockTreeView'
 import { Button } from '../components/Button'
-import { blockName } from '../format'
+import { blockName, checkpointName } from '../format'
 import { validatorColor } from '../validatorColor'
 
 export interface NetworkModeProps {
@@ -117,15 +117,15 @@ export function NetworkMode({
                 <dt>head</dt>
                 <dd>{blockName(o.head)}</dd>
                 <dt>justified</dt>
-                <dd>{blockName(o.chainState.justified)}</dd>
+                <dd>{checkpointName(o.chainState.justified)}</dd>
                 <dt>finalized</dt>
-                <dd>{blockName(o.chainState.finalized)}</dd>
+                <dd>{checkpointName(o.chainState.finalized)}</dd>
                 <dt>最新投票</dt>
                 <dd>
                   {myVote
-                    ? `s${myVote.slot}: ${blockName(myVote.head)}（${blockName(
+                    ? `s${myVote.slot}: ${blockName(myVote.head)}（${checkpointName(
                         myVote.source,
-                      )} → ${blockName(myVote.target)}）`
+                      )} → ${checkpointName(myVote.target)}）`
                     : 'なし'}
                 </dd>
               </dl>

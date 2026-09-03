@@ -4,10 +4,10 @@
 // re-derive any past view.
 
 import { voteRef, type MessageRef } from "../model/messageRef";
-import type { Block, SlotIndex, ValidatorIndex, Vote } from "../model/types";
+import type { ProposedBlock, SlotIndex, ValidatorIndex, Vote } from "../model/types";
 
 export interface PublishedBlock {
-  readonly block: Block;
+  readonly block: ProposedBlock;
   /** Slot at which the proposer published this block (= block.slot here). */
   readonly publishedAt: SlotIndex;
 }
@@ -43,7 +43,7 @@ export function emptyLog(): MessageLog {
 
 export function publishBlock(
   log: MessageLog,
-  block: Block,
+  block: ProposedBlock,
   publishedAt: SlotIndex,
 ): MessageLog {
   return { blocks: [...log.blocks, { block, publishedAt }], votes: log.votes };

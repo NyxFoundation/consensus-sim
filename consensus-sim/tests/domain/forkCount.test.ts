@@ -56,7 +56,7 @@ describe("fork count (フォーク数)", () => {
     // Once B5 (on the B1 branch) is finalized, the orphan sibling B2 lies
     // outside the finalized subtree and no longer counts.
     const at9 = at(s, 9);
-    expect(latestFinalized(at9.tree, at9.chainStates)).toBe(5);
+    expect(latestFinalized(at9.chainStates).block).toBe(5);
     expect(count(at9)).toBe(1);
   });
 
@@ -84,7 +84,7 @@ describe("fork count (フォーク数)", () => {
     // Honest slots afterwards build on B4: it is finalized at slot 9 and the
     // anchor-level forks stop counting.
     const at9 = at(s, 9);
-    expect(latestFinalized(at9.tree, at9.chainStates)).toBe(4);
+    expect(latestFinalized(at9.chainStates).block).toBe(4);
     expect(count(at9)).toBe(1);
     // The anchor is now outside the finalized subtree: designating it adds
     // nothing to the count by definition; forking B4 again adds one.

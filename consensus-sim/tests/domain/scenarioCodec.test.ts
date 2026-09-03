@@ -36,7 +36,7 @@ const ALL_KINDS: Intervention[] = [
     message: { kind: "vote", validator: 1, slot: 2, head: 2 },
     observers: [0, 3],
   },
-  { kind: "vote-target", slot: 7, validator: 2, head: 3, source: 0 },
+  { kind: "vote-target", slot: 7, validator: 2, head: 3, source: { epoch: 0, block: 0 } },
   {
     kind: "omit-inclusion",
     slot: 8,

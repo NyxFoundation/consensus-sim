@@ -6,12 +6,14 @@
 
 import { describe, expect, it } from "vitest";
 import {
+  ANCHOR_CHECKPOINT,
   DEFAULT_PARAMS,
   EMPTY_BODY,
   PRESETS,
   addBlock,
   chainStatesOf,
   createBlockTree,
+  epochOf,
   equalStakes,
   equivocatingVoters,
   forkChoiceRoot,
@@ -21,11 +23,11 @@ import {
   scenarioStates,
   viableBlocks,
   viewOf,
-  type Block,
   type BlockBody,
   type CheckpointSwitch,
   type Intervention,
   type PresetName,
+  type ProposedBlock,
   type ProtocolParams,
   type Scenario,
   type SimulationConfig,
@@ -50,15 +52,25 @@ const block = (
   parent: number,
   slot: number,
   body: BlockBody = EMPTY_BODY,
-): Block => ({ index, parent, slot, proposer: 0, body });
+): ProposedBlock => ({ kind: "proposed", index, parent, slot, proposer: 0, body });
 
+// source / target are block numbers whose actual tree slot equals the number
+// itself for every call in this file (checked case by case), so epochOf on
+// the number gives the source checkpoint's own epoch directly; the target
+// checkpoint's epoch is always the vote's own slot's epoch (well-formedness).
 const vote = (
   validator: number,
   slot: number,
   head: number,
   source = 0,
   target = 0,
-): Vote => ({ validator, slot, head, source, target });
+): Vote => ({
+  validator,
+  slot,
+  head,
+  source: { epoch: epochOf(source), block: source },
+  target: { epoch: epochOf(slot), block: target },
+});
 
 const everyone = (slot: number, head: number, source: number, target: number) =>
   [0, 1, 2, 3].map((v) => vote(v, slot, head, source, target));
@@ -192,7 +204,15 @@ describe("justified-checkpoint switching (justified チェックポイント切�
 
   it("derives the branches' justified checkpoints as the test assumes", () => {
     const justified = (b: number) => states.get(b)!.justified;
-    expect([5, 6, 7, 8, 9, 10, 11].map(justified)).toEqual([4, 0, 6, 4, 4, 8, 0]);
+    expect([5, 6, 7, 8, 9, 10, 11].map(justified)).toEqual([
+      { epoch: 1, block: 4 },
+      ANCHOR_CHECKPOINT,
+      { epoch: 2, block: 6 },
+      { epoch: 1, block: 4 },
+      { epoch: 1, block: 4 },
+      { epoch: 2, block: 8 },
+      ANCHOR_CHECKPOINT,
+    ]);
   });
 
   it("opens the switch window in the first slot of each epoch only", () => {
@@ -203,22 +223,23 @@ describe("justified-checkpoint switching (justified チェックポイント切�
 
   it("off: always starts from the highest justified checkpoint known", () => {
     // B6 and B8 are both epoch-2 checkpoints; the tie breaks to the smaller index.
-    expect(rootAt("off", 10)).toBe(6);
-    expect(rootAt("off", 12)).toBe(6);
-    expect(rootAt("unrealized", 10)).toBe(6);
+    expect(rootAt("off", 10)).toEqual({ epoch: 2, block: 6 });
+    expect(rootAt("off", 12)).toEqual({ epoch: 2, block: 6 });
+    expect(rootAt("unrealized", 10)).toEqual({ epoch: 2, block: 6 });
   });
 
   it("window: outside the window, switches only along the root's own chain", () => {
     // As of the window (blocks before slot 9) the root is B4. B8 descends from
     // it and is adopted at once; B6 conflicts and must wait for slot 12.
-    expect(rootAt("window", 10)).toBe(8);
-    expect(rootAt("window", 11)).toBe(8);
-    expect(rootAt("window", 12)).toBe(6);
+    expect(rootAt("window", 10)).toEqual({ epoch: 2, block: 8 });
+    expect(rootAt("window", 11)).toEqual({ epoch: 2, block: 8 });
+    expect(rootAt("window", 12)).toEqual({ epoch: 2, block: 6 });
   });
 
   it("unrealized: prunes branches whose included votes only justify something older", () => {
-    // Under root B6: B7 realizes B6, B11 realizes nothing newer than the anchor.
-    const viable = viableBlocks(tree, states, 6);
+    // Under root B6 (its checkpoint of epoch 2): B7 realizes B6, B11 realizes
+    // nothing newer than the anchor.
+    const viable = viableBlocks(tree, states, { epoch: 2, block: 6 });
     expect(viable.has(7)).toBe(true);
     expect(viable.has(11)).toBe(false);
     expect(viable.has(9)).toBe(false);
@@ -258,7 +279,10 @@ describe("presets bind the mitigations", () => {
       ]);
     expect(summary(runs[1]!)).toEqual(summary(runs[0]!));
     expect(summary(runs[2]!)).toEqual(summary(runs[0]!));
-    expect(runs[0]![12]!.chainStates.get(runs[0]![12]!.heads.get(0)!)!.finalized).toBe(4);
+    expect(runs[0]![12]!.chainStates.get(runs[0]![12]!.heads.get(0)!)!.finalized).toEqual({
+      epoch: 1,
+      block: 4,
+    });
   });
 
   it("keep a run with equivocation and forks deterministic", () => {

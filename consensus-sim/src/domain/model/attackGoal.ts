@@ -15,7 +15,8 @@ import {
   type ChainStateIndex,
 } from "./chainState";
 import { validatorIndices, type SimulationConfig } from "./config";
-import type { BlockIndex, SlotIndex, ValidatorIndex } from "./types";
+import { compareBlockIndex, sameCheckpoint } from "./order";
+import type { BlockIndex, Checkpoint, SlotIndex, ValidatorIndex } from "./types";
 
 /**
  * - 安全性違反: two checkpoints of the published block tree, neither an
@@ -58,8 +59,8 @@ export type GoalEvidence =
   | {
       readonly kind: "liveness-stall";
       readonly holds: boolean;
-      /** The latest finalized block of the god view. */
-      readonly finalized: BlockIndex;
+      /** The latest finalized checkpoint of the god view. */
+      readonly finalized: Checkpoint;
       /** Slots since it last advanced (the anchor counts as finalized at slot 0). */
       readonly stalledSlots: number;
     }
@@ -107,7 +108,7 @@ export function evaluatePredicate(
   if (view === undefined) throw new Error(`no god view at index ${at}`);
   switch (goal.kind) {
     case "safety-violation": {
-      const finalized = [...checkpointStatus(view.tree, config).finalized].sort((a, b) => a - b);
+      const finalized = [...checkpointStatus(view.tree, config).finalized].sort(compareBlockIndex);
       for (let i = 0; i < finalized.length; i++) {
         for (let j = i + 1; j < finalized.length; j++) {
           const a = finalized[i]!;
@@ -120,14 +121,11 @@ export function evaluatePredicate(
       return { kind: "safety-violation", holds: false };
     }
     case "liveness-stall": {
-      const finalizedAt = (i: number): BlockIndex => {
-        const v = history[i]!;
-        return latestFinalized(v.tree, v.chainStates);
-      };
+      const finalizedAt = (i: number): Checkpoint => latestFinalized(history[i]!.chainStates);
       const finalized = finalizedAt(at);
       let lastAdvance = 0;
       for (let i = at; i > 0; i--) {
-        if (finalizedAt(i) !== finalizedAt(i - 1)) {
+        if (!sameCheckpoint(finalizedAt(i), finalizedAt(i - 1))) {
           lastAdvance = i;
           break;
         }

@@ -12,6 +12,7 @@
 
 import { useMemo, useState } from 'react'
 import {
+  bodyOf,
   checkpointStatus,
   getBlock,
   instantDelivery,
@@ -23,7 +24,7 @@ import { BlockTreeView } from '../BlockTreeView'
 import { BlockBodyView, ChainStateTable } from '../ChainStateDetail'
 import { Button } from '../components/Button'
 import { Segmented } from '../components/Segmented'
-import { blockName } from '../format'
+import { blockName, checkpointName } from '../format'
 import { StateTable, STATE_CELL_ITEMS } from '../StateTable'
 import type { ExpandedCell, StateCellItem } from '../StateTable'
 import { LABEL_W } from '../treeGeometry'
@@ -154,9 +155,9 @@ export function ChainMode({
               )}
             </dd>
             <dt>justified</dt>
-            <dd>{blockName(detail.obs.chainState.justified)}</dd>
+            <dd>{checkpointName(detail.obs.chainState.justified)}</dd>
             <dt>finalized</dt>
-            <dd>{blockName(detail.obs.chainState.finalized)}</dd>
+            <dd>{checkpointName(detail.obs.chainState.finalized)}</dd>
           </dl>
           <h4 className="pane-title">
             head {blockName(detail.obs.head)} のチェーン状態
@@ -173,7 +174,7 @@ export function ChainMode({
             head {blockName(detail.obs.head)} の body（取り込み）
           </h4>
           <BlockBodyView
-            body={detail.headBlock.body}
+            body={bodyOf(detail.headBlock)}
             validatorCount={validatorCount}
           />
           <div className="tree-scroll">

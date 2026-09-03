@@ -8,6 +8,7 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_PARAMS,
   equalStakes,
+  isProposed,
   latestVotes,
   parseScenario,
   scenarioDelivery,
@@ -94,10 +95,10 @@ describe("all intervention kinds combined", () => {
   it("applies the combined directives: double proposal siblings and the forced anchor parent", () => {
     const last = run[THROUGH];
     if (!last) throw new Error("missing state");
-    const slot5 = [...last.tree.blocks.values()].filter((b) => b.slot === 5);
+    const slot5 = [...last.tree.blocks.values()].filter(isProposed).filter((b) => b.slot === 5);
     expect(slot5).toHaveLength(2);
     expect(new Set(slot5.map((b) => b.parent)).size).toBe(1);
-    const slot7 = [...last.tree.blocks.values()].filter((b) => b.slot === 7);
+    const slot7 = [...last.tree.blocks.values()].filter(isProposed).filter((b) => b.slot === 7);
     expect(slot7.map((b) => b.parent)).toEqual([0]);
   });
 

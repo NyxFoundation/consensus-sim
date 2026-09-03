@@ -15,6 +15,7 @@ import {
   coversMessage,
   equalStakes,
   forkCountAfter,
+  isProposed,
   observe,
   pendingForkParents,
   proposerForSlot,
@@ -357,7 +358,7 @@ describe("discards (破棄の印付き)", () => {
       { action: onAnchor, generatedAt: 4, discarded: "fork-limit" },
       { action: onHead, generatedAt: 4 },
     ]);
-    const b6 = [...run.states[6]!.tree.blocks.values()].find((b) => b.slot === 6)!;
+    const b6 = [...run.states[6]!.tree.blocks.values()].filter(isProposed).find((b) => b.slot === 6)!;
     expect(b6.parent).toBe(head);
   });
 });

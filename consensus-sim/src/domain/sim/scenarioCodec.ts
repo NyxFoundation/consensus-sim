@@ -21,7 +21,7 @@ import {
   type ProtocolParams,
 } from "../model/protocolParams";
 import type { Scenario } from "./scenario";
-import { START_SLOT } from "../model/types";
+import { START_SLOT, type Checkpoint } from "../model/types";
 import {
   MAX_VALIDATOR_COUNT,
   MIN_VALIDATOR_COUNT,
@@ -236,6 +236,16 @@ function initialStakesOf(
   });
 }
 
+/** A checkpoint {epoch, block}: two non-negative integers. */
+function checkpointOf(x: unknown, what: string): Checkpoint {
+  if (!isRecord(x)) throw new ParseError(`${what} must be an object`);
+  const epoch = integer(x.epoch, `${what}.epoch`);
+  if (epoch < 0) throw new ParseError(`${what}.epoch must be ≥ 0`);
+  const block = integer(x.block, `${what}.block`);
+  if (block < 0) throw new ParseError(`${what}.block must be ≥ 0`);
+  return { epoch, block };
+}
+
 function messageRefOf(
   x: unknown,
   validatorCount: number,
@@ -411,7 +421,7 @@ function interventionOf(
       return { kind: "propose-parent", slot: slotOf(x.slot, `${what}.slot`), parent };
     }
     case "vote-target": {
-      const block = (key: "head" | "source" | "target") => {
+      const block = (key: "head" | "target") => {
         if (x[key] === undefined) return {};
         const b = integer(x[key], `${what}.${key}`);
         if (b < 0) throw new ParseError(`${what}.${key} must be ≥ 0`);
@@ -422,7 +432,7 @@ function interventionOf(
         slot: slotOf(x.slot, `${what}.slot`),
         validator: validatorOf(x.validator, validatorCount, `${what}.validator`),
         ...block("head"),
-        ...block("source"),
+        ...(x.source === undefined ? {} : { source: checkpointOf(x.source, `${what}.source`) }),
         ...block("target"),
       };
     }

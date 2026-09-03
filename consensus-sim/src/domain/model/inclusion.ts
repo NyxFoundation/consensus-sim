@@ -9,18 +9,20 @@
 
 import { pathToAnchor, type BlockTree } from "./blockTree";
 import { coversMessage, voteRef, type MessageRef } from "./messageRef";
-import type {
-  BlockBody,
-  BlockIndex,
-  Equivocation,
-  SlotIndex,
-  ValidatorIndex,
-  Vote,
+import { checkpointKey, compareBlockIndex, compareVoteContent } from "./order";
+import {
+  bodyOf,
+  type BlockBody,
+  type BlockIndex,
+  type Equivocation,
+  type SlotIndex,
+  type ValidatorIndex,
+  type Vote,
 } from "./types";
 
 /** Identity of a vote: same validator, slot and content. */
 export function voteKey(vote: Vote): string {
-  return `${vote.validator}@${vote.slot}:${vote.head}/${vote.source}/${vote.target}`;
+  return `${vote.validator}@${vote.slot}:${vote.head}/${checkpointKey(vote.source)}/${checkpointKey(vote.target)}`;
 }
 
 export function sameVote(a: Vote, b: Vote): boolean {
@@ -33,9 +35,6 @@ export function equivocationKey(e: Equivocation): string {
     ? `P${e.validator}@${e.slot}:${e.blocks[0]},${e.blocks[1]}`
     : `V${e.validator}@${e.slot}:${voteKey(e.votes[0])}|${voteKey(e.votes[1])}`;
 }
-
-const voteOrder = (a: Vote, b: Vote): number =>
-  a.head - b.head || a.source - b.source || a.target - b.target;
 
 /**
  * Every equivocation visible in a view: two blocks of one proposer in one
@@ -51,14 +50,14 @@ export function equivocationsIn(
 
   const blocksBy = new Map<string, BlockIndex[]>();
   for (const block of tree.blocks.values()) {
-    if (block.proposer < 0) continue;
+    if (block.kind !== "proposed") continue;
     const key = `${block.proposer}@${block.slot}`;
     blocksBy.set(key, [...(blocksBy.get(key) ?? []), block.index]);
   }
   for (const [key, indices] of [...blocksBy.entries()].sort()) {
     if (indices.length < 2) continue;
     const [validator, slot] = key.split("@").map(Number) as [number, number];
-    const sorted = [...indices].sort((a, b) => a - b);
+    const sorted = [...indices].sort(compareBlockIndex);
     for (let i = 0; i < sorted.length; i++) {
       for (let j = i + 1; j < sorted.length; j++) {
         found.push({
@@ -81,7 +80,7 @@ export function equivocationsIn(
   for (const [key, list] of [...votesBy.entries()].sort()) {
     if (list.length < 2) continue;
     const [validator, slot] = key.split("@").map(Number) as [number, number];
-    const sorted = [...list].sort(voteOrder);
+    const sorted = [...list].sort(compareVoteContent);
     for (let i = 0; i < sorted.length; i++) {
       for (let j = i + 1; j < sorted.length; j++) {
         found.push({
@@ -125,8 +124,9 @@ export function includedOn(
   const votes = new Set<string>();
   const evidence = new Set<string>();
   for (const b of pathToAnchor(tree, block)) {
-    for (const v of b.body.votes) votes.add(voteKey(v));
-    for (const e of b.body.evidence) evidence.add(equivocationKey(e));
+    const body = bodyOf(b);
+    for (const v of body.votes) votes.add(voteKey(v));
+    for (const e of body.evidence) evidence.add(equivocationKey(e));
   }
   return { votes, evidence };
 }

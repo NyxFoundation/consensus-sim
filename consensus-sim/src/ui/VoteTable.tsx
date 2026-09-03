@@ -7,7 +7,7 @@
 
 import { latestVotes, validatorName } from '../domain'
 import type { Vote } from '../domain'
-import { blockName } from './format'
+import { blockName, checkpointName } from './format'
 import { validatorColor } from './validatorColor'
 
 export function VoteTable({
@@ -50,7 +50,7 @@ export function VoteTable({
             <td>{vote.slot}</td>
             <td>{blockName(vote.head)}</td>
             <td>
-              {blockName(vote.source)} → {blockName(vote.target)}
+              {checkpointName(vote.source)} → {checkpointName(vote.target)}
             </td>
           </tr>
         ))}

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   ANCHOR_BLOCK_INDEX,
+  ANCHOR_CHECKPOINT,
   EMPTY_BODY,
   addBlock,
   countedVotes,
@@ -8,7 +9,7 @@ import {
   ghostHead,
   latestVotes,
   subtreeWeight,
-  type Block,
+  type ProposedBlock,
   type Vote,
 } from "../../src/domain";
 
@@ -17,14 +18,21 @@ const block = (
   parent: number,
   slot: number,
   proposer = 0,
-): Block => ({ index, parent, slot, proposer, body: EMPTY_BODY });
+): ProposedBlock => ({
+  kind: "proposed",
+  index,
+  parent,
+  slot,
+  proposer,
+  body: EMPTY_BODY,
+});
 
 const vote = (
   validator: number,
   slot: number,
   head: number,
-  source = 0,
-  target = 0,
+  source = ANCHOR_CHECKPOINT,
+  target = ANCHOR_CHECKPOINT,
 ): Vote => ({ validator, slot, head, source, target });
 
 // anchor(0) ─ 1 ─ 2      (branch A)

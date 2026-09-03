@@ -1,19 +1,21 @@
 // Domain layer — most-abstract consensus model (最抽象モデル).
 // This module is pure: no UI, no infrastructure, no React.
 // Naming follows the ubiquitous language of ESSENCE.md's 用語 section.
+//
+// Identifiers are distinct sorts (識別子のソート): a raw number enters any
+// sort, but a value of one sort never passes as another — a slot handed to
+// a function expecting a block index is a type error (混用を型検査で防ぐ).
+// BlockIndex carries identity only; the total order the skeleton uses to
+// break ties lives in order.ts as an explicit rule.
 
-export type ValidatorIndex = number;
-export type SlotIndex = number;
-export type BlockIndex = number;
+export type ValidatorIndex = number & { readonly __sort?: "ValidatorIndex" };
+export type SlotIndex = number & { readonly __sort?: "SlotIndex" };
+export type EpochIndex = number & { readonly __sort?: "EpochIndex" };
+export type BlockIndex = number & { readonly __sort?: "BlockIndex" };
 
-/** A validator's weight (ステーク). Lives in chain state, never in a view. */
-export type Stake = number;
-
-/** Sentinel parent of the anchor block: the tree's root has no parent. */
-export const NO_PARENT: BlockIndex = -1;
-
-/** Sentinel proposer for the anchor block: nobody in this run proposed it. */
-export const NO_PROPOSER: ValidatorIndex = -1;
+/** A validator's weight (ステーク), a non-negative rational. Lives in chain
+ * state, never in a view. */
+export type Stake = number & { readonly __sort?: "Stake" };
 
 /** The anchor block (錨ブロック) is always block 0, the root of every tree. */
 export const ANCHOR_BLOCK_INDEX: BlockIndex = 0;
@@ -27,16 +29,30 @@ export const ANCHOR_BLOCK_INDEX: BlockIndex = 0;
 export const START_SLOT: SlotIndex = 0;
 
 /**
- * A vote (投票): `head` is the GHOST-style head support, and
- * `source`/`target` are the FFG-style pair of epoch-boundary checkpoints,
- * both expressed as block indices.
+ * A checkpoint (チェックポイント): the block that stands for `epoch` on some
+ * branch — the latest block on the branch at or before the epoch's first
+ * slot. When that boundary slot is empty the same block is the checkpoint
+ * of consecutive epochs, so the epoch is part of the identity.
+ */
+export interface Checkpoint {
+  readonly epoch: EpochIndex;
+  readonly block: BlockIndex;
+}
+
+/** The anchor is the checkpoint of epoch 0 on every branch. */
+export const ANCHOR_CHECKPOINT: Checkpoint = { epoch: 0, block: ANCHOR_BLOCK_INDEX };
+
+/**
+ * A vote (投票): `head` is the GHOST-style head support (LMD part) and
+ * `source` → `target` the FFG pair of checkpoints. Well-formed when
+ * `target.epoch` is the epoch of `slot`.
  */
 export interface Vote {
   readonly validator: ValidatorIndex;
   readonly slot: SlotIndex;
   readonly head: BlockIndex;
-  readonly source: BlockIndex;
-  readonly target: BlockIndex;
+  readonly source: Checkpoint;
+  readonly target: Checkpoint;
 }
 
 /**
@@ -58,7 +74,7 @@ export type Equivocation =
       readonly kind: "double-vote";
       readonly validator: ValidatorIndex;
       readonly slot: SlotIndex;
-      /** The two conflicting votes, ascending by (head, source, target). */
+      /** The two conflicting votes, in the content order of order.ts. */
       readonly votes: readonly [Vote, Vote];
     };
 
@@ -72,8 +88,18 @@ export interface BlockBody {
   readonly evidence: readonly Equivocation[];
 }
 
-/** Reference type from ESSENCE.md: Block = {index, parent, slot, proposer, body}. */
-export interface Block {
+/** The anchor (錨): the root of every tree, agreed finalized at the start.
+ * Nobody in this run proposed it and it has no parent — there is no
+ * sentinel value to stand in for either. */
+export interface AnchorBlock {
+  readonly kind: "anchor";
+  readonly index: BlockIndex;
+  readonly slot: SlotIndex;
+}
+
+/** A proposed block (提案): what a proposer publishes in its slot. */
+export interface ProposedBlock {
+  readonly kind: "proposed";
   readonly index: BlockIndex;
   readonly parent: BlockIndex;
   readonly slot: SlotIndex;
@@ -81,15 +107,21 @@ export interface Block {
   readonly body: BlockBody;
 }
 
+/** Reference type from ESSENCE.md: Block = 錨 {index, slot} | 提案 {…}. */
+export type Block = AnchorBlock | ProposedBlock;
+
 export const EMPTY_BODY: BlockBody = { votes: [], evidence: [] };
 
 /** The anchor block every simulation starts from. */
-export function anchorBlock(): Block {
-  return {
-    index: ANCHOR_BLOCK_INDEX,
-    parent: NO_PARENT,
-    slot: START_SLOT,
-    proposer: NO_PROPOSER,
-    body: EMPTY_BODY,
-  };
+export function anchorBlock(): AnchorBlock {
+  return { kind: "anchor", index: ANCHOR_BLOCK_INDEX, slot: START_SLOT };
+}
+
+export function isProposed(block: Block): block is ProposedBlock {
+  return block.kind === "proposed";
+}
+
+/** What a block included — nothing, for the anchor. */
+export function bodyOf(block: Block): BlockBody {
+  return block.kind === "proposed" ? block.body : EMPTY_BODY;
 }

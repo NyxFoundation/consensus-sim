@@ -6,6 +6,7 @@
 
 import { describe, expect, it } from "vitest";
 import {
+  ANCHOR_CHECKPOINT,
   DEFAULT_PARAMS,
   addBlock,
   chainStatesOf,
@@ -15,13 +16,15 @@ import {
   goalAchievedAt,
   latestFinalized,
   runScenario,
+  sameCheckpoint,
   scenarioStates,
   type Attack,
   type AttackGoal,
   type AttackInstance,
-  type Block,
+  type Checkpoint,
   type GodView,
   type Intervention,
+  type ProposedBlock,
   type Scenario,
   type SimulationConfig,
   type Vote,
@@ -53,22 +56,37 @@ describe("safety violation (安全性違反)", () => {
   // Two branches off the anchor, each finalizing its own epoch-1 checkpoint
   // from the votes its blocks include: {0,1,2} finalize B1 on branch A,
   // {1,2,3} finalize B4 on branch B (75% of the stake each side).
-  const vote = (validator: number, slot: number, head: number, source: number, target: number): Vote =>
-    ({ validator, slot, head, source, target });
-  const block = (index: number, parent: number, slot: number, proposer: number, votes: Vote[]): Block =>
-    ({ index, parent, slot, proposer, body: { votes, evidence: [] } });
-  const linkVotes = (voters: number[], slot: number, head: number, source: number, target: number) =>
-    voters.map((v) => vote(v, slot, head, source, target));
+  const vote = (
+    validator: number,
+    slot: number,
+    head: number,
+    source: Checkpoint,
+    target: Checkpoint,
+  ): Vote => ({ validator, slot, head, source, target });
+  const block = (
+    index: number,
+    parent: number,
+    slot: number,
+    proposer: number,
+    votes: Vote[],
+  ): ProposedBlock => ({ kind: "proposed", index, parent, slot, proposer, body: { votes, evidence: [] } });
+  const linkVotes = (
+    voters: number[],
+    slot: number,
+    head: number,
+    source: Checkpoint,
+    target: Checkpoint,
+  ) => voters.map((v) => vote(v, slot, head, source, target));
 
   const conflicting = (): GodView => {
     let tree = createBlockTree();
     for (const b of [
       block(1, 0, 4, 1, []),
-      block(2, 1, 8, 2, linkVotes([0, 1, 2], 5, 1, 0, 1)),
-      block(3, 2, 9, 3, linkVotes([0, 1, 2], 8, 2, 1, 2)),
+      block(2, 1, 8, 2, linkVotes([0, 1, 2], 5, 1, ANCHOR_CHECKPOINT, { epoch: 1, block: 1 })),
+      block(3, 2, 9, 3, linkVotes([0, 1, 2], 8, 2, { epoch: 1, block: 1 }, { epoch: 2, block: 2 })),
       block(4, 0, 4, 0, []),
-      block(5, 4, 8, 1, linkVotes([1, 2, 3], 5, 4, 0, 4)),
-      block(6, 5, 9, 2, linkVotes([1, 2, 3], 8, 5, 4, 5)),
+      block(5, 4, 8, 1, linkVotes([1, 2, 3], 5, 4, ANCHOR_CHECKPOINT, { epoch: 1, block: 4 })),
+      block(6, 5, 9, 2, linkVotes([1, 2, 3], 8, 5, { epoch: 1, block: 4 }, { epoch: 2, block: 5 })),
     ]) {
       tree = addBlock(tree, b);
     }
@@ -78,8 +96,8 @@ describe("safety violation (安全性違反)", () => {
 
   it("holds when two finalized checkpoints are in conflict, naming them", () => {
     const view = conflicting();
-    expect(view.chainStates.get(3)!.finalized).toBe(1);
-    expect(view.chainStates.get(6)!.finalized).toBe(4);
+    expect(view.chainStates.get(3)!.finalized).toEqual({ epoch: 1, block: 1 });
+    expect(view.chainStates.get(6)!.finalized).toEqual({ epoch: 1, block: 4 });
     expect(at({ kind: "safety-violation" }, [view], 0)).toEqual({
       kind: "safety-violation",
       holds: true,
@@ -89,7 +107,7 @@ describe("safety violation (安全性違反)", () => {
 
   it("does not hold on an honest run, where every finalized checkpoint lies on one chain", () => {
     const h = history(scenario([]), 13);
-    expect(latestFinalized(h[13]!.tree, h[13]!.chainStates)).not.toBe(0);
+    expect(latestFinalized(h[13]!.chainStates)).not.toEqual(ANCHOR_CHECKPOINT);
     for (let s = 0; s <= 13; s++) {
       expect(at({ kind: "safety-violation" }, h, s)).toEqual({ kind: "safety-violation", holds: false });
     }
@@ -99,10 +117,10 @@ describe("safety violation (安全性違反)", () => {
 describe("liveness stall (活性停止)", () => {
   it("measures the slots since finalized last advanced on any branch", () => {
     const h = history(scenario([]), 16);
-    const finalizedAt = (s: number) => latestFinalized(h[s]!.tree, h[s]!.chainStates);
+    const finalizedAt = (s: number) => latestFinalized(h[s]!.chainStates);
     let lastAdvance = 0;
     for (let s = 0; s <= 16; s++) {
-      if (s > 0 && finalizedAt(s) !== finalizedAt(s - 1)) lastAdvance = s;
+      if (s > 0 && !sameCheckpoint(finalizedAt(s), finalizedAt(s - 1))) lastAdvance = s;
       expect(at({ kind: "liveness-stall", slots: 100 }, h, s)).toEqual({
         kind: "liveness-stall",
         holds: false,
@@ -116,7 +134,7 @@ describe("liveness stall (活性停止)", () => {
     expect(Math.max(...stalls.map((e) => (e.kind === "liveness-stall" ? e.stalledSlots : 0)))).toBeLessThan(
       12,
     );
-    expect(finalizedAt(16)).not.toBe(finalizedAt(8));
+    expect(finalizedAt(16)).not.toEqual(finalizedAt(8));
   });
 
   it("holds from the L-th stalled slot on when half the validators fall silent, and releases once finality resumes", () => {
@@ -128,13 +146,13 @@ describe("liveness stall (活性停止)", () => {
       expect(at({ kind: "liveness-stall", slots: L }, h, s)).toEqual({
         kind: "liveness-stall",
         holds: true,
-        finalized: 0,
+        finalized: ANCHOR_CHECKPOINT,
         stalledSlots: s,
       });
     }
     // After the return at slot 13 finality catches up and the stall count resets.
     const late = at({ kind: "liveness-stall", slots: L }, h, 28);
-    expect(late.kind === "liveness-stall" && late.finalized).not.toBe(0);
+    expect(late.kind === "liveness-stall" && late.finalized).not.toEqual(ANCHOR_CHECKPOINT);
     expect(late.holds).toBe(false);
   });
 });

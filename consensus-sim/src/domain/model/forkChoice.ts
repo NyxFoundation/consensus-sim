@@ -7,6 +7,7 @@
 // (justified-checkpoint switching by unrealized justification).
 
 import { childrenOf, isAncestor, type BlockTree } from "./blockTree";
+import { compareVoteContent } from "./order";
 import type { ForkChoiceRule } from "./protocolParams";
 import type { BlockIndex, Stake, ValidatorIndex, Vote } from "./types";
 
@@ -42,9 +43,9 @@ export interface ForkChoiceOptions {
 
 /**
  * The latest vote of each validator (LMD). For votes at the same slot by the
- * same validator (equivocation), the winner is chosen by smallest
- * (head, source, target) lexicographically, so the result never depends on
- * message arrival order (determinism).
+ * same validator (equivocation), the winner is the first in the content
+ * order of the skeleton (order.ts), so the result never depends on message
+ * arrival order (determinism).
  */
 export function latestVotes(
   votes: readonly Vote[],
@@ -56,13 +57,8 @@ export function latestVotes(
       latest.set(vote.validator, vote);
       continue;
     }
-    if (vote.slot === current.slot) {
-      const a = [vote.head, vote.source, vote.target];
-      const b = [current.head, current.source, current.target];
-      const aWins =
-        a[0]! < b[0]! ||
-        (a[0] === b[0] && (a[1]! < b[1]! || (a[1] === b[1] && a[2]! < b[2]!)));
-      if (aWins) latest.set(vote.validator, vote);
+    if (vote.slot === current.slot && compareVoteContent(vote, current) < 0) {
+      latest.set(vote.validator, vote);
     }
   }
   return latest;
@@ -110,9 +106,10 @@ export function subtreeWeight(
 }
 
 /**
- * The head block by GHOST from `root` (normally the justified checkpoint):
- * descend into the candidate child with the greatest subtree weight; ties
- * break to the smallest block index, so the result is deterministic. When no
+ * The head block by GHOST from `root` (normally the justified checkpoint's
+ * block): descend into the candidate child with the greatest subtree
+ * weight; ties break to the preferred child in the block order (order.ts —
+ * children come in that order), so the result is deterministic. When no
  * child is a candidate the descent stops there.
  */
 export function ghostHead(

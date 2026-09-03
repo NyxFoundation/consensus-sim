@@ -4,6 +4,7 @@ import {
   DEFAULT_VALIDATOR_COUNT,
   equalStakes,
   instantDelivery,
+  isProposed,
   observe,
   stateAtSlot,
   viewOf,
@@ -111,7 +112,7 @@ describe("local views under a partition", () => {
     // the chain is linear, so a missing odd ancestor orphans what follows.
     expect(view.blockTree.blocks.size).toBeLessThan(state.tree.blocks.size);
     for (const block of view.blockTree.blocks.values()) {
-      if (block.index !== 0) {
+      if (isProposed(block)) {
         expect(view.blockTree.blocks.has(block.parent)).toBe(true);
       }
     }

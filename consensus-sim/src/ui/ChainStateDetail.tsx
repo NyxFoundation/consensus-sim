@@ -17,7 +17,7 @@ import type {
   Equivocation,
   ValidatorIndex,
 } from '../domain'
-import { blockName, stakeLabel } from './format'
+import { blockName, checkpointName, stakeLabel } from './format'
 import { diffFlags } from './StateTable'
 import { validatorColor } from './validatorColor'
 
@@ -54,8 +54,8 @@ export function ChainStateTable({
     const values = peers.map(pick)
     return { value: values[validator] ?? '', diff: diffFlags(values)[validator] ?? false }
   }
-  const justified = column((s) => blockName(s.justified))
-  const finalized = column((s) => blockName(s.finalized))
+  const justified = column((s) => checkpointName(s.justified))
+  const finalized = column((s) => checkpointName(s.finalized))
   const stakes = Array.from({ length: validatorCount }, (_, v) =>
     column((s) => stakeLabel(s.stakes.get(v) ?? 0)),
   )
@@ -104,7 +104,7 @@ export function evidenceLabel(e: Equivocation): string {
   }
   const [a, b] = e.votes
   const vote = (v: typeof a) =>
-    `${blockName(v.head)} (${blockName(v.source)} → ${blockName(v.target)})`
+    `${blockName(v.head)} (${checkpointName(v.source)} → ${checkpointName(v.target)})`
   return `二重投票 ${who}: ${vote(a)} / ${vote(b)}`
 }
 

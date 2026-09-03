@@ -131,16 +131,26 @@ npm run build      # static bundle in dist/ (no backend; plain static SPA)
   included. An honest proposer includes everything in its view that no
   ancestor of the parent has included yet.
 - **Votes** are `{validator, slot, head, source, target}`: an LMD-GHOST-style
-  head endorsement plus an FFG-style pair of epoch-boundary checkpoints.
+  head endorsement plus an FFG-style pair of **checkpoints**. A checkpoint
+  is `{epoch, block}` — the latest block of a branch at or before the
+  epoch's first slot; when that boundary slot is empty the same block stands
+  for consecutive epochs, so the epoch is part of the identity (the UI
+  writes a checkpoint as `B4@e1`). Identifiers are distinct sorts
+  (validator, slot, epoch, block index, stake) that the type checker keeps
+  apart; the block index carries identity only, and the one total order
+  used for every tie-break is a stated rule of the skeleton.
 - **Chain state** is derived per block from the bodies along its branch and
-  the initial stakes: `{stakes, justified, finalized}`. A vote counts toward
-  a branch's justification only once a block on that branch includes it, so
-  the same vote set can justify one branch and be inert on another.
+  the initial stakes: `{stakes, justified, finalized}`, both checkpoints. A
+  vote counts as an FFG link of a branch only once a block on that branch
+  includes it and only when its source and target are that branch's own
+  checkpoints of their epochs, so the same vote set can justify one branch
+  and be inert on another.
 - **Stakes** start equal (32 each, settable per validator as part of the
   scenario) and live in chain state, never in a view. **Finality** follows
   supermajority source→target links over included votes — 2/3 of the
-  branch's stake, not of its validators (justification fixpoint,
-  adjacent-epoch finalization). Two **penalties** reshape a branch's stakes:
+  branch's stake, not of its validators (justification fixpoint; a justified
+  source is finalized when its target of the very next epoch, by epoch
+  number, is justified). Two **penalties** reshape a branch's stakes:
   **slashing** zeroes an equivocator from the block that includes the
   evidence onward (a branch without the evidence is untouched), and the
   **inactivity leak** removes the fraction `r` per epoch from every
@@ -208,10 +218,12 @@ npm run build      # static bundle in dist/ (no backend; plain static SPA)
 ```
 src/domain/        pure TypeScript domain layer — no React, no DOM, no I/O
 src/domain/model/  essential specification (本質的仕様): the types a formalization
-                   takes as its object — View / Vote / Block / BlockTree /
-                   Equivocation / ChainState / ProtocolParams and presets, fork
-                   choice, finality, inclusion, the schedule, the initial conditions,
-                   the attack triple, the action vocabulary and the goal predicates
+                   takes as its object — the identifier sorts / Checkpoint / View /
+                   Vote / Block (anchor | proposed) / BlockTree / Equivocation /
+                   ChainState / ProtocolParams and presets, the skeleton's total
+                   orders, fork choice, finality, inclusion, the schedule, the
+                   initial conditions, the attack triple, the action vocabulary and
+                   the goal predicates
 src/domain/sim/    simulation constraints (シミュレーション上の制約): message log
                    and delivery, the slot driver, interventions, attack execution
                    (generated actions and their discards), scenarios and their

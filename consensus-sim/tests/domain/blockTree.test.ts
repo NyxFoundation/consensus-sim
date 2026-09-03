@@ -2,8 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   ANCHOR_BLOCK_INDEX,
   EMPTY_BODY,
-  NO_PARENT,
-  NO_PROPOSER,
   START_SLOT,
   addBlock,
   anchorBlock,
@@ -12,7 +10,7 @@ import {
   getBlock,
   isAncestor,
   pathToAnchor,
-  type Block,
+  type ProposedBlock,
 } from "../../src/domain";
 
 const block = (
@@ -20,16 +18,21 @@ const block = (
   parent: number,
   slot: number,
   proposer = 0,
-): Block => ({ index, parent, slot, proposer, body: EMPTY_BODY });
+): ProposedBlock => ({
+  kind: "proposed",
+  index,
+  parent,
+  slot,
+  proposer,
+  body: EMPTY_BODY,
+});
 
 describe("anchor block", () => {
-  it("is block 0 at slot 0 with no parent, no proposer and an empty body", () => {
+  it("is block 0 at slot 0 with an empty body and no parent/proposer fields", () => {
     expect(anchorBlock()).toEqual({
+      kind: "anchor",
       index: ANCHOR_BLOCK_INDEX,
-      parent: NO_PARENT,
       slot: START_SLOT,
-      proposer: NO_PROPOSER,
-      body: { votes: [], evidence: [] },
     });
   });
 
@@ -67,12 +70,6 @@ describe("addBlock", () => {
     expect(() => addBlock(createBlockTree(), block(2, 9, 1))).toThrow(
       /unknown/,
     );
-  });
-
-  it("rejects a second root", () => {
-    expect(() =>
-      addBlock(createBlockTree(), block(1, NO_PARENT, 1)),
-    ).toThrow(/anchor/);
   });
 
   it("rejects a slot not after the parent's slot", () => {

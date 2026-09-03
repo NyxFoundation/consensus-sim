@@ -6,7 +6,9 @@
 
 import { describe, expect, it } from "vitest";
 import {
+  ANCHOR_CHECKPOINT,
   DEFAULT_PARAMS,
+  bodyOf,
   equalStakes,
   parseScenario,
   scenarioStates,
@@ -30,14 +32,20 @@ const votesAt = (s: Scenario, slot: number): Vote[] =>
   scenarioStates(s, slot)[slot]!.votes.filter((v) => v.slot === slot);
 
 const bodyAt = (s: Scenario, slot: number) =>
-  scenarioStates(s, slot)[slot]!.tree.blocks.get(slot)!.body;
+  bodyOf(scenarioStates(s, slot)[slot]!.tree.blocks.get(slot)!);
 
 describe("vote designation (投票先指定)", () => {
   // Honest run: B_n at slot n; at slot 6 everyone votes head B6 with
   // source = B4 (justified in ChainState(B5)) and target = B4.
   it("follows the rules when nothing is designated", () => {
     expect(votesAt(scenario([]), 6)).toEqual(
-      [0, 1, 2, 3].map((v) => ({ validator: v, slot: 6, head: 6, source: 4, target: 4 })),
+      [0, 1, 2, 3].map((v) => ({
+        validator: v,
+        slot: 6,
+        head: 6,
+        source: { epoch: 1, block: 4 },
+        target: { epoch: 1, block: 4 },
+      })),
     );
   });
 
@@ -45,16 +53,30 @@ describe("vote designation (投票先指定)", () => {
     const votes = votesAt(scenario([{ kind: "vote-target", slot: 6, validator: 1, head: 3 }]), 6);
     // B3's chain state has nothing justified; epoch 1's checkpoint on that
     // chain is B3 itself (the last block at or before slot 4).
-    expect(votes[1]).toEqual({ validator: 1, slot: 6, head: 3, source: 0, target: 3 });
+    expect(votes[1]).toEqual({
+      validator: 1,
+      slot: 6,
+      head: 3,
+      source: ANCHOR_CHECKPOINT,
+      target: { epoch: 1, block: 3 },
+    });
     expect(votes.filter((v) => v.validator !== 1).map((v) => v.head)).toEqual([6, 6, 6]);
   });
 
   it("applies an explicit source / target on top of the rules", () => {
     const votes = votesAt(
-      scenario([{ kind: "vote-target", slot: 6, validator: 2, source: 0, target: 5 }]),
+      scenario([
+        { kind: "vote-target", slot: 6, validator: 2, source: ANCHOR_CHECKPOINT, target: 5 },
+      ]),
       6,
     );
-    expect(votes[2]).toEqual({ validator: 2, slot: 6, head: 6, source: 0, target: 5 });
+    expect(votes[2]).toEqual({
+      validator: 2,
+      slot: 6,
+      head: 6,
+      source: ANCHOR_CHECKPOINT,
+      target: { epoch: 1, block: 5 },
+    });
   });
 
   it("ignores a designated block the voter's view does not hold", () => {
@@ -78,8 +100,8 @@ describe("vote designation (投票先指定)", () => {
       validator: 1,
       slot: 6,
       head: 3,
-      source: 0,
-      target: 3,
+      source: ANCHOR_CHECKPOINT,
+      target: { epoch: 1, block: 3 },
     });
   });
 });
@@ -92,7 +114,13 @@ describe("omitted inclusion (取り込みの省略)", () => {
     const b3 = bodyAt(s, 3);
     expect(b3.votes.map((v) => v.validator)).toEqual([1, 2, 3]);
     const b4 = bodyAt(s, 4);
-    expect(b4.votes).toContainEqual({ validator: 0, slot: 2, head: 2, source: 0, target: 0 });
+    expect(b4.votes).toContainEqual({
+      validator: 0,
+      slot: 2,
+      head: 2,
+      source: ANCHOR_CHECKPOINT,
+      target: ANCHOR_CHECKPOINT,
+    });
     expect(b4.votes).toHaveLength(5);
     // Honest B3 carries all four slot-2 votes.
     expect(bodyAt(scenario([]), 3).votes).toHaveLength(4);

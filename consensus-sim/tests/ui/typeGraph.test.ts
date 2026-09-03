@@ -119,6 +119,7 @@ describe('domain type catalog (実装との一致)', () => {
   it('reference types carry their reference-implementation dependencies', () => {
     expect(byName.get('Vote')?.dependsOn).toEqual([
       'BlockIndex',
+      'Checkpoint',
       'SlotIndex',
       'ValidatorIndex',
     ])
@@ -126,10 +127,10 @@ describe('domain type catalog (実装との一致)', () => {
       expect.arrayContaining(['BlockTree', 'Vote']),
     )
     expect(byName.get('ChainState')?.dependsOn).toEqual(
-      expect.arrayContaining(['BlockIndex', 'Stake', 'ValidatorIndex']),
+      expect.arrayContaining(['Checkpoint', 'Stake', 'ValidatorIndex']),
     )
     expect(byName.get('Block')?.dependsOn).toEqual(
-      expect.arrayContaining(['BlockBody']),
+      expect.arrayContaining(['AnchorBlock', 'ProposedBlock']),
     )
   })
 

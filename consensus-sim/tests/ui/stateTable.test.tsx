@@ -120,9 +120,9 @@ describe('dynamic cell item selection', () => {
         (b) => b.textContent === 'finalized',
       ),
     )
-    // Slot 9: finalized = B4 (same run as the badge test); slot 0: anchor B0.
-    expect(cell(0, 9)?.textContent).toBe('B4')
-    expect(cell(0, 0)?.textContent).toBe('B0')
+    // Slot 9: finalized = B4@e1 (same run as the badge test); slot 0: anchor B0@e0.
+    expect(cell(0, 9)?.textContent).toBe('B4@e1')
+    expect(cell(0, 0)?.textContent).toBe('B0@e0')
   })
 
   it('shows View elements as cell items', async () => {
@@ -229,7 +229,7 @@ describe('cell expansion into the local observation', () => {
     const cells = all('.state-detail .chain-state-table tbody td').map(
       (c) => c.textContent,
     )
-    expect(cells).toEqual(['B0', 'B0', '32', '32', '32', '32'])
+    expect(cells).toEqual(['B0@e0', 'B0@e0', '32', '32', '32', '32'])
     // Everyone's head shares one branch: nothing is highlighted.
     expect(all('.state-detail .value-diff')).toHaveLength(0)
     expect(text('.state-detail')).not.toContain('別の枝を head とする')
@@ -252,12 +252,12 @@ describe('cell expansion into the local observation', () => {
     const aliceCells = all('.state-detail .chain-state-table tbody td')
     // justified differs from the majority's chain state and is marked.
     expect(aliceCells[0]?.querySelector('.value-diff')).not.toBeNull()
-    expect(aliceCells[0]?.textContent).toBe('B0')
+    expect(aliceCells[0]?.textContent).toBe('B0@e0')
 
     await click(cell(1, 6))
-    // ボブ sits with the plurality: his justified is B3 and unmarked.
+    // ボブ sits with the plurality: his justified is B3@e1 and unmarked.
     const bobCells = all('.state-detail .chain-state-table tbody td')
-    expect(bobCells[0]?.textContent).toBe('B3')
+    expect(bobCells[0]?.textContent).toBe('B3@e1')
     expect(all('.state-detail .value-diff')).toHaveLength(0)
     expect(text('.state-detail')).toContain('アリス B4')
   })

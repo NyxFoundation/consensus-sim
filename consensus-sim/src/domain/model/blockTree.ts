@@ -2,12 +2,12 @@
 // Immutable: every mutation returns a new tree. Determinism (決定性) depends
 // on this layer being free of hidden state, clocks, and randomness.
 
+import { compareBlockIndex } from "./order";
 import {
-  ANCHOR_BLOCK_INDEX,
-  NO_PARENT,
   anchorBlock,
   type Block,
   type BlockIndex,
+  type ProposedBlock,
 } from "./types";
 
 export interface BlockTree {
@@ -26,15 +26,17 @@ export function getBlock(tree: BlockTree, index: BlockIndex): Block | undefined 
 }
 
 /**
- * Add a block. Rejects blocks whose parent is unknown, whose index is
- * already present with different content, or whose slot does not come after
- * its parent's slot. Adding an identical duplicate is a no-op, because a
- * validator may legitimately receive the same block twice.
+ * Add a proposed block. Rejects blocks whose parent is unknown, whose index
+ * is already present with different content, or whose slot does not come
+ * after its parent's slot. Adding an identical duplicate is a no-op, because
+ * a validator may legitimately receive the same block twice. Only the
+ * anchor is ever a root, and it is there from the start.
  */
-export function addBlock(tree: BlockTree, block: Block): BlockTree {
+export function addBlock(tree: BlockTree, block: ProposedBlock): BlockTree {
   const existing = tree.blocks.get(block.index);
   if (existing) {
     if (
+      existing.kind === "proposed" &&
       existing.parent === block.parent &&
       existing.slot === block.slot &&
       existing.proposer === block.proposer
@@ -44,9 +46,6 @@ export function addBlock(tree: BlockTree, block: Block): BlockTree {
     throw new Error(
       `block index ${block.index} already exists with different content`,
     );
-  }
-  if (block.index === ANCHOR_BLOCK_INDEX || block.parent === NO_PARENT) {
-    throw new Error("only the anchor block may be a root");
   }
   const parent = tree.blocks.get(block.parent);
   if (!parent) {
@@ -62,13 +61,13 @@ export function addBlock(tree: BlockTree, block: Block): BlockTree {
   return { blocks };
 }
 
-/** Child block indices of `parent`, in ascending index order (deterministic). */
+/** Child block indices of `parent`, in the block order (deterministic). */
 export function childrenOf(tree: BlockTree, parent: BlockIndex): BlockIndex[] {
   const children: BlockIndex[] = [];
   for (const block of tree.blocks.values()) {
-    if (block.parent === parent) children.push(block.index);
+    if (block.kind === "proposed" && block.parent === parent) children.push(block.index);
   }
-  return children.sort((a, b) => a - b);
+  return children.sort(compareBlockIndex);
 }
 
 /**
@@ -83,26 +82,28 @@ export function isAncestor(
   let current = tree.blocks.get(descendant);
   while (current) {
     if (current.index === ancestor) return true;
-    if (current.parent === NO_PARENT) return false;
+    if (current.kind === "anchor") return false;
     current = tree.blocks.get(current.parent);
   }
   return false;
 }
 
 /**
- * Leaves (blocks without children) of the subtree rooted at `root`, in
- * ascending index order — `root` itself when it has no children.
+ * Leaves (blocks without children) of the subtree rooted at `root`, in the
+ * block order — `root` itself when it has no children.
  */
 export function leavesUnder(tree: BlockTree, root: BlockIndex): BlockIndex[] {
   const parents = new Set<BlockIndex>();
-  for (const block of tree.blocks.values()) parents.add(block.parent);
+  for (const block of tree.blocks.values()) {
+    if (block.kind === "proposed") parents.add(block.parent);
+  }
   const leaves: BlockIndex[] = [];
   for (const block of tree.blocks.values()) {
     if (!parents.has(block.index) && isAncestor(tree, root, block.index)) {
       leaves.push(block.index);
     }
   }
-  return leaves.sort((a, b) => a - b);
+  return leaves.sort(compareBlockIndex);
 }
 
 /** The path from `index` up to the anchor block, starting at `index`. */
@@ -111,7 +112,7 @@ export function pathToAnchor(tree: BlockTree, index: BlockIndex): Block[] {
   let current = tree.blocks.get(index);
   while (current) {
     path.push(current);
-    if (current.parent === NO_PARENT) break;
+    if (current.kind === "anchor") break;
     current = tree.blocks.get(current.parent);
   }
   return path;

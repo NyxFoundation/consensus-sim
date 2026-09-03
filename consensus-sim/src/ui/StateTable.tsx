@@ -10,7 +10,7 @@
 import { latestVotes, validatorName } from '../domain'
 import type { LocalObservation, ValidatorIndex } from '../domain'
 import { Button } from './components/Button'
-import { blockName, stakeLabel } from './format'
+import { blockName, checkpointName, stakeLabel } from './format'
 import { COL_W, LABEL_W, TABLE_OFFSET } from './treeGeometry'
 import { validatorColor } from './validatorColor'
 
@@ -59,9 +59,9 @@ function cellValue(
     case 'head':
       return blockName(obs.head)
     case 'justified':
-      return blockName(obs.chainState.justified)
+      return checkpointName(obs.chainState.justified)
     case 'finalized':
-      return blockName(obs.chainState.finalized)
+      return checkpointName(obs.chainState.finalized)
     case 'stake':
       // The validator's own stake in the chain state of its head.
       return stakeLabel(obs.chainState.stakes.get(validator) ?? 0)

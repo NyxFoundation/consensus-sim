@@ -14,7 +14,7 @@
 
 import type { EvidenceRef } from "./inclusion";
 import type { MessageRef } from "./messageRef";
-import type { BlockIndex, SlotIndex, ValidatorIndex } from "./types";
+import type { BlockIndex, Checkpoint, SlotIndex, ValidatorIndex } from "./types";
 
 /** Messages do not cross group boundaries while the partition is active.
  * Validators listed in no group form one implicit remaining group. */
@@ -86,15 +86,17 @@ export interface ProposeParentAction {
 }
 
 /** 投票先指定: at `slot`, the validator's vote uses the designated head /
- * source / target (each optional, each a block of its view at voting time;
- * a block it does not hold is ignored). Unspecified components follow fork
- * choice and the FFG rule — from the designated head when there is one. */
+ * target (blocks of its view at voting time; the target's epoch follows
+ * from the slot) and source (a checkpoint of a branch of its view), each
+ * optional; a designation it does not hold is ignored. Unspecified
+ * components follow fork choice and the FFG rule — from the designated head
+ * when there is one. */
 export interface VoteTargetAction {
   readonly kind: "vote-target";
   readonly slot: SlotIndex;
   readonly validator: ValidatorIndex;
   readonly head?: BlockIndex;
-  readonly source?: BlockIndex;
+  readonly source?: Checkpoint;
   readonly target?: BlockIndex;
 }
 

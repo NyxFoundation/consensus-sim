@@ -7,13 +7,14 @@
 // applies the penalties (罰則) its evidence triggers, then adds its included
 // votes, then re-evaluates finality with the stakes as they stand:
 //
-// - Finality is FFG-lite over included votes: a source→target link is
-//   supermajority when the current stake of the distinct validators voting
-//   it reaches 2/3 of the branch's current total; justification is the
-//   monotone fixpoint from the anchor; a justified source whose direct
-//   successor-epoch checkpoint gets justified is finalized. Only checkpoints
-//   on the branch count — a vote included here whose checkpoints lie
-//   elsewhere is inert for this branch.
+// - Finality is FFG over included votes. A vote counts as a link of this
+//   branch only when its source and target are the branch's own checkpoints
+//   of their epochs (取り込み妥当性; the same block standing for consecutive
+//   epochs is a valid link too). A link is supermajority when the current
+//   stake of the distinct validators voting it reaches 2/3 of the branch's
+//   current total; justification is the monotone fixpoint from the anchor;
+//   a justified source whose target of the very next epoch (by epoch
+//   number) gets justified is finalized.
 // - Slashing (スラッシング, on/off): from the block that includes evidence of
 //   an equivocation onward, the equivocator's stake on this branch is 0, so
 //   it drops out of every weight and threshold from then on.
@@ -36,15 +37,20 @@ import {
 import type { SimulationConfig } from "./config";
 import {
   JUSTIFIED_SWITCH_WINDOW_SLOTS,
+  checkpointFor,
   epochBoundarySlot,
   epochOf,
   inJustifiedSwitchWindow,
 } from "./finality";
+import { checkpointKey, higherCheckpoint } from "./order";
 import type { CheckpointSwitch } from "./protocolParams";
 import {
-  ANCHOR_BLOCK_INDEX,
+  ANCHOR_CHECKPOINT,
+  bodyOf,
   type Block,
   type BlockIndex,
+  type Checkpoint,
+  type EpochIndex,
   type SlotIndex,
   type Stake,
   type ValidatorIndex,
@@ -53,15 +59,16 @@ import {
 export interface ChainState {
   readonly stakes: ReadonlyMap<ValidatorIndex, Stake>;
   /** The highest justified checkpoint on this branch. */
-  readonly justified: BlockIndex;
+  readonly justified: Checkpoint;
   /** The highest finalized checkpoint on this branch. */
-  readonly finalized: BlockIndex;
+  readonly finalized: Checkpoint;
 }
 
 /** Chain state of every block of a tree, keyed by block index. */
 export type ChainStateIndex = ReadonlyMap<BlockIndex, ChainState>;
 
-/** Checkpoints justified / finalized on some branch of a tree. */
+/** Blocks standing as a justified / finalized checkpoint on some branch of
+ * a tree (what the J / F badges mark). */
 export interface CheckpointStatus {
   readonly justified: ReadonlySet<BlockIndex>;
   readonly finalized: ReadonlySet<BlockIndex>;
@@ -78,28 +85,14 @@ export function isSupermajority(weight: Stake, total: Stake): boolean {
   return total > 0 && weight * 3 >= total * 2;
 }
 
-/** The higher of two checkpoints: later slot, then smaller index. */
-export function higherCheckpoint(
-  tree: BlockTree,
-  a: BlockIndex,
-  b: BlockIndex,
-): BlockIndex {
-  const blockA = getBlock(tree, a);
-  const blockB = getBlock(tree, b);
-  if (!blockA) return b;
-  if (!blockB) return a;
-  if (blockA.slot !== blockB.slot) return blockA.slot > blockB.slot ? a : b;
-  return Math.min(a, b);
-}
-
 interface BranchState {
   readonly chain: ChainState;
-  readonly justifiedCheckpoints: ReadonlySet<BlockIndex>;
+  readonly justifiedCheckpoints: ReadonlyMap<string, Checkpoint>;
 }
 
 interface Link {
-  readonly source: BlockIndex;
-  readonly target: BlockIndex;
+  readonly source: Checkpoint;
+  readonly target: Checkpoint;
   readonly voters: Set<ValidatorIndex>;
 }
 
@@ -111,8 +104,16 @@ function deriveBranch(
 ): BranchState {
   const { slashing, inactivityLeak } = config.params;
   const tip = branch[branch.length - 1]!.index;
-  const onBranch = (checkpoint: BlockIndex): boolean =>
-    tree.blocks.has(checkpoint) && isAncestor(tree, checkpoint, tip);
+  // The branch's own checkpoint of each epoch, memoized per epoch.
+  const checkpoints = new Map<EpochIndex, BlockIndex>();
+  const isOwnCheckpoint = (c: Checkpoint): boolean => {
+    let block = checkpoints.get(c.epoch);
+    if (block === undefined) {
+      block = checkpointFor(tree, tip, c.epoch).block;
+      checkpoints.set(c.epoch, block);
+    }
+    return block === c.block;
+  };
 
   const stakes = new Map<ValidatorIndex, Stake>(
     config.initialStakes.map((s, v) => [v, s]),
@@ -122,9 +123,11 @@ function deriveBranch(
   // checkpoints of this branch are kept.
   const links = new Map<string, Link>();
   // Validators with a target vote of each epoch included on this branch.
-  const participation = new Map<number, Set<ValidatorIndex>>();
-  const justifiedCheckpoints = new Set<BlockIndex>([ANCHOR_BLOCK_INDEX]);
-  let finalized: BlockIndex = ANCHOR_BLOCK_INDEX;
+  const participation = new Map<EpochIndex, Set<ValidatorIndex>>();
+  const justifiedCheckpoints = new Map<string, Checkpoint>([
+    [checkpointKey(ANCHOR_CHECKPOINT), ANCHOR_CHECKPOINT],
+  ]);
+  let finalized: Checkpoint = ANCHOR_CHECKPOINT;
   let processedEpoch = epochOf(branch[0]!.slot) - 1;
 
   const evaluateFinality = (): void => {
@@ -138,25 +141,23 @@ function deriveBranch(
     while (grew) {
       grew = false;
       for (const { source, target } of supermajority) {
-        if (justifiedCheckpoints.has(source) && !justifiedCheckpoints.has(target)) {
-          justifiedCheckpoints.add(target);
+        const targetKey = checkpointKey(target);
+        if (justifiedCheckpoints.has(checkpointKey(source)) && !justifiedCheckpoints.has(targetKey)) {
+          justifiedCheckpoints.set(targetKey, target);
           grew = true;
         }
       }
     }
     for (const { source, target } of supermajority) {
-      if (!justifiedCheckpoints.has(target)) continue;
-      const sourceEpoch = epochOf(getBlock(tree, source)!.slot);
-      const targetEpoch = epochOf(getBlock(tree, target)!.slot);
-      if (targetEpoch === sourceEpoch + 1) {
-        finalized = higherCheckpoint(tree, finalized, source);
+      if (!justifiedCheckpoints.has(checkpointKey(target))) continue;
+      if (target.epoch === source.epoch + 1) {
+        finalized = higherCheckpoint(finalized, source);
       }
     }
   };
 
-  const leakEpoch = (epoch: number): void => {
-    const finalizedEpoch = epochOf(getBlock(tree, finalized)!.slot);
-    if (epoch - finalizedEpoch <= inactivityLeak.delayEpochs) return;
+  const leakEpoch = (epoch: EpochIndex): void => {
+    if (epoch - finalized.epoch <= inactivityLeak.delayEpochs) return;
     const active = participation.get(epoch);
     for (const [v, stake] of stakes) {
       if (!active?.has(v)) stakes.set(v, stake * (1 - inactivityLeak.rate));
@@ -164,26 +165,26 @@ function deriveBranch(
   };
 
   for (const block of branch) {
+    const body = bodyOf(block);
     if (slashing) {
-      for (const evidence of block.body.evidence) stakes.set(evidence.validator, 0);
+      for (const evidence of body.evidence) stakes.set(evidence.validator, 0);
     }
-    for (const vote of block.body.votes) {
+    for (const vote of body.votes) {
       if (
-        vote.source === vote.target ||
-        !onBranch(vote.source) ||
-        !onBranch(vote.target) ||
-        !isAncestor(tree, vote.source, vote.target)
+        vote.source.epoch >= vote.target.epoch ||
+        !isOwnCheckpoint(vote.source) ||
+        !isOwnCheckpoint(vote.target)
       ) {
         continue;
       }
-      const key = `${vote.source}->${vote.target}`;
+      const key = `${checkpointKey(vote.source)}->${checkpointKey(vote.target)}`;
       let link = links.get(key);
       if (!link) {
         link = { source: vote.source, target: vote.target, voters: new Set() };
         links.set(key, link);
       }
       link.voters.add(vote.validator);
-      const epoch = epochOf(vote.slot);
+      const epoch = vote.target.epoch;
       let active = participation.get(epoch);
       if (!active) {
         active = new Set();
@@ -199,9 +200,9 @@ function deriveBranch(
     }
   }
 
-  let justified: BlockIndex = ANCHOR_BLOCK_INDEX;
-  for (const checkpoint of justifiedCheckpoints) {
-    justified = higherCheckpoint(tree, justified, checkpoint);
+  let justified: Checkpoint = ANCHOR_CHECKPOINT;
+  for (const checkpoint of justifiedCheckpoints.values()) {
+    justified = higherCheckpoint(justified, checkpoint);
   }
   return { chain: { stakes, justified, finalized }, justifiedCheckpoints };
 }
@@ -242,9 +243,9 @@ export function chainStateOf(
 }
 
 /**
- * Which checkpoints are justified or finalized on some branch of the tree.
- * A finalized checkpoint is also every justified checkpoint at or below a
- * finalized one — finality never regresses along a branch.
+ * Which blocks stand as a justified or finalized checkpoint on some branch
+ * of the tree. A finalized block is also every justified checkpoint's block
+ * at or below a finalized one — finality never regresses along a branch.
  */
 export function checkpointStatus(
   tree: BlockTree,
@@ -253,8 +254,8 @@ export function checkpointStatus(
   const justified = new Set<BlockIndex>();
   const finalizedFrontier = new Set<BlockIndex>();
   for (const { chain, justifiedCheckpoints } of deriveAll(tree, config).values()) {
-    for (const c of justifiedCheckpoints) justified.add(c);
-    finalizedFrontier.add(chain.finalized);
+    for (const c of justifiedCheckpoints.values()) justified.add(c.block);
+    finalizedFrontier.add(chain.finalized.block);
   }
   const finalized = new Set<BlockIndex>();
   for (const c of justified) {
@@ -268,15 +269,12 @@ export function checkpointStatus(
   return { justified, finalized };
 }
 
-/** The latest finalized block of the god view (最新の finalized ブロック):
+/** The latest finalized checkpoint of the god view (最新の finalized):
  * the highest finalized checkpoint among the chain states of every block. */
-export function latestFinalized(
-  tree: BlockTree,
-  states: ChainStateIndex,
-): BlockIndex {
-  let latest: BlockIndex = ANCHOR_BLOCK_INDEX;
+export function latestFinalized(states: ChainStateIndex): Checkpoint {
+  let latest: Checkpoint = ANCHOR_CHECKPOINT;
   for (const state of states.values()) {
-    latest = higherCheckpoint(tree, latest, state.finalized);
+    latest = higherCheckpoint(latest, state.finalized);
   }
   return latest;
 }
@@ -304,7 +302,7 @@ export function forkCountAfter(
   states: ChainStateIndex,
   parents: readonly BlockIndex[],
 ): number {
-  const root = latestFinalized(tree, states);
+  const root = latestFinalized(states).block;
   const leaves = new Set(leavesUnder(tree, root));
   const extended = new Set<BlockIndex>();
   let count = leaves.size;
@@ -317,13 +315,10 @@ export function forkCountAfter(
 }
 
 /** The highest justified checkpoint among the given chain states. */
-function highestJustified(
-  tree: BlockTree,
-  states: Iterable<ChainState>,
-): BlockIndex {
-  let root: BlockIndex = ANCHOR_BLOCK_INDEX;
+function highestJustified(states: Iterable<ChainState>): Checkpoint {
+  let root: Checkpoint = ANCHOR_CHECKPOINT;
   for (const state of states) {
-    root = higherCheckpoint(tree, root, state.justified);
+    root = higherCheckpoint(root, state.justified);
   }
   return root;
 }
@@ -350,42 +345,38 @@ export function forkChoiceRoot(
   states: ChainStateIndex,
   switching: CheckpointSwitch = "off",
   atSlot: SlotIndex = 0,
-): BlockIndex {
-  const free = highestJustified(tree, states.values());
+): Checkpoint {
+  const free = highestJustified(states.values());
   if (switching !== "window" || inJustifiedSwitchWindow(atSlot)) return free;
   const windowEnd =
     epochBoundarySlot(epochOf(atSlot)) + JUSTIFIED_SWITCH_WINDOW_SLOTS;
   const settled = highestJustified(
-    tree,
     [...states].filter(([b]) => getBlock(tree, b)!.slot < windowEnd).map(([, s]) => s),
   );
   return highestJustified(
-    tree,
-    [...states.values()].filter((s) => isAncestor(tree, settled, s.justified)),
+    [...states.values()].filter((s) => isAncestor(tree, settled.block, s.justified.block)),
   );
 }
 
 /**
  * The blocks fork choice may descend into under `unrealized` switching: the
- * leaves whose chain state realizes a justified checkpoint as recent as
- * `root` (by slot, i.e. by epoch), together with their ancestors. A branch
- * whose included votes can only justify something older is excluded even
- * when it carries more votes. In this model every block's chain state
- * already counts its included votes without waiting for the epoch's end, so
- * a branch's unrealized justified checkpoint is its tip's
+ * leaves whose chain state realizes a justified checkpoint of an epoch as
+ * recent as `root`'s, together with their ancestors. A branch whose
+ * included votes can only justify something older is excluded even when it
+ * carries more votes. In this model every block's chain state already
+ * counts its included votes without waiting for the epoch's end, so a
+ * branch's unrealized justified checkpoint is its tip's
  * `ChainState.justified`.
  */
 export function viableBlocks(
   tree: BlockTree,
   states: ChainStateIndex,
-  root: BlockIndex,
+  root: Checkpoint,
 ): ReadonlySet<BlockIndex> {
-  const rootSlot = getBlock(tree, root)!.slot;
   const viable = new Set<BlockIndex>();
   for (const block of tree.blocks.values()) {
     if (childrenOf(tree, block.index).length > 0) continue;
-    const justified = states.get(block.index)!.justified;
-    if (getBlock(tree, justified)!.slot < rootSlot) continue;
+    if (states.get(block.index)!.justified.epoch < root.epoch) continue;
     for (const ancestor of pathToAnchor(tree, block.index)) viable.add(ancestor.index);
   }
   return viable;

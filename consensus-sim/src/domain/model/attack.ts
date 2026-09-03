@@ -112,7 +112,7 @@ export function mergeViews(views: readonly View[]): View {
   let blockTree: BlockTree = createBlockTree();
   const ordered = [...blocks.values()].sort((a, b) => a.slot - b.slot || a.index - b.index);
   for (const block of ordered) {
-    if (block.index === 0 || !blockTree.blocks.has(block.parent)) continue;
+    if (block.kind === "anchor" || !blockTree.blocks.has(block.parent)) continue;
     blockTree = addBlock(blockTree, block);
   }
   const seen = new Set<string>();

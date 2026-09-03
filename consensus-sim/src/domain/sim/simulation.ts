@@ -29,8 +29,8 @@ import { committeeForSlot, proposerForSlot } from "../model/schedule";
 import {
   ANCHOR_BLOCK_INDEX,
   START_SLOT,
-  type Block,
   type BlockIndex,
+  type ProposedBlock,
   type SlotIndex,
   type ValidatorIndex,
   type Vote,
@@ -119,7 +119,7 @@ export function advanceSlot(
   // A stopped proposer publishes nothing; a double proposal is a second
   // block on the same parent (conflicting siblings in the same slot).
   const proposer = proposerForSlot(slot, config);
-  const proposals: Block[] = [];
+  const proposals: ProposedBlock[] = [];
   if (!stopped.has(proposer)) {
     const proposerView = viewOf(state.log, proposer, slot - 1, delivery);
     const resolution = resolveView(proposerView, config, slot);

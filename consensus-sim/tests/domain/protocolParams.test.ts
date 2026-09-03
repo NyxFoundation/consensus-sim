@@ -7,6 +7,7 @@
 import { describe, expect, it } from "vitest";
 import {
   ANCHOR_BLOCK_INDEX,
+  ANCHOR_CHECKPOINT,
   DEFAULT_PARAMS,
   DEFAULT_PRESET,
   EMPTY_BODY,
@@ -17,14 +18,15 @@ import {
   createBlockTree,
   equalStakes,
   ghostHead,
+  isProposed,
   presetOf,
   proposerForSlot,
   resolveView,
   scenarioStates,
   stateAtSlot,
   viewOf,
-  type Block,
   type Intervention,
+  type ProposedBlock,
   type ProtocolParams,
   type SimulationConfig,
   type Vote,
@@ -178,7 +180,8 @@ describe("schedule (プロポーザー予定表・committee)", () => {
 });
 
 describe("proposer boost in fork choice", () => {
-  const block = (index: number, parent: number, slot: number, proposer = 0): Block => ({
+  const block = (index: number, parent: number, slot: number, proposer = 0): ProposedBlock => ({
+    kind: "proposed",
     index,
     parent,
     slot,
@@ -189,8 +192,8 @@ describe("proposer boost in fork choice", () => {
     validator,
     slot,
     head,
-    source: 0,
-    target: 0,
+    source: ANCHOR_CHECKPOINT,
+    target: ANCHOR_CHECKPOINT,
   });
   // anchor(0) ─ 1 ─ 2      (branch A)
   //         └─ 3          (branch B, proposed at slot 3 by validator 3)
@@ -275,6 +278,7 @@ describe("proposer boost in the simulation (観測可能な効果)", () => {
     // At slot 4 B3 has arrived but its slot has passed: B2's branch keeps the
     // majority, and the slot-4 proposal builds on it.
     const b4 = states[4]!.tree.blocks.get(4)!;
+    if (!isProposed(b4)) throw new Error("expected a proposed block");
     expect(b4.parent).toBe(2);
     expect([...states[4]!.heads.values()]).toEqual([4, 4, 4, 4]);
     // The proposer of slot 4 never boosts a past proposal in its own fork choice.

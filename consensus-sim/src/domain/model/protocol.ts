@@ -19,11 +19,12 @@ import type { SimulationConfig } from "./config";
 import { checkpointFor, epochOf } from "./finality";
 import { ghostHead, type ForkChoiceWeights } from "./forkChoice";
 import { buildBody, equivocatingVoters, type Omission } from "./inclusion";
+import { compareBlockIndex } from "./order";
 import { committeeForSlot, proposerForSlot } from "./schedule";
 import {
-  ANCHOR_BLOCK_INDEX,
-  type Block,
   type BlockIndex,
+  type Checkpoint,
+  type ProposedBlock,
   type SlotIndex,
   type Stake,
   type ValidatorIndex,
@@ -35,7 +36,7 @@ import type { View } from "./view";
 export interface Resolution {
   readonly states: ChainStateIndex;
   /** The justified checkpoint fork choice started from. */
-  readonly root: BlockIndex;
+  readonly root: Checkpoint;
   readonly head: BlockIndex;
   /** ChainState(head) — the view's justified / finalized / stakes. */
   readonly chainState: ChainState;
@@ -59,8 +60,12 @@ export function boostedBlock(
   const proposer = proposerForSlot(atSlot, config);
   let boosted: BlockIndex | undefined;
   for (const block of view.blockTree.blocks.values()) {
-    if (block.slot !== atSlot || block.proposer !== proposer) continue;
-    if (boosted === undefined || block.index < boosted) boosted = block.index;
+    if (block.kind !== "proposed" || block.slot !== atSlot || block.proposer !== proposer) {
+      continue;
+    }
+    if (boosted === undefined || compareBlockIndex(block.index, boosted) < 0) {
+      boosted = block.index;
+    }
   }
   return boosted;
 }
@@ -117,7 +122,7 @@ export function resolveView(
               config.params.boost,
           },
   };
-  const head = ghostHead(view.blockTree, view.votes, root, {
+  const head = ghostHead(view.blockTree, view.votes, root.block, {
     weights,
     rule: params.forkChoice,
     candidates:
@@ -142,10 +147,11 @@ export function buildProposal(
   index: BlockIndex,
   parent: BlockIndex = resolution.head,
   omit: Omission = {},
-): Block {
+): ProposedBlock {
   const tree: BlockTree = view.blockTree;
   const chosen = tree.blocks.has(parent) ? parent : resolution.head;
   return {
+    kind: "proposed",
     index,
     parent: chosen,
     slot,
@@ -158,10 +164,12 @@ export function buildProposal(
  * The vote an attester casts at `slot` from its view: head by fork choice,
  * source = the justified checkpoint of the head's chain state, target = the
  * current epoch's checkpoint on the head's chain. `override` (投票先指定)
- * replaces any of the three with a block of the view: a designated head
- * moves source and target onto its chain by the same FFG rule, and an
- * explicitly designated source / target wins over that. A designated block
- * the view does not hold is ignored.
+ * replaces any of the three: a designated head (a block of the view) moves
+ * source and target onto its chain by the same FFG rule; a designated
+ * target is a block of the view standing as the checkpoint of the slot's
+ * epoch (the epoch follows from the slot); a designated source is a
+ * checkpoint of a branch of the view. A designation the view does not hold
+ * is ignored.
  */
 export function buildAttestation(
   view: View,
@@ -174,19 +182,27 @@ export function buildAttestation(
   const known = (b: BlockIndex | undefined): BlockIndex | undefined =>
     b !== undefined && tree.blocks.has(b) ? b : undefined;
   const head = known(override.head) ?? resolution.head;
+  const epoch = epochOf(slot);
+  const source =
+    override.source !== undefined && known(override.source.block) !== undefined
+      ? override.source
+      : resolution.states.get(head)!.justified;
+  const target = known(override.target);
   return {
     validator,
     slot,
     head,
-    source: known(override.source) ?? resolution.states.get(head)!.justified,
-    target: known(override.target) ?? checkpointFor(tree, head, epochOf(slot)),
+    source,
+    target: target === undefined ? checkpointFor(tree, head, epoch) : { epoch, block: target },
   };
 }
 
-/** 投票先指定: the blocks an attester's vote is steered to, each optional. */
+/** 投票先指定: what an attester's vote is steered to, each optional — the
+ * head and target among the blocks of its view, the source among the
+ * checkpoints of a branch of its view. */
 export interface VoteOverride {
   readonly head?: BlockIndex | undefined;
-  readonly source?: BlockIndex | undefined;
+  readonly source?: Checkpoint | undefined;
   readonly target?: BlockIndex | undefined;
 }
 
@@ -209,8 +225,8 @@ export function buildEquivocalAttestation(
   if (headBlock === undefined) return undefined;
   const designated =
     head !== undefined && head !== primary.head && tree.blocks.has(head) ? head : undefined;
-  if (designated === undefined && headBlock.index === ANCHOR_BLOCK_INDEX) return undefined;
-  const altHead = designated ?? headBlock.parent;
+  if (designated === undefined && headBlock.kind === "anchor") return undefined;
+  const altHead = designated ?? (headBlock as ProposedBlock).parent;
   return {
     validator: primary.validator,
     slot: primary.slot,

@@ -27,7 +27,13 @@ import {
   epochOf,
   slotsSinceEpochStart,
 } from "./finality";
-import { ANCHOR_BLOCK_INDEX, type BlockIndex, type SlotIndex, type ValidatorIndex } from "./types";
+import {
+  ANCHOR_BLOCK_INDEX,
+  ANCHOR_CHECKPOINT,
+  type BlockIndex,
+  type SlotIndex,
+  type ValidatorIndex,
+} from "./types";
 
 /** The validators that are not attackers, in index order. */
 function honestOf(
@@ -547,15 +553,15 @@ export const bouncingA05: Strategy = (observation) => {
         slot: mine,
         validator: attacker,
         head: tip(y),
-        source: ANCHOR_BLOCK_INDEX,
-        target: checkpointFor(tree, tip(x), epoch),
+        source: ANCHOR_CHECKPOINT,
+        target: checkpointFor(tree, tip(x), epoch).block,
       });
     } else {
       const previous = view.votes.find(
         (v) => v.validator === attacker && epochOf(v.slot) === epoch - 1,
       );
       const newBranch =
-        previous === undefined || branches === undefined ? undefined : branchOf(tree, branches, previous.target);
+        previous === undefined || branches === undefined ? undefined : branchOf(tree, branches, previous.target.block);
       const oldBranch = branches?.find((b) => b !== newBranch);
       const release = proposalSlotIn(schedule, attackers, epoch + 1);
       if (oldBranch === undefined || release === undefined) return actions;
@@ -576,7 +582,7 @@ export const bouncingA05: Strategy = (observation) => {
       (v) => v.validator === attacker && epochOf(v.slot) === epoch - 1,
     );
     const newBranch =
-      previous === undefined || branches === undefined ? undefined : branchOf(tree, branches, previous.target);
+      previous === undefined || branches === undefined ? undefined : branchOf(tree, branches, previous.target.block);
     if (newBranch === undefined) return actions;
     actions.push({ kind: "propose-parent", slot: proposal, parent: tip(newBranch) });
     const slots = honest
@@ -797,7 +803,9 @@ function blockBy(
   slot: SlotIndex,
 ): BlockIndex | undefined {
   for (const block of tree.blocks.values()) {
-    if (block.proposer === proposer && block.slot === slot) return block.index;
+    if (block.kind === "proposed" && block.proposer === proposer && block.slot === slot) {
+      return block.index;
+    }
   }
   return undefined;
 }

@@ -7,9 +7,12 @@
 
 import { describe, expect, it } from "vitest";
 import {
+  ANCHOR_CHECKPOINT,
   ATTACK_LIBRARY,
   ATTACK_REGISTRY,
   PRESETS,
+  bodyOf,
+  compareCheckpoints,
   goalAchievedAt,
   isAncestor,
   latestFinalized,
@@ -19,11 +22,20 @@ import {
   satisfiesCondition,
   serializeScenario,
   type AttackInstance,
+  type Block,
   type LibraryAttack,
+  type ProposedBlock,
   type ProtocolParams,
   type Scenario,
   type SimulationConfig,
 } from "../../src/domain";
+
+/** Narrow a tree block to its proposed shape, for tests that already know
+ * the index in question is not the anchor. */
+function asProposed(block: Block): ProposedBlock {
+  if (block.kind !== "proposed") throw new Error(`block ${block.index} is the anchor`);
+  return block;
+}
 
 function configFor(a: LibraryAttack, params: ProtocolParams): SimulationConfig {
   return {
@@ -92,10 +104,10 @@ describe("attack library", () => {
       // Branch A is rooted at the attacker's slot-1 block B1, branch B at the
       // honest slot-2 block B2 built beside it; camp {0, 4} stays on A and
       // camp {2, 3} on B through the whole run.
-      expect(last.tree.blocks.get(2)!.parent).toBe(0);
+      expect(asProposed(last.tree.blocks.get(2)!).parent).toBe(0);
       for (const v of [0, 4]) expect(isAncestor(last.tree, 1, last.heads.get(v)!)).toBe(true);
       for (const v of [2, 3]) expect(isAncestor(last.tree, 2, last.heads.get(v)!)).toBe(true);
-      for (const state of last.chainStates.values()) expect(state.justified).toBe(0);
+      for (const state of last.chainStates.values()) expect(state.justified).toEqual(ANCHOR_CHECKPOINT);
       expect(run.generated.every((g) => g.discarded === undefined)).toBe(true);
     }
   });
@@ -115,10 +127,10 @@ describe("attack library", () => {
   it("the finality delay (A06) splits the epoch-1 targets and defers the first finalization by one epoch", () => {
     const a06 = ATTACK_LIBRARY.find((a) => a.id === "A06")!;
     const run = runScenario(scenarioFor(a06), a06.defaultRun.throughSlot);
-    const targets = new Set(run.states[4]!.votes.filter((v) => v.slot === 4).map((v) => v.target));
+    const targets = new Set(run.states[4]!.votes.filter((v) => v.slot === 4).map((v) => v.target.block));
     expect(targets).toEqual(new Set([3, 4]));
     const firstFinalization = (states: typeof run.states) =>
-      states.findIndex((s) => latestFinalized(s.tree, s.chainStates) !== 0);
+      states.findIndex((s) => latestFinalized(s.chainStates).block !== 0);
     expect(firstFinalization(run.states)).toBe(13);
     expect(goalAchievedAt(run.goal!)).toBe(10);
     // The honest run finalizes at slot 9, below the threshold L = 10.
@@ -136,13 +148,14 @@ describe("attack library", () => {
     // The two branches fork at the anchor: Y under the attacker's slot-1
     // block B1, X under the honest slot-2 block B2.
     const last = run.states[run.states.length - 1]!;
-    expect(last.tree.blocks.get(1)!.parent).toBe(0);
-    expect(last.tree.blocks.get(2)!.parent).toBe(0);
+    expect(asProposed(last.tree.blocks.get(1)!).parent).toBe(0);
+    expect(asProposed(last.tree.blocks.get(2)!).parent).toBe(0);
     // From the first bounce on, each epoch's justified checkpoint (the
     // highest over the god view) lies on the other branch than the last.
     const highest = (s: (typeof run.states)[number]) =>
       [...s.chainStates.values()].reduce(
-        (best, c) => (s.tree.blocks.get(c.justified)!.slot > s.tree.blocks.get(best)!.slot ? c.justified : best),
+        (best, c) =>
+          s.tree.blocks.get(c.justified.block)!.slot > s.tree.blocks.get(best)!.slot ? c.justified.block : best,
         0,
       );
     const sequence = [13, 17, 21, 25, 29, 33].map((slot) => highest(run.states[slot]!));
@@ -150,7 +163,7 @@ describe("attack library", () => {
     const branchOf = (b: number) => (isAncestor(last.tree, 1, b) ? "Y" : "X");
     expect(sequence.map(branchOf)).toEqual(["X", "Y", "X", "Y", "X", "Y"]);
     // Every state keeps the anchor as the latest finalized block.
-    for (const s of run.states) expect(latestFinalized(s.tree, s.chainStates)).toBe(0);
+    for (const s of run.states) expect(latestFinalized(s.chainStates)).toEqual(ANCHOR_CHECKPOINT);
     expect(goalAchievedAt(run.goal!)).toBe(12);
   });
 
@@ -174,7 +187,7 @@ describe("attack library", () => {
     for (const v of last.votes) {
       if (v.validator === 1) continue;
       const epoch = Math.floor(v.slot / 4);
-      targets.set(epoch, (targets.get(epoch) ?? new Set()).add(v.target));
+      targets.set(epoch, (targets.get(epoch) ?? new Set()).add(v.target.block));
     }
     return targets;
   };
@@ -189,9 +202,9 @@ describe("attack library", () => {
     expect([1, 2, 3].every((e) => targets.get(e)!.size > 1)).toBe(true);
     for (let epoch = 4; epoch <= 14; epoch++) expect(targets.get(epoch)!.size, `epoch ${epoch}`).toBe(1);
     // …and finalized, stuck at the anchor under `off`, moves forward.
-    const finalized = run.states.map((s) => latestFinalized(s.tree, s.chainStates));
-    expect(finalized.findIndex((f) => f !== 0)).toBe(48);
-    expect(finalized[60]).toBeGreaterThan(finalized[48]!);
+    const finalized = run.states.map((s) => latestFinalized(s.chainStates));
+    expect(finalized.findIndex((f) => f.block !== 0)).toBe(48);
+    expect(compareCheckpoints(finalized[60]!, finalized[48]!)).toBeLessThan(0);
     // The default L = 12 is still reached before the mitigation bites.
     expect(goalAchievedAt(run.goal!)).toBe(12);
   });
@@ -204,11 +217,11 @@ describe("attack library", () => {
     off.states.forEach((s, slot) => {
       const u = unrealized.states[slot]!;
       expect([...u.heads.entries()]).toEqual([...s.heads.entries()]);
-      expect(latestFinalized(u.tree, u.chainStates)).toBe(latestFinalized(s.tree, s.chainStates));
+      expect(latestFinalized(u.chainStates)).toEqual(latestFinalized(s.chainStates));
     });
     // Unrealized only prunes candidates below the root; it never moves the
     // root, so the anchor stays finalized through the whole run.
-    for (const s of unrealized.states) expect(latestFinalized(s.tree, s.chainStates)).toBe(0);
+    for (const s of unrealized.states) expect(latestFinalized(s.chainStates)).toEqual(ANCHOR_CHECKPOINT);
   });
 
   it("the safety violations (A10, A12) finalize two conflicting checkpoints", () => {
@@ -222,7 +235,7 @@ describe("attack library", () => {
       expect(evidence.conflicting, `${id} reports no conflicting pair`).toBeDefined();
       // The strategy never trips slashing: no evidence is included anywhere.
       const last = run.states[run.states.length - 1]!;
-      for (const block of last.tree.blocks.values()) expect(block.body.evidence).toEqual([]);
+      for (const block of last.tree.blocks.values()) expect(bodyOf(block).evidence).toEqual([]);
     }
   });
 

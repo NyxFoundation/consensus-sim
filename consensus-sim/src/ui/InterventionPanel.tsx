@@ -10,11 +10,16 @@
 
 import { useState } from 'react'
 import {
+  ANCHOR_BLOCK_INDEX,
   MAX_FORKS,
   buildBody,
+  checkpointFor,
+  checkpointKey,
   closeSpanAt,
+  epochOf,
   evidenceRef,
   forkCountAfter,
+  leavesUnder,
   operatingStateAt,
   pendingForkParents,
   proposerForSlot,
@@ -24,6 +29,7 @@ import {
   voteRef,
 } from '../domain'
 import type {
+  Checkpoint,
   EvidenceRef,
   SimulationConfig,
   Intervention,
@@ -40,7 +46,7 @@ import { Disclosure } from './components/Disclosure'
 import { NumberField } from './components/NumberField'
 import { Segmented } from './components/Segmented'
 import { Select } from './components/Select'
-import { blockName } from './format'
+import { blockName, checkpointName } from './format'
 import type { SimulationSession } from './useSimulation'
 import { validatorColor } from './validatorColor'
 
@@ -98,9 +104,11 @@ function describe(i: Intervention, config: SimulationConfig): string {
         i.observers ? `（対象: ${setLabel(i.observers)}）` : ''
       }`
     case 'vote-target': {
-      const parts = (['head', 'source', 'target'] as const)
-        .filter((k) => i[k] !== undefined)
-        .map((k) => `${k} ${blockName(i[k]!)}`)
+      const parts = [
+        ...(i.head !== undefined ? [`head ${blockName(i.head)}`] : []),
+        ...(i.source !== undefined ? [`source ${checkpointName(i.source)}`] : []),
+        ...(i.target !== undefined ? [`target ${blockName(i.target)}`] : []),
+      ]
       return `投票先指定 ${validatorLabel(i.validator)} @ s${i.slot}（${parts.join(', ')}）`
     }
     case 'omit-inclusion':
@@ -260,22 +268,34 @@ export function InterventionPanel({ session }: InterventionPanelProps) {
     (i) => i.kind === 'double-vote' && i.slot === nextSlot && i.validator === dvValidator,
   )
 
-  // Vote designation (投票先指定): blocks offered from the voter's own view
-  // at the cursor; the vote itself is cast from its view at the next slot.
-  const voterBlocks = [
-    ...viewOf(current.log, vtValidator, cursor, delivery).blockTree.blocks.values(),
-  ].sort((a, b) => a.index - b.index)
+  // Vote designation (投票先指定): head and target offered from the blocks of
+  // the voter's own view at the cursor, the source from the checkpoints of
+  // that view's branches (every epoch up to the next slot's, on every leaf);
+  // the vote itself is cast from its view at the next slot.
+  const voterTree = viewOf(current.log, vtValidator, cursor, delivery).blockTree
+  const voterBlocks = [...voterTree.blocks.values()].sort((a, b) => a.index - b.index)
+  const voterCheckpoints = (() => {
+    const found = new Map<string, Checkpoint>()
+    for (const leaf of leavesUnder(voterTree, ANCHOR_BLOCK_INDEX)) {
+      for (let epoch = 0; epoch <= epochOf(nextSlot); epoch++) {
+        const c = checkpointFor(voterTree, leaf, epoch)
+        found.set(checkpointKey(c), c)
+      }
+    }
+    return [...found.values()].sort((a, b) => a.epoch - b.epoch || a.block - b.block)
+  })()
   const voteTargetScheduled = interventions.some(
     (i) => i.kind === 'vote-target' && i.slot === nextSlot && i.validator === vtValidator,
   )
   const voteTargetEmpty = !vtBlocks.head && !vtBlocks.source && !vtBlocks.target
   const designateVote = () => {
+    const source = voterCheckpoints.find((c) => checkpointKey(c) === vtBlocks.source)
     add({
       kind: 'vote-target',
       slot: nextSlot,
       validator: vtValidator,
       ...(vtBlocks.head !== '' ? { head: Number(vtBlocks.head) } : {}),
-      ...(vtBlocks.source !== '' ? { source: Number(vtBlocks.source) } : {}),
+      ...(source !== undefined ? { source } : {}),
       ...(vtBlocks.target !== '' ? { target: Number(vtBlocks.target) } : {}),
     })
     setVtBlocks({ head: '', source: '', target: '' })
@@ -587,7 +607,7 @@ export function InterventionPanel({ session }: InterventionPanelProps) {
             の s{nextSlot} の投票
           </div>
           <div className="form-line">
-            {(['head', 'source', 'target'] as const).map((k) => (
+            {(['head', 'target'] as const).map((k) => (
               <label key={k} className="check-inline">
                 {k}
                 <Select
@@ -604,6 +624,21 @@ export function InterventionPanel({ session }: InterventionPanelProps) {
                 </Select>
               </label>
             ))}
+            <label className="check-inline">
+              source
+              <Select
+                aria-label="投票の source"
+                value={vtBlocks.source}
+                onChange={(e) => setVtBlocks({ ...vtBlocks, source: e.target.value })}
+              >
+                <option value="">規則どおり</option>
+                {voterCheckpoints.map((c) => (
+                  <option key={checkpointKey(c)} value={checkpointKey(c)}>
+                    {checkpointName(c)}
+                  </option>
+                ))}
+              </Select>
+            </label>
           </div>
           <Button
             disabled={voteTargetEmpty || voteTargetScheduled}
@@ -614,8 +649,9 @@ export function InterventionPanel({ session }: InterventionPanelProps) {
               : '投票先を指定'}
           </Button>
           <span className="intervention-note">
-            候補はそのバリデータのビュー内のブロック。未指定の成分は fork choice と FFG
-            の規則どおり（head 指定時はその枝で計算）
+            head / target の候補はそのバリデータのビュー内のブロック（target
+            のエポックはスロットから定まる）、source はビュー内の枝のチェックポイント。
+            未指定の成分は fork choice と FFG の規則どおり（head 指定時はその枝で計算）
           </span>
         </fieldset>
 

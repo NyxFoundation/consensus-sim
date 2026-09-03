@@ -52,7 +52,6 @@ function visibleTree(
   );
   let tree = createBlockTree();
   for (const { block } of ordered) {
-    if (block.index === 0) continue;
     if (!tree.blocks.has(block.parent)) continue;
     tree = addBlock(tree, block);
   }

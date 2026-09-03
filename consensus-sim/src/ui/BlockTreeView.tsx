@@ -11,7 +11,6 @@ import {
   pathToAnchor,
   validatorInitial,
   validatorName,
-  NO_PROPOSER,
 } from '../domain'
 import type {
   BlockIndex,
@@ -120,7 +119,7 @@ export function BlockTreeView({
       })}
 
       {blocks.map((block) => {
-        if (block.proposer === NO_PROPOSER) return null
+        if (block.kind === 'anchor') return null
         const parent = tree.blocks.get(block.parent)
         const row = layout.rows.get(block.index)
         const parentRow = parent ? layout.rows.get(parent.index) : undefined
@@ -173,7 +172,7 @@ export function BlockTreeView({
               B{block.index}
             </text>
             <text className="block-sublabel" x={x} y={y + 11} textAnchor="middle">
-              {block.proposer === NO_PROPOSER ? '錨' : validatorName(block.proposer)}
+              {block.kind === 'anchor' ? '錨' : validatorName(block.proposer)}
             </text>
 
             {(finalized || justified) && (

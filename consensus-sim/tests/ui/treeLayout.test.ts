@@ -12,6 +12,7 @@ function chain(...blocks: Array<[index: number, parent: number, slot: number]>):
   let tree = createBlockTree()
   for (const [index, parent, slot] of blocks) {
     tree = addBlock(tree, {
+      kind: 'proposed',
       index,
       parent,
       slot,

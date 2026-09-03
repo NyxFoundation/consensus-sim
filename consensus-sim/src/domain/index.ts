@@ -21,6 +21,7 @@
 // tests/domain/purity.test.ts). The type catalog (型一覧) shows model/ only.
 
 export * from "./model/types";
+export * from "./model/order";
 export * from "./model/blockTree";
 export * from "./model/view";
 export * from "./model/messageRef";

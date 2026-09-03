@@ -11,10 +11,15 @@ import {
   equalStakes,
   scenarioStates,
   type Intervention,
+  type ProposedBlock,
   type Scenario,
   type SimulationConfig,
   type SimulationState,
 } from "../../src/domain";
+
+const isProposedAt = (slot: number) =>
+  (b: { kind: string; slot: number }): b is ProposedBlock =>
+    b.kind === "proposed" && b.slot === slot;
 import {
   closeSpanAt,
   latestVotes,
@@ -177,14 +182,14 @@ describe("propose-parent intervention (フォーク作成)", () => {
     const s = scenario([{ kind: "propose-parent", slot: 3, parent: 1 }]);
     const state = statesAt(s, 3)[3];
     if (!state) throw new Error("missing state");
-    const slot3 = [...state.tree.blocks.values()].find((b) => b.slot === 3);
+    const slot3 = [...state.tree.blocks.values()].find(isProposedAt(3));
     expect(slot3?.parent).toBe(1); // fork choice would have picked B2
   });
 
   it("without a designation the fork choice picks the parent", () => {
     const state = statesAt(scenario([]), 3)[3];
     const slot3 = [...(state?.tree.blocks.values() ?? [])].find(
-      (b) => b.slot === 3,
+      isProposedAt(3),
     );
     expect(slot3?.parent).toBe(2);
   });
@@ -198,7 +203,7 @@ describe("propose-parent intervention (フォーク作成)", () => {
     ]);
     const state = statesAt(s, 3)[3];
     if (!state) throw new Error("missing state");
-    const slot3 = [...state.tree.blocks.values()].find((b) => b.slot === 3);
+    const slot3 = [...state.tree.blocks.values()].find(isProposedAt(3));
     expect(slot3?.parent).toBe(0); // anchor — the view's own fork choice
   });
 });
@@ -210,7 +215,7 @@ describe("equivocation interventions (二重提案・二重投票)", () => {
     ]);
     const state = statesAt(s, 1)[1];
     if (!state) throw new Error("missing state");
-    const slot1 = [...state.tree.blocks.values()].filter((b) => b.slot === 1);
+    const slot1 = [...state.tree.blocks.values()].filter(isProposedAt(1));
     expect(slot1).toHaveLength(2);
     expect(slot1[0]?.parent).toBe(slot1[1]?.parent);
     expect(slot1[0]?.proposer).toBe(slot1[1]?.proposer);
@@ -260,7 +265,7 @@ describe("equivocation interventions (二重提案・二重投票)", () => {
     expect(second?.head).toBe(3);
     // A designated block the view does not hold falls back to the parent.
     const [p2, s2] = at4(2);
-    expect(s2?.head).toBe(state.tree.blocks.get(p2!.head)!.parent);
+    expect(s2?.head).toBe((state.tree.blocks.get(p2!.head) as ProposedBlock).parent);
   });
 
   it("double vote at slot 1 (head = only child of anchor) still equivocates or degrades to one vote", () => {

@@ -6,21 +6,24 @@
 
 import { describe, expect, it } from "vitest";
 import {
+  ANCHOR_CHECKPOINT,
   DEFAULT_INACTIVITY_LEAK,
   DEFAULT_PARAMS,
   EMPTY_BODY,
   PRESETS,
   addBlock,
+  bodyOf,
   chainStateOf,
   createBlockTree,
+  epochOf,
   equalStakes,
   resolveView,
   scenarioStates,
   viewOf,
-  type Block,
   type BlockBody,
   type Equivocation,
   type Intervention,
+  type ProposedBlock,
   type ProtocolParams,
   type Scenario,
   type SimulationConfig,
@@ -43,15 +46,24 @@ const block = (
   slot: number,
   proposer = 0,
   body: BlockBody = EMPTY_BODY,
-): Block => ({ index, parent, slot, proposer, body });
+): ProposedBlock => ({ kind: "proposed", index, parent, slot, proposer, body });
 
+// source / target are block numbers on the linear chain() below, where block
+// index equals slot (the anchor is index/slot 0), so epochOf(number) gives
+// the checkpoint's own epoch directly.
 const vote = (
   validator: number,
   slot: number,
   head: number,
   source = 0,
   target = 0,
-): Vote => ({ validator, slot, head, source, target });
+): Vote => ({
+  validator,
+  slot,
+  head,
+  source: { epoch: epochOf(source), block: source },
+  target: { epoch: epochOf(slot), block: target },
+});
 
 /** Linear chain, one block per slot (index n at slot n), bodies by slot. */
 const chain = (upToSlot: number, bodies: Record<number, BlockBody> = {}) => {
@@ -84,9 +96,13 @@ describe("initial stakes (初期ステーク)", () => {
 
   it("weigh the FFG threshold: 2/3 of the stake, not of the validators", () => {
     const lone = { 5: { votes: [vote(0, 4, 4, 0, 4)], evidence: [] } };
-    expect(chainStateOf(chain(6, lone), 6, configOf()).justified).toBe(0);
-    expect(chainStateOf(chain(6, lone), 6, configOf(DEFAULT_PARAMS, [100, 32, 32, 32])).justified).toBe(0);
-    expect(chainStateOf(chain(6, lone), 6, configOf(DEFAULT_PARAMS, [200, 32, 32, 32])).justified).toBe(4);
+    expect(chainStateOf(chain(6, lone), 6, configOf()).justified).toEqual(ANCHOR_CHECKPOINT);
+    expect(
+      chainStateOf(chain(6, lone), 6, configOf(DEFAULT_PARAMS, [100, 32, 32, 32])).justified,
+    ).toEqual(ANCHOR_CHECKPOINT);
+    expect(
+      chainStateOf(chain(6, lone), 6, configOf(DEFAULT_PARAMS, [200, 32, 32, 32])).justified,
+    ).toEqual({ epoch: 1, block: 4 });
   });
 });
 
@@ -122,9 +138,12 @@ describe("slashing (スラッシング)", () => {
   it("excludes the equivocator from the finality threshold", () => {
     // Two of the three remaining validators (64 of 96) justify 4; with the
     // equivocator still counted, 64 of 128 would not.
-    expect(chainStateOf(withEvidence(DEFAULT_PARAMS).tree, 5, configOf()).justified).toBe(4);
+    expect(chainStateOf(withEvidence(DEFAULT_PARAMS).tree, 5, configOf()).justified).toEqual({
+      epoch: 1,
+      block: 4,
+    });
     const off = withEvidence({ ...DEFAULT_PARAMS, slashing: false });
-    expect(chainStateOf(off.tree, 5, off.config).justified).toBe(0);
+    expect(chainStateOf(off.tree, 5, off.config).justified).toEqual(ANCHOR_CHECKPOINT);
   });
 
   it("excludes the equivocator's votes from fork choice on the evidence branch", () => {
@@ -147,7 +166,7 @@ describe("slashing (スラッシング)", () => {
     const states = run(DEFAULT_PARAMS);
     const stakeAt = (blockIndex: number, v: number) =>
       states[4]!.chainStates.get(blockIndex)!.stakes.get(v);
-    expect(states[3]!.tree.blocks.get(3)!.body.evidence).toHaveLength(1);
+    expect(bodyOf(states[3]!.tree.blocks.get(3)!).evidence).toHaveLength(1);
     expect(stakeAt(2, 1)).toBe(32);
     expect(stakeAt(3, 1)).toBe(0);
     expect(stakeAt(4, 1)).toBe(0);
@@ -190,7 +209,7 @@ describe("inactivity leak", () => {
     expect(headStakes(DEFAULT_PARAMS, 28)).toEqual([32, 32, 24, 18]);
     // …and with 88 of 112 voting, epoch 6 gets finalized during epoch 7,
     // so epoch 7 (processed at slot 32) leaks nobody, デイブ included.
-    expect(headFinalized(DEFAULT_PARAMS, 31)).not.toBe(0);
+    expect(headFinalized(DEFAULT_PARAMS, 31)).not.toEqual(ANCHOR_CHECKPOINT);
     expect(headStakes(DEFAULT_PARAMS, 32)).toEqual([32, 32, 24, 18]);
     expect(headStakes(DEFAULT_PARAMS, 36)).toEqual([32, 32, 24, 18]);
   });
