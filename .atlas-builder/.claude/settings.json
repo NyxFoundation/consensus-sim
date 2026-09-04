@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "model": "best",
+  "_atlas_builder_profile": "auto-approve",
+  "permissions": {
+    "defaultMode": "dontAsk",
+    "disableBypassPermissionsMode": "disable",
+    "additionalDirectories": [],
+    "allow": [
+      "Bash(bin/atlas-builder state *)",
+      "Bash(bash scripts/*.sh *)",
+      "Bash(git status *)",
+      "Bash(git diff *)",
+      "Bash(npm test *)",
+      "Bash(npm run test *)",
+      "Bash(npm run lint *)",
+      "Bash(npm run build *)",
+      "Bash(npm run typecheck *)",
+      "Bash(npm run check *)",
+      "Bash(pnpm test *)",
+      "Bash(pnpm run test *)",
+      "Bash(pnpm run lint *)",
+      "Bash(pnpm run build *)",
+      "Bash(pnpm run typecheck *)",
+      "Bash(pnpm run check *)",
+      "Bash(pnpm exec tsc *)",
+      "Bash(pnpm exec biome check *)",
+      "Bash(yarn test *)",
+      "Bash(yarn run test *)",
+      "Bash(yarn run lint *)",
+      "Bash(yarn run build *)",
+      "Bash(pytest *)",
+      "Bash(python -m pytest *)",
+      "Bash(python3 -m pytest *)",
+      "Bash(uv run pytest *)",
+      "Bash(ruff check *)",
+      "Bash(uv run ruff check *)",
+      "Bash(mypy *)",
+      "Bash(cargo test *)",
+      "Bash(cargo build *)",
+      "Bash(cargo clippy *)",
+      "Bash(go test *)",
+      "Bash(go build *)",
+      "Bash(make test *)",
+      "Bash(just test *)",
+      "Bash(just check *)"
+    ],
+    "deny": [
+      "Read(~/.ssh/**)",
+      "Read(~/.aws/**)",
+      "Read(~/.config/gcloud/**)",
+      "Read(~/.kube/**)",
+      "Read(~/.docker/config.json)",
+      "Read(~/.npmrc)",
+      "Read(~/.pypirc)",
+      "Read(~/.netrc)",
+      "Read(~/.claude/**)",
+      "Read(~/.claude.json)",
+      "Bash(rm -rf *)",
+      "Bash(sudo *)",
+      "Bash(chmod -R *)",
+      "Bash(chown *)",
+      "Bash(bash scripts/claude-trust.sh *)",
+      "Bash(claude *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(git reset --hard *)",
+      "Bash(git clean -fd *)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/bin/atlas-builder hook session-start"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Edit|Write|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/bin/atlas-builder hook pre-tool"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash|Edit|Write|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/bin/atlas-builder hook post-tool"
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/bin/atlas-builder hook pre-compact"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/bin/atlas-builder hook stop"
+          }
+        ]
+      }
+    ]
+  }
+}

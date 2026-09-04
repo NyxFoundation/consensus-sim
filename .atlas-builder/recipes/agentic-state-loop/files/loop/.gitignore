@@ -1,0 +1,8 @@
+# agentic-state-loop runtime debris — never committed (the checkpoint guard
+# also refuses it, this keeps it out of `git status`).
+/tmp/*
+!/tmp/.gitkeep
+state/*.tmp
+# built engine binary (rebuilt from lean/ sources; cycle commits must not
+# carry it — sources are the canonical form, like lean/.lake/)
+/bin/

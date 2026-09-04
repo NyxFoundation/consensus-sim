@@ -1,0 +1,319 @@
+import { describe, expect, it } from "vitest";
+import {
+  ANCHOR_BLOCK_INDEX,
+  ANCHOR_CHECKPOINT,
+  DEFAULT_PARAMS,
+  DEFAULT_STAKE,
+  EMPTY_BODY,
+  SLOTS_PER_EPOCH,
+  addBlock,
+  buildBody,
+  chainStateOf,
+  chainStatesOf,
+  checkpointFor,
+  checkpointStatus,
+  createBlockTree,
+  epochBoundarySlot,
+  epochOf,
+  equalStakes,
+  equivocationsIn,
+  evidenceRef,
+  forkChoiceRoot,
+  includedOn,
+  isSupermajority,
+  totalStake,
+  voteKey,
+  voteRef,
+  type BlockBody,
+  type BlockTree,
+  type ProposedBlock,
+  type InitialConditions,
+  type Vote,
+} from "../../src/domain";
+
+const config: InitialConditions = {
+  validatorCount: 4,
+  seed: 0,
+  params: DEFAULT_PARAMS,
+  initialStakes: equalStakes(4),
+};
+const stakes = new Map(config.initialStakes.map((s, v) => [v, s]));
+
+const block = (
+  index: number,
+  parent: number,
+  slot: number,
+  proposer = 0,
+  body: BlockBody = EMPTY_BODY,
+): ProposedBlock => ({ kind: "proposed", index, parent, slot, proposer, body });
+
+// source / target are block numbers on the linear chain() below, where block
+// index equals slot (the anchor is index/slot 0), so epochOf(number) gives
+// the checkpoint's own epoch directly.
+const vote = (
+  validator: number,
+  slot: number,
+  head: number,
+  source: number,
+  target: number,
+): Vote => ({
+  validator,
+  slot,
+  head,
+  source: { epoch: epochOf(source), block: source },
+  target: { epoch: epochOf(slot), block: target },
+});
+
+const withVotes = (votes: Vote[]): BlockBody => ({ votes, evidence: [] });
+
+/** Linear chain, one block per slot (index n at slot n), bodies by slot. */
+const chain = (upToSlot: number, bodies: Record<number, BlockBody> = {}) => {
+  let tree = createBlockTree();
+  for (let s = 1; s <= upToSlot; s++) {
+    tree = addBlock(tree, block(s, s - 1, s, s % 4, bodies[s] ?? EMPTY_BODY));
+  }
+  return tree;
+};
+
+// Three of four validators voting the link source→target at slot `slot`.
+const link = (slot: number, source: number, target: number, head = target) =>
+  [0, 1, 2].map((v) => vote(v, slot, head, source, target));
+
+describe("epoch math", () => {
+  it("uses 4-slot epochs with slot 0 as an epoch head", () => {
+    expect(SLOTS_PER_EPOCH).toBe(4);
+    expect(epochOf(0)).toBe(0);
+    expect(epochOf(3)).toBe(0);
+    expect(epochOf(4)).toBe(1);
+    expect(epochBoundarySlot(2)).toBe(8);
+  });
+
+  it("supermajority is 2/3 of the total stake", () => {
+    expect(totalStake(stakes)).toBe(4 * DEFAULT_STAKE);
+    expect(isSupermajority(3 * DEFAULT_STAKE, 4 * DEFAULT_STAKE)).toBe(true);
+    expect(isSupermajority(2 * DEFAULT_STAKE, 4 * DEFAULT_STAKE)).toBe(false);
+    expect(isSupermajority(4 * DEFAULT_STAKE, 6 * DEFAULT_STAKE)).toBe(true);
+    expect(isSupermajority(7 * DEFAULT_STAKE, 10 * DEFAULT_STAKE)).toBe(true);
+    expect(isSupermajority(6 * DEFAULT_STAKE, 10 * DEFAULT_STAKE)).toBe(false);
+  });
+});
+
+describe("checkpointFor", () => {
+  it("returns the epoch-boundary block on the head's chain", () => {
+    const tree = chain(6);
+    expect(checkpointFor(tree, 6, 1)).toEqual({ epoch: 1, block: 4 });
+    expect(checkpointFor(tree, 6, 0)).toEqual({ epoch: 0, block: ANCHOR_BLOCK_INDEX });
+  });
+
+  it("falls back to the last block before an empty boundary slot", () => {
+    let tree = chain(3);
+    tree = addBlock(tree, block(5, 3, 5));
+    expect(checkpointFor(tree, 5, 1)).toEqual({ epoch: 1, block: 3 });
+  });
+});
+
+describe("chain state derivation (チェーン状態)", () => {
+  it("starts every branch with the anchor justified and finalized", () => {
+    const states = chainStatesOf(chain(3), config);
+    for (const state of states.values()) {
+      expect(state.justified).toEqual(ANCHOR_CHECKPOINT);
+      expect(state.finalized).toEqual(ANCHOR_CHECKPOINT);
+      expect(state.stakes).toEqual(stakes);
+    }
+  });
+
+  it("justifies a checkpoint only once a block includes the link", () => {
+    const tree = chain(6, { 5: withVotes(link(4, 0, 4)) });
+    const states = chainStatesOf(tree, config);
+    expect(states.get(4)?.justified).toEqual(ANCHOR_CHECKPOINT);
+    expect(states.get(5)?.justified).toEqual({ epoch: 1, block: 4 });
+    expect(states.get(6)?.justified).toEqual({ epoch: 1, block: 4 });
+    expect(states.get(6)?.finalized).toEqual(ANCHOR_CHECKPOINT);
+  });
+
+  it("completes a link whose votes are spread across blocks", () => {
+    const [a, b, c] = link(4, 0, 4);
+    const tree = chain(7, { 5: withVotes([a!, b!]), 6: withVotes([c!]) });
+    const states = chainStatesOf(tree, config);
+    expect(states.get(5)?.justified).toEqual(ANCHOR_CHECKPOINT);
+    expect(states.get(6)?.justified).toEqual({ epoch: 1, block: 4 });
+  });
+
+  it("counts a validator once per link even when included twice", () => {
+    const tree = chain(6, {
+      5: withVotes([vote(0, 4, 4, 0, 4), vote(1, 4, 4, 0, 4)]),
+      6: withVotes([vote(0, 5, 5, 0, 4)]),
+    });
+    expect(chainStateOf(tree, 6, config).justified).toEqual(ANCHOR_CHECKPOINT);
+  });
+
+  it("finalizes the source of a justified adjacent-epoch link", () => {
+    const tree = chain(10, {
+      5: withVotes(link(4, 0, 4)),
+      9: withVotes(link(8, 4, 8)),
+    });
+    const states = chainStatesOf(tree, config);
+    expect(states.get(8)?.finalized).toEqual(ANCHOR_CHECKPOINT);
+    expect(states.get(9)?.justified).toEqual({ epoch: 2, block: 8 });
+    expect(states.get(9)?.finalized).toEqual({ epoch: 1, block: 4 });
+    expect(states.get(10)?.finalized).toEqual({ epoch: 1, block: 4 });
+  });
+
+  it("does not finalize across a skipped epoch", () => {
+    const tree = chain(13, {
+      5: withVotes(link(4, 0, 4)),
+      13: withVotes(link(12, 4, 12)),
+    });
+    const state = chainStateOf(tree, 13, config);
+    expect(state.justified).toEqual({ epoch: 3, block: 12 });
+    expect(state.finalized).toEqual(ANCHOR_CHECKPOINT);
+  });
+
+  it("ignores included votes whose checkpoints lie on another branch", () => {
+    // anchor ─ 1 ─ 2 ─ 3 ─ 4 ─ 5      (branch A, checkpoint 4)
+    //        └─ 9 (slot 4) ─ 10 (slot 5)   (branch B)
+    let tree = chain(5, { 5: withVotes(link(4, 0, 4)) });
+    tree = addBlock(tree, block(9, 0, 4, 1));
+    tree = addBlock(tree, block(10, 9, 5, 2, withVotes(link(4, 0, 4))));
+    const states = chainStatesOf(tree, config);
+    expect(states.get(5)?.justified).toEqual({ epoch: 1, block: 4 });
+    expect(states.get(10)?.justified).toEqual(ANCHOR_CHECKPOINT);
+  });
+
+  it("is a pure function of the tree: recomputation is identical", () => {
+    const tree = chain(10, {
+      5: withVotes(link(4, 0, 4)),
+      9: withVotes(link(8, 4, 8)),
+    });
+    expect(chainStatesOf(tree, config)).toEqual(chainStatesOf(tree, config));
+  });
+});
+
+describe("checkpointStatus and forkChoiceRoot", () => {
+  const tree: BlockTree = chain(10, {
+    5: withVotes(link(4, 0, 4)),
+    9: withVotes(link(8, 4, 8)),
+  });
+
+  it("lists every justified checkpoint and finalizes below the frontier", () => {
+    const status = checkpointStatus(tree, config);
+    expect([...status.justified].sort((a, b) => a - b)).toEqual([0, 4, 8]);
+    expect([...status.finalized].sort((a, b) => a - b)).toEqual([0, 4]);
+  });
+
+  it("keeps an intermediate checkpoint justified when two links land at once", () => {
+    // Votes for 0→4 and 4→12 both included in block 13: 4 never shows up as
+    // any block's `justified`, yet it is justified on the branch.
+    const late = chain(13, {
+      13: withVotes([...link(4, 0, 4), ...link(12, 4, 12)]),
+    });
+    const status = checkpointStatus(late, config);
+    expect(status.justified.has(4)).toBe(true);
+    expect(status.justified.has(12)).toBe(true);
+    expect(status.finalized.has(4)).toBe(false);
+  });
+
+  it("starts fork choice from the highest justified checkpoint known", () => {
+    expect(forkChoiceRoot(tree, chainStatesOf(tree, config))).toEqual({ epoch: 2, block: 8 });
+    const early = chain(6, { 5: withVotes(link(4, 0, 4)) });
+    expect(forkChoiceRoot(early, chainStatesOf(early, config))).toEqual({ epoch: 1, block: 4 });
+    expect(forkChoiceRoot(chain(3), chainStatesOf(chain(3), config))).toEqual(ANCHOR_CHECKPOINT);
+  });
+});
+
+describe("inclusion (取り込み) and evidence (証拠)", () => {
+  it("detects a double proposal and a double vote in canonical order", () => {
+    let tree = chain(2);
+    tree = addBlock(tree, block(7, 1, 2, 2)); // second block by proposer 2 at slot 2
+    const votes = [vote(1, 2, 2, 0, 0), vote(1, 2, 7, 0, 0), vote(0, 2, 2, 0, 0)];
+    const evidence = equivocationsIn(tree, votes);
+    expect(evidence).toEqual([
+      { kind: "double-proposal", validator: 2, slot: 2, blocks: [2, 7] },
+      { kind: "double-vote", votes: [vote(1, 2, 2, 0, 0), vote(1, 2, 7, 0, 0)] },
+    ]);
+    expect(equivocationsIn(tree, [...votes].reverse())).toEqual(evidence);
+    expect(evidence.map(evidenceRef)).toEqual([
+      { kind: "double-proposal", validator: 2, slot: 2 },
+      { kind: "double-vote", validator: 1, slot: 2 },
+    ]);
+  });
+
+  it("treats a duplicate of the same vote as no equivocation", () => {
+    const tree = chain(2);
+    const v = vote(1, 2, 2, 0, 0);
+    expect(equivocationsIn(tree, [v, { ...v }])).toEqual([]);
+  });
+
+  it("detects the FFG forms across slots: two targets of one epoch, and a surround", () => {
+    const tree = chain(9);
+    // Validator 1: epoch-1 votes with target B4 (slot 4) and B3 (slot 5).
+    const doubled = [vote(1, 4, 4, 0, 4), vote(1, 5, 5, 0, 3)];
+    expect(equivocationsIn(tree, doubled)).toEqual([{ kind: "double-vote", votes: doubled }]);
+    expect(equivocationsIn(tree, doubled).map(evidenceRef)).toEqual([
+      { kind: "double-vote", validator: 1, slot: 5 },
+    ]);
+    // Validator 2: (B4 → B8) at slot 8, then (anchor → B9's epoch-2 …) —
+    // no: (anchor@e0 → B8@e2) surrounds (B4@e1 → B5@e1)? Epochs must nest
+    // strictly: inner (1 → 1) is not a link; use inner (1 → 2) at slot 8
+    // and outer (0 → 3) at slot 12.
+    const inner = vote(2, 8, 8, 4, 8);
+    const outer: Vote = { validator: 2, slot: 12, head: 9, source: ANCHOR_CHECKPOINT, target: { epoch: 3, block: 9 } };
+    expect(equivocationsIn(tree, [outer, inner])).toEqual([
+      { kind: "surround-vote", votes: [inner, outer] },
+    ]);
+    expect(evidenceRef({ kind: "surround-vote", votes: [inner, outer] })).toEqual({
+      kind: "surround-vote",
+      validator: 2,
+      slot: 12,
+    });
+    // Same epochs on both ends, or a source that does not go back, is no
+    // surround; the same FFG part repeated in later slots is no evidence.
+    expect(equivocationsIn(tree, [inner, vote(2, 12, 9, 4, 9)])).toEqual([]);
+    expect(equivocationsIn(tree, [vote(2, 4, 4, 0, 4), vote(2, 5, 5, 0, 4), vote(2, 6, 6, 0, 4)])).toEqual([]);
+  });
+
+  it("draws cross-slot evidence between distinct FFG parts only, and same-slot evidence per pair", () => {
+    const tree = chain(9);
+    // Validator 1 votes target B4 at slots 4 and 5 and target B3 at slots 6
+    // and 7: one pair (the earliest of each FFG part), not four.
+    const votes = [vote(1, 4, 4, 0, 4), vote(1, 5, 5, 0, 4), vote(1, 6, 6, 0, 3), vote(1, 7, 7, 0, 3)];
+    expect(equivocationsIn(tree, votes)).toEqual([
+      { kind: "double-vote", votes: [vote(1, 4, 4, 0, 4), vote(1, 6, 6, 0, 3)] },
+    ]);
+    // Three conflicting votes in one slot: three pairs.
+    const triple = [vote(1, 4, 2, 0, 4), vote(1, 4, 3, 0, 4), vote(1, 4, 4, 0, 4)];
+    expect(equivocationsIn(tree, triple)).toHaveLength(3);
+  });
+
+  it("builds a body from everything not yet included on the branch", () => {
+    const early = link(4, 0, 4);
+    const tree = chain(5, { 5: withVotes(early) });
+    const later = [vote(3, 4, 4, 0, 4), vote(0, 5, 5, 0, 4)];
+    const body = buildBody(tree, [...early, ...later], 5);
+    expect(body.votes).toEqual(later);
+    expect(body.evidence).toEqual([]);
+    const included = includedOn(tree, 5);
+    for (const v of early) expect(included.votes.has(voteKey(v))).toBe(true);
+  });
+
+  it("includes evidence once and honours omissions", () => {
+    let tree = chain(2);
+    tree = addBlock(tree, block(7, 1, 2, 2));
+    const votes = [vote(1, 2, 2, 0, 0), vote(1, 2, 7, 0, 0)];
+    const first = buildBody(tree, votes, 2);
+    expect(first.evidence.map((e) => e.kind)).toEqual([
+      "double-proposal",
+      "double-vote",
+    ]);
+    // Once a block on the branch carries the evidence, it is not repeated.
+    const carrying = addBlock(tree, block(8, 2, 3, 3, first));
+    expect(buildBody(carrying, votes, 8)).toEqual({ votes: [], evidence: [] });
+    // Omissions (取り込みの省略) leave the named items out.
+    const omitted = buildBody(tree, votes, 2, {
+      votes: [voteRef(votes[0]!)],
+      evidence: [evidenceRef(first.evidence[0]!)],
+    });
+    expect(omitted.votes).toEqual([votes[1]]);
+    expect(omitted.evidence.map((e) => e.kind)).toEqual(["double-vote"]);
+  });
+});

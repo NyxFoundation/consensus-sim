@@ -1,0 +1,1526 @@
+@import './tokens.css';
+
+/*
+ * Visual language: an analyst's instrument, not a showcase.
+ *
+ * - One fixed frame: a header bar, a stage, and the operation dock (操作盤)
+ *   in a narrow fixed column on the right. The stage belongs to the
+ *   protagonists — the chain display and the state table — which fill it
+ *   from the first paint; every control except the slot bar lives in the
+ *   dock (tokens.css --bar-h / --dock-w set the frame).
+ * - One flat sheet: a single neutral surface, sections separated by hairline
+ *   gridlines rather than raised cards.
+ * - Monochrome base; saturated colour is reserved for data series and
+ *   consensus state (accent, J/F, warning), never for chrome.
+ * - --font-text (English + Japanese faces) for prose; --font-mono is
+ *   reserved for numbers, IDs, slots and code-shaped information.
+ * - No resident explanation: supplementary text is a [data-ui='hint'] ⓘ
+ *   whose tooltip is drawn from attr(data-hint) on hover / focus only.
+ * - Dark is a selected set of steps from the same neutral ramp, not an
+ *   inversion — declared under both the explicit toggle and the OS media
+ *   query, with the toggle winning either way (tokens.css).
+ * - Every colour, spacing, type-size and radius value below is a reference
+ *   into tokens.css — this file has no colour/space/text literal of its own
+ *   (checked by tests/ui/designTokens.test.ts).
+ */
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--surface);
+  color: var(--ink-primary);
+  font-family: var(--font-text);
+  font-size: var(--text-md);
+  line-height: var(--leading-normal);
+  overflow: hidden;
+}
+
+/* ---- the frame ----
+ * header bar / body; body = stage | dock. Only the stage and the dock
+ * scroll, each on its own, so the frame never moves. */
+
+.app {
+  display: grid;
+  grid-template-rows: var(--bar-h) minmax(0, 1fr);
+  height: 100%;
+}
+
+.app-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--dock-w);
+  min-height: 0;
+}
+
+.stage {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+}
+
+.dock {
+  min-height: 0;
+  overflow: auto;
+  border-left: var(--border);
+  background: var(--plane);
+}
+
+/* ---- unified form components (src/ui/components/**) ----
+ * Every native control renders through one of these, tagged data-ui, reset
+ * with appearance: none and restyled from tokens so nothing looks like a
+ * bare browser control. Contextual selectors below layer the per-panel look
+ * on top; where a boxed default is enough on its own (segmented groups,
+ * plain buttons), no further override is needed.
+ */
+
+[data-ui='button'] {
+  appearance: none;
+  font: inherit;
+  color: var(--ink-primary);
+  background: var(--control-bg);
+  border: var(--border-strong);
+  border-radius: var(--radius);
+  padding: var(--space-1) var(--space-3);
+  cursor: pointer;
+}
+
+[data-ui='button']:hover {
+  border-color: var(--ink-secondary);
+}
+
+[data-ui='button']:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+[data-ui='button'][data-variant='ghost'] {
+  background: transparent;
+  border-color: transparent;
+}
+
+[data-ui='button'][data-variant='ghost']:hover {
+  border-color: var(--baseline);
+}
+
+[data-ui='button'][data-variant='primary'] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--ink-on-accent);
+  font-weight: 600;
+}
+
+[data-ui='button'][data-variant='primary']:hover {
+  filter: brightness(1.08);
+}
+
+[data-ui='button'][data-size='sm'] {
+  padding: var(--space-0-5) var(--space-2);
+  font-size: var(--text-xs);
+}
+
+[data-ui='segmented'] {
+  display: inline-flex;
+  border: var(--border-strong);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+[data-ui='segmented'] [data-ui='button'] {
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink-secondary);
+  font-size: var(--text-sm);
+  padding: var(--space-1) var(--space-2);
+}
+
+[data-ui='segmented'] [data-ui='button'][data-size='sm'] {
+  padding: var(--space-0-5) var(--space-2);
+  font-size: var(--text-xs);
+}
+
+[data-ui='segmented'] [data-ui='button'] + [data-ui='button'] {
+  border-left: var(--border);
+}
+
+[data-ui='segmented'] [data-ui='button'].active {
+  background: var(--neutral-cell);
+  color: var(--ink-primary);
+  font-weight: 600;
+}
+
+[data-ui='number'] {
+  appearance: none;
+  font: inherit;
+  color: var(--ink-primary);
+  background: var(--control-bg);
+  border: var(--border-strong);
+  border-radius: var(--radius);
+  padding: var(--space-0-5) var(--space-1);
+}
+
+[data-ui='number']::-webkit-inner-spin-button,
+[data-ui='number']::-webkit-outer-spin-button {
+  appearance: none;
+  margin: 0;
+}
+
+/* Text entry (scenario name / note): the number field's look, full width
+   of its line; the note grows vertically only. */
+[data-ui='text'] {
+  appearance: none;
+  font: inherit;
+  color: var(--ink-primary);
+  background: var(--control-bg);
+  border: var(--border-strong);
+  border-radius: var(--radius);
+  padding: var(--space-0-5) var(--space-1);
+  min-width: 0;
+  width: 100%;
+}
+
+[data-ui='text']::placeholder {
+  color: var(--ink-muted);
+}
+
+textarea[data-ui='text'] {
+  resize: vertical;
+}
+
+[data-ui='checkbox'] {
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  border: var(--border-strong);
+  border-radius: var(--space-0-5);
+  background: var(--control-bg);
+  display: inline-grid;
+  place-content: center;
+  cursor: pointer;
+  vertical-align: middle;
+}
+
+[data-ui='checkbox']::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  transform: scale(0);
+  background: var(--accent);
+}
+
+[data-ui='checkbox']:checked::before {
+  transform: scale(1);
+}
+
+[data-ui='checkbox']:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+[data-ui='select'] {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+}
+
+[data-ui='select'] select {
+  appearance: none;
+  font: inherit;
+  color: var(--ink-primary);
+  background: var(--control-bg);
+  border: var(--border-strong);
+  border-radius: var(--radius);
+  padding: var(--space-0-5) var(--space-4) var(--space-0-5) var(--space-1);
+  cursor: pointer;
+  max-width: 100%;
+}
+
+[data-ui='select']::after {
+  content: '';
+  position: absolute;
+  right: var(--space-1);
+  top: 50%;
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid var(--ink-secondary);
+  transform: translateY(-40%);
+  pointer-events: none;
+}
+
+[data-ui='disclosure'] > summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+[data-ui='disclosure'] > summary::-webkit-details-marker {
+  display: none;
+}
+
+/* On-demand hint (ⓘ): a small monochrome glyph. The explanation is shown
+   only while hovered / focused, as a fixed-position tooltip portalled to
+   the document root (src/ui/components/Hint.tsx), so no panel carries
+   resident prose (tests/ui/prose.test.tsx) and no scroll container clips
+   the tooltip. */
+[data-ui='hint'] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  margin-left: var(--space-1);
+  color: var(--ink-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: 400;
+  line-height: 1;
+  vertical-align: middle;
+  cursor: help;
+  user-select: none;
+}
+
+[data-ui='hint']:hover,
+[data-ui='hint']:focus-visible {
+  color: var(--ink-primary);
+  outline: none;
+}
+
+.hint-tooltip {
+  position: fixed;
+  z-index: 20;
+  max-width: 320px;
+  padding: var(--space-2) var(--space-3);
+  background: var(--ink-primary);
+  color: var(--surface);
+  font-family: var(--font-text);
+  font-size: var(--text-sm);
+  font-weight: 400;
+  line-height: var(--leading-normal);
+  text-align: left;
+  white-space: normal;
+  border-radius: var(--radius);
+  pointer-events: none;
+}
+
+/* ---- header bar ---- */
+
+.app-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  height: var(--bar-h);
+  padding: 0 var(--space-3);
+  border-bottom: var(--border);
+}
+
+.app-title {
+  display: flex;
+  align-items: baseline;
+  white-space: nowrap;
+}
+
+.app-title h1 {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.app-subtitle {
+  margin-left: var(--space-2);
+  color: var(--ink-muted);
+  font-size: var(--text-xs);
+}
+
+/* Flat underline tabs: chrome stays monochrome, the active mark is a rule.
+   Overrides the segmented control's default boxed look; qualified with the
+   nav tag so it wins regardless of stylesheet order. */
+.mode-tabs {
+  display: flex;
+  align-self: stretch;
+}
+
+nav.mode-tabs [data-ui='segmented'] {
+  border: none;
+  border-radius: 0;
+  gap: var(--space-0-5);
+}
+
+nav.mode-tabs [data-ui='button'] {
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--ink-secondary);
+  font-size: var(--text-md);
+  padding: var(--space-2) var(--space-3) var(--space-1);
+}
+
+nav.mode-tabs [data-ui='button']:hover {
+  color: var(--ink-primary);
+}
+
+nav.mode-tabs [data-ui='button'].active {
+  color: var(--ink-primary);
+  font-weight: 600;
+  background: transparent;
+  border-bottom-color: var(--ink-primary);
+}
+
+.header-controls {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.field-inline {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--ink-secondary);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+}
+
+/* ---- slot bar (the stage's own control: cursor, rewind, advance) ---- */
+
+.slot-bar {
+  display: flex;
+  align-items: center;
+  flex: none;
+  gap: var(--space-4);
+  height: var(--bar-h);
+  padding: 0 var(--space-3);
+  border-bottom: var(--border);
+  position: sticky;
+  top: 0;
+  left: 0;
+  z-index: 2;
+  background: var(--surface);
+}
+
+.slot-current {
+  font-size: var(--text-md);
+  white-space: nowrap;
+}
+
+.slot-current strong {
+  font-family: var(--font-mono);
+  font-size: var(--text-lg);
+}
+
+.slot-next {
+  color: var(--ink-secondary);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+}
+
+.advance {
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.slot-cursor {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.cursor-step {
+  min-width: 26px;
+}
+
+.slot-run {
+  color: var(--ink-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+}
+
+.cursor-latest {
+  font-size: var(--text-sm);
+}
+
+/* ---- stage body ---- */
+
+/* Fills the stage below the slot bar; when a display is taller than the
+   stage (an expanded cell, a long run of forks) it grows and the stage
+   scrolls — the frame itself never moves. */
+.mode-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  padding: var(--space-3);
+}
+
+.validator-dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+
+/* ---- chain display: the protagonists ----
+ * .chain-mode fills the stage; inside it .chain-scroll holds the tree
+ * region (upper part, grows) and the state table (lower part) in one
+ * horizontal scroll container so their slot columns stay aligned (roughly
+ * ten slots fit a PC width; the rest scrolls). The god-view readouts and the
+ * LMD vote table follow below, reached by scrolling the stage. */
+
+.chain-mode {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.chain-scroll {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow-x: auto;
+  border: var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-2);
+}
+
+.tree-region {
+  flex: 1;
+  min-height: 0;
+  width: max-content;
+}
+
+.state-table-toolbar {
+  position: sticky;
+  left: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-2) 0;
+  width: max-content;
+}
+
+.state-table-caption {
+  color: var(--ink-secondary);
+  font-size: var(--text-sm);
+}
+
+/* A local view's tree (state-cell expansion). */
+.tree-scroll {
+  overflow: auto;
+  border: var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-2);
+}
+
+.slot-gridline {
+  stroke: var(--gridline);
+  stroke-dasharray: 2 4;
+}
+
+.slot-label {
+  fill: var(--ink-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+.tree-edge {
+  stroke: var(--baseline);
+  stroke-width: 1.5;
+}
+
+.tree-edge-active {
+  stroke: var(--ink-secondary);
+  stroke-width: 2.5;
+}
+
+.tree-block {
+  fill: var(--block-fill);
+  stroke: var(--baseline);
+  stroke-width: 1.5;
+}
+
+.tree-block-active {
+  stroke: var(--ink-secondary);
+  stroke-width: 2;
+}
+
+.tree-block-justified {
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+
+.tree-block-finalized {
+  stroke: var(--status-good);
+  stroke-width: 2.5;
+}
+
+.block-label {
+  fill: var(--ink-primary);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.block-sublabel {
+  fill: var(--ink-secondary);
+  font-size: var(--text-xs);
+}
+
+.badge {
+  stroke: none;
+}
+
+.badge-justified {
+  fill: var(--accent);
+}
+
+.badge-finalized {
+  fill: var(--status-good);
+}
+
+.badge-label {
+  fill: var(--ink-on-accent);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 700;
+}
+
+.chip-label {
+  fill: var(--ink-on-accent);
+  font-size: var(--text-xs);
+  font-weight: 700;
+}
+
+.chip-label-vote {
+  fill: var(--ink-primary);
+}
+
+.vote-chip {
+  stroke-width: 1.5;
+}
+
+/* ---- state table (状態表) ---- */
+
+.state-table {
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.state-table th,
+.state-table td {
+  border: var(--border);
+  padding: 0;
+  text-align: center;
+}
+
+.state-table thead th {
+  color: var(--ink-muted);
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: var(--text-xs);
+  padding: var(--space-0-5) 0;
+}
+
+.state-table th[scope='row'] {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--surface);
+  text-align: left;
+  font-weight: 500;
+  color: var(--ink-secondary);
+  padding: var(--space-0-5) var(--space-2);
+  white-space: nowrap;
+}
+
+.state-table th[scope='row'] .validator-dot {
+  margin-right: var(--space-1);
+}
+
+.state-cell {
+  display: block;
+  width: 100%;
+  border: none;
+  background: transparent;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--ink-primary);
+  padding: var(--space-1) 0;
+  cursor: pointer;
+}
+
+.state-cell:hover {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+/* Diverging cells: colour plus weight, never colour alone. */
+.state-cell-diff {
+  background: color-mix(in srgb, var(--status-warning) 22%, transparent);
+  font-weight: 700;
+}
+
+.state-cell.expanded {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.state-detail {
+  margin-top: var(--space-3);
+}
+
+.state-detail h3 {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.state-detail .tree-scroll {
+  margin: var(--space-2) 0;
+}
+
+.detail-close {
+  margin-left: auto;
+  font-size: var(--text-xs);
+}
+
+/* Which validators sit on another branch at this slot — prose, not data. */
+.head-others {
+  font-family: var(--font-text);
+  color: var(--ink-muted);
+}
+
+.state-detail .pane-title {
+  margin-top: var(--space-3);
+}
+
+/* ChainState(head): one row, a column per field, stakes per validator. */
+.chain-state-table {
+  border-collapse: collapse;
+}
+
+.chain-state-table th,
+.chain-state-table td {
+  text-align: left;
+  padding: var(--space-0-5) var(--space-4) var(--space-0-5) 0;
+  border-bottom: var(--border);
+}
+
+.chain-state-table th {
+  color: var(--ink-muted);
+  font-weight: 500;
+  font-size: var(--text-xs);
+}
+
+.chain-state-table td {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+}
+
+.chain-state-table .validator-dot {
+  margin-right: var(--space-1);
+}
+
+/* An entry disagreeing with the other heads' chain states: colour + weight,
+ * matching the state table's diff cells. */
+.value-diff {
+  background: color-mix(in srgb, var(--status-warning) 22%, transparent);
+  font-weight: 700;
+  padding: 0 var(--space-1);
+}
+
+.evidence-list {
+  margin: 0;
+  padding-left: var(--space-4);
+}
+
+/* ---- readout panels below the protagonists ---- */
+
+.panel-row {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.panel {
+  flex: 1;
+  min-width: 280px;
+  border: var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-2) var(--space-3);
+}
+
+.panel h3 {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--ink-secondary);
+}
+
+.panel-empty {
+  color: var(--ink-muted);
+  margin: var(--space-1) 0;
+}
+
+.status-list {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+}
+
+.status-list dt {
+  color: var(--ink-muted);
+}
+
+.status-list dd {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+}
+
+.vote-table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.vote-table th,
+.vote-table td {
+  text-align: left;
+  padding: var(--space-0-5) var(--space-3) var(--space-0-5) 0;
+  border-bottom: var(--border);
+}
+
+.vote-table th {
+  color: var(--ink-muted);
+  font-weight: 500;
+  font-size: var(--text-xs);
+}
+
+/* Slot numbers, block IDs and checkpoint pairs; the validator column stays prose. */
+.vote-table td:nth-child(n + 2) {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+}
+
+.vote-table td .validator-dot {
+  margin-right: var(--space-1);
+}
+
+/* ---- operation dock (操作盤) ----
+ * Three sections — protocol parameters, interventions, scenarios — each a
+ * disclosure with a one-line summary (title, count readout, ⓘ). Forms stack
+ * in the single narrow column; groups are hairline-separated, not boxed. */
+
+.dock-section {
+  border-bottom: var(--border);
+  padding: var(--space-2) var(--space-3);
+}
+
+.panel-summary {
+  cursor: pointer;
+  user-select: none;
+}
+
+.panel-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--ink-primary);
+}
+
+.panel-title::before {
+  content: '▸';
+  color: var(--ink-muted);
+  font-size: var(--text-xs);
+}
+
+[data-ui='disclosure'][open] > summary .panel-title::before {
+  content: '▾';
+}
+
+.panel-count {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 400;
+  color: var(--ink-secondary);
+  background: var(--neutral-cell);
+  border-radius: var(--radius);
+  padding: 0 var(--space-1);
+}
+
+.panel-title [data-ui='hint'] {
+  margin-left: auto;
+}
+
+.dock-section [data-ui='disclosure'][open] > summary {
+  margin-bottom: var(--space-2);
+}
+
+.empty-hint {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+}
+
+/* An empty state inside a form line (no messages yet, no inclusion
+   candidates): the same muted label, inline. */
+.empty-inline {
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+}
+
+.intervention-forms {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.intervention-group {
+  margin: 0;
+  border: none;
+  border-top: var(--border);
+  padding: var(--space-2) 0 var(--space-2);
+  min-width: 0;
+}
+
+.intervention-group legend {
+  display: flex;
+  align-items: center;
+  color: var(--ink-secondary);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  padding: 0;
+  margin-bottom: var(--space-1);
+}
+
+.validator-checks {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+  margin-bottom: var(--space-1);
+  color: var(--ink-secondary);
+}
+
+.check-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--text-sm);
+}
+
+.form-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-1);
+  font-size: var(--text-sm);
+}
+
+.slot-input {
+  width: 56px;
+  font-family: var(--font-mono);
+}
+
+.op-state-line {
+  gap: var(--space-2);
+}
+
+.op-state-name {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 72px;
+  color: var(--ink-secondary);
+}
+
+/* A computed readout beside a control (fork count) — data, mono. */
+.readout {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--ink-secondary);
+}
+
+/* A refusal or result reported after an action: colour + text. */
+.form-status {
+  display: block;
+  font-size: var(--text-xs);
+  color: var(--ink-on-warning);
+  background: color-mix(in srgb, var(--status-warning) 30%, transparent);
+  border-radius: var(--radius);
+  padding: var(--space-0-5) var(--space-1);
+}
+
+.list-title {
+  margin: var(--space-2) 0 var(--space-1);
+  padding-top: var(--space-2);
+  border-top: var(--border);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--ink-secondary);
+}
+
+.intervention-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.intervention-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  font-size: var(--text-sm);
+}
+
+.intervention-desc {
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.list-actions {
+  display: inline-flex;
+  gap: var(--space-1);
+  margin-left: auto;
+}
+
+.param-name {
+  min-width: 128px;
+  color: var(--ink-secondary);
+  font-size: var(--text-sm);
+}
+
+.params-panel .check-inline input[type='number'] {
+  width: 64px;
+  font-family: var(--font-mono);
+}
+
+/* Scenario entries: name (when given) over the run's one-line summary, the
+   note quoted beneath; the actions keep to the right. */
+.scenario-save-form {
+  display: flex;
+  flex-direction: column;
+}
+
+.scenario-entry .intervention-desc {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-0-5);
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.scenario-name {
+  color: var(--ink-primary);
+}
+
+.scenario-summary {
+  font-size: var(--text-xs);
+  color: var(--ink-secondary);
+}
+
+.scenario-note {
+  color: var(--ink-secondary);
+  white-space: pre-wrap;
+}
+
+.scenario-edit {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 100%;
+}
+
+.scenario-edit .list-actions {
+  margin-left: 0;
+}
+
+.scenario-status {
+  display: block;
+  margin-bottom: var(--space-1);
+  color: var(--ink-secondary);
+  font-size: var(--text-sm);
+}
+
+.pane-title {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--ink-secondary);
+}
+
+/* ---- type catalog (型一覧) ----
+ * The page's own layout (必須 8): only the header bar frames it. The graph
+ * pane takes four fifths of the width and the focus pane the remaining
+ * fifth; each scrolls on its own, the frame never moves. */
+
+.types-page {
+  display: grid;
+  grid-template-columns: minmax(0, 4fr) minmax(0, 1fr);
+  height: 100%;
+  min-height: 0;
+}
+
+.types-graph-pane {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  padding: var(--space-3);
+  gap: var(--space-2);
+}
+
+.types-toolbar {
+  display: flex;
+  align-items: center;
+  flex: none;
+}
+
+.types-toolbar .pane-title {
+  margin: 0;
+}
+
+.types-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  border: var(--border);
+  border-radius: var(--radius);
+}
+
+.type-graph {
+  position: relative;
+}
+
+.type-edges {
+  position: absolute;
+  inset: 0;
+}
+
+.type-edge {
+  stroke: var(--gridline);
+  stroke-width: 1.5;
+}
+
+.type-edge-active {
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+
+.type-node {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: var(--space-0-5);
+  padding: var(--space-1) var(--space-2);
+  background: var(--control-bg);
+  border: var(--border-strong);
+  border-radius: var(--radius);
+  color: var(--ink-primary);
+  font: inherit;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.type-node:hover {
+  border-color: var(--accent);
+}
+
+.type-node.related {
+  border-color: var(--accent);
+}
+
+.type-node.active {
+  border-color: var(--accent);
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.type-node-name {
+  font-weight: 600;
+  font-family: var(--font-mono);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.type-node-module {
+  color: var(--ink-muted);
+  font-size: var(--text-xs);
+}
+
+.type-detail {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  border-left: var(--border);
+  background: var(--plane);
+  padding: var(--space-3) var(--space-3);
+}
+
+.type-detail h3 {
+  margin: 0 0 var(--space-2);
+  font-family: var(--font-mono);
+}
+
+.type-detail-module {
+  margin-left: var(--space-2);
+  color: var(--ink-muted);
+  font-size: var(--text-xs);
+  font-family: var(--font-text);
+  font-weight: 400;
+}
+
+.type-detail-links {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-1) var(--space-3);
+  margin: var(--space-3) 0 0;
+}
+
+.type-detail-links dt {
+  color: var(--ink-secondary);
+}
+
+.type-detail-links dd {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.type-link {
+  padding: 0 var(--space-2);
+  background: var(--plane);
+  border: var(--border);
+  border-radius: var(--radius);
+  color: var(--ink-primary);
+  font-size: var(--text-sm);
+  font-family: var(--font-mono);
+  cursor: pointer;
+}
+
+.type-link:hover {
+  border-color: var(--accent);
+}
+
+.type-source {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  background: var(--plane);
+  border: var(--border);
+  border-radius: var(--radius);
+  overflow-x: auto;
+  white-space: pre-wrap;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+}
+
+/* ---- attackers (攻撃者の識別) ----
+ * An attacker is identified in every display by a mark, never by colour
+ * alone: the 攻撃者 badge on its state-table row, the 攻 prefix and a
+ * dashed outline on the blocks it proposed, a dashed ring on its head and
+ * vote chips, and the 攻撃者 badge on the actions its strategy generated. */
+
+.attacker-mark {
+  display: inline-block;
+  margin-left: var(--space-1);
+  padding: 0 var(--space-1);
+  border-radius: var(--radius);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  line-height: var(--leading-normal);
+  color: var(--ink-on-accent);
+  background: var(--status-attacker);
+}
+
+.state-table tr.attacker-row th[scope='row'] {
+  color: var(--ink-primary);
+}
+
+.tree-block-attacker {
+  fill: color-mix(in srgb, var(--status-attacker) 16%, var(--block-fill));
+  stroke-dasharray: 5 3;
+}
+
+.chip-attacker {
+  stroke: var(--status-attacker);
+  stroke-width: 2;
+  stroke-dasharray: 3 2;
+}
+
+/* A generated action in the intervention list: the attackers' mark, and a
+   discarded one struck through with its reason. */
+.attacker-action .intervention-desc {
+  font-variant-numeric: tabular-nums;
+}
+
+.attacker-action.discarded .intervention-desc {
+  color: var(--ink-muted);
+  text-decoration: line-through;
+}
+
+.discard-mark {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--ink-on-warning);
+  background: color-mix(in srgb, var(--status-warning) 30%, transparent);
+  border-radius: var(--radius);
+  padding: 0 var(--space-1);
+}
+
+.panel-count-warning {
+  color: var(--ink-on-accent);
+  background: var(--status-attacker);
+}
+
+.attack-source {
+  overflow-wrap: anywhere;
+}
+
+.goal-stages {
+  margin: 0 0 var(--space-1);
+  padding-left: var(--space-4);
+  font-size: var(--text-sm);
+}
+
+.goal-stage-status {
+  margin-left: var(--space-1);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--ink-secondary);
+}
+
+/* ---- goal trace (攻撃目標の判定推移) ----
+ * Sits between the block tree and the state table, its columns aligned
+ * with both; a stage's verdict per slot, highlighted where the predicate
+ * holds and where the stage was achieved. */
+
+.goal-table {
+  border-collapse: collapse;
+  table-layout: fixed;
+  margin-top: var(--space-2);
+}
+
+.goal-table th,
+.goal-table td {
+  border: var(--border);
+  padding: var(--space-0-5) 0;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--ink-primary);
+}
+
+.goal-table th[scope='row'] {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--surface);
+  text-align: left;
+  font-family: var(--font-text);
+  font-weight: 500;
+  color: var(--ink-secondary);
+  padding: var(--space-0-5) var(--space-2);
+  white-space: nowrap;
+}
+
+.goal-pending {
+  color: var(--ink-muted);
+}
+
+.goal-holds {
+  background: color-mix(in srgb, var(--status-attacker) 18%, transparent);
+  font-weight: 700;
+}
+
+.goal-achieved-at {
+  background: color-mix(in srgb, var(--status-attacker) 36%, transparent);
+  font-weight: 700;
+}
+
+/* ---- auto-play (自動再生) — the slot bar's run control ---- */
+
+.play-control {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.play-speed {
+  flex: none;
+}
+
+.play-speed [data-ui='button'] {
+  font-family: var(--font-mono);
+}
+
+.play-toggle {
+  white-space: nowrap;
+}
+
+.play-readout {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--ink-secondary);
+  white-space: nowrap;
+}
+
+/* ---- attack list (攻撃一覧) ----
+ * The page's own layout (必須 22): only the header bar frames it. The
+ * formal system's definitions come first as three tables side by side,
+ * then the library as one table derived from the implementation; the page
+ * scrolls as a whole with the library's header row pinned. */
+
+.attacks-page {
+  height: 100%;
+  min-height: 0;
+  overflow: auto;
+  padding: var(--space-3) var(--space-4) var(--space-6);
+}
+
+.attacks-page .pane-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-2);
+}
+
+.attacks-system {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.system-table,
+.attack-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: var(--text-sm);
+}
+
+.system-table caption {
+  text-align: left;
+  font-weight: 600;
+  color: var(--ink-secondary);
+  padding: 0 0 var(--space-1);
+}
+
+.system-table th,
+.system-table td,
+.attack-table th,
+.attack-table td {
+  border: var(--border);
+  padding: var(--space-1) var(--space-2);
+  text-align: left;
+  vertical-align: top;
+  line-height: var(--leading-normal);
+}
+
+.system-table th {
+  width: 30%;
+  font-weight: 600;
+  background: var(--plane);
+  color: var(--ink-primary);
+}
+
+.vocabulary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.vocabulary-term {
+  border: var(--border);
+  border-radius: var(--radius);
+  padding: 0 var(--space-1);
+  white-space: nowrap;
+}
+
+.attack-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--plane);
+  color: var(--ink-secondary);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.attack-row:hover td {
+  background: var(--plane);
+}
+
+.attack-select {
+  display: block;
+  width: 100%;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.attack-select:hover {
+  border-color: var(--accent);
+}
+
+.attack-id {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  margin-right: var(--space-1);
+}
+
+.attack-source-cell,
+.attack-premise,
+.attack-run {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+.attack-source-cell {
+  overflow-wrap: anywhere;
+}
+
+.attack-run div {
+  white-space: nowrap;
+}
+
+.attack-capabilities,
+.attack-goal {
+  margin: 0;
+  padding-left: var(--space-4);
+  white-space: nowrap;
+}
+
+.attack-strategy {
+  min-width: 320px;
+  color: var(--ink-primary);
+}

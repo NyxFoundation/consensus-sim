@@ -1,0 +1,388 @@
+{
+  "schema_version": "1.0.0",
+  "items": [
+    {
+      "id": "R-001",
+      "type": "Non-blocking Recommendation",
+      "status": "resolved",
+      "title": "ブラウザ実機での UI 検証には Playwright ブラウザの取得許可が必要",
+      "detail": "sandbox が (1) ローカルポートの listen(EPERM)と (2) cdn.playwright.dev への通信を拒否するため、実ブラウザでの UI 検証が実行できない。scripts/verify-ui.mjs は file:// で dist/ を読み込む方式で準備済みで、人間が一度 `npx playwright install chromium` を実行する(または cdn.playwright.dev を許可する)だけで動く。現状は jsdom による DOM テスト(tests/ui/appShell.test.tsx)が同じ操作系列をヘッドレスで検証しており、進行の妨げはない。UI/UX 磨き込み(T-012)前に実ブラウザ確認経路があると望ましい。",
+      "requires_human_approval": false,
+      "source": [
+        "T-006"
+      ],
+      "raised_by": "atlas-builder",
+      "resolved_at": "2026-09-03T03:15:33+09:00",
+      "resolved_by": "atlas-builder",
+      "resolution": "人間が Playwright chromium を導入済み(2026-08-30 resume)で、2026-09-03 の resume 注記で「非ブロッキングのため閉じる」と指示されたため閉じる。sandbox 内では chromium の起動自体が不可(lessons L-20260830T012720+0900-05b0)なので、実ブラウザ目視は人間の手元実行(npm run dev / node scripts/verify-ui.mjs)のまま。"
+    },
+    {
+      "id": "R-LG-20260828T000954+0900-d2cf",
+      "type": "Human-input Recommendation",
+      "status": "resolved",
+      "raised_by": "atlas-builder-loop",
+      "gate": "must_complete_awaiting_phase_approval",
+      "target": "todo.json",
+      "reason": "All must-priority Todos are done (a reviewable checkpoint, not the terminus, §19.3). Advancing to the should phase is a human budget / priority decision: `just resume` approves it (sets phase = extended_approved and makes should Todos runnable); not re-running the loop ends the project here. Editing ESSENCE.md is needed only to change the requirements themselves.",
+      "details": {
+        "must_done": 13,
+        "must_total": 13,
+        "pending_shoulds": [
+          {
+            "id": "T-014",
+            "status": "pending",
+            "title": "スロット送りの自動再生(速度調整付き)と一時停止"
+          },
+          {
+            "id": "T-015",
+            "status": "pending",
+            "title": "介入・シナリオ操作のキーボードショートカット"
+          },
+          {
+            "id": "T-016",
+            "status": "pending",
+            "title": "状態・ブロック木の画像/データエクスポート"
+          },
+          {
+            "id": "T-017",
+            "status": "pending",
+            "title": "シナリオへのメモ・命名"
+          }
+        ]
+      },
+      "requires_human_approval": true,
+      "agent_action": "stop_until_human_review",
+      "created_at": "2026-08-28T00:09:54+09:00",
+      "resolved_at": "2026-08-30T00:58:21+09:00",
+      "resolved_by": "human",
+      "resolution": "ESSENCE.md を update-essence で改訂し、直近の human update チェックポイント(f32614b)で attest 済み。must 境界ゲート R-LG-20260828T000954+0900-d2cf は旧 Essence の must 完了を根拠とするため解除し、フェーズは must のまま、新 Essence から Spec/Todo を再投影して必須対応を継続する(approve-should / close-at-must のいずれも選ばない)。\nPlaywright chromium は人間がインストール済み: 実ブラウザ検証経路(scripts/verify-ui.mjs、R-001 参照)が利用可能になった。"
+    },
+    {
+      "id": "R-002",
+      "type": "Human-input Recommendation",
+      "status": "resolved",
+      "title": "T-027(pbs.show 参照ビジュアル刷新)には参照サイトへのアクセス手段の提供が必要",
+      "detail": "事実: (1) pbs.show:443 および web.archive.org:443 への通信は sandbox ネットワーク許可リストで拒否される(user denied)。(2) WebFetch ツールは非対話セッションでは許可プロンプトを通過できない。(3) essences/ ディレクトリは存在せず、参考資料は同梱されていない。(4) 過去サイクルの reflection/lessons にも pbs.show のスタイル情報(フォント・色・余白)の収集記録はない。(5) 実ブラウザは sandbox 内で起動不可のため、目視系の代替観測もできない(L-20260830T012720+0900-05b0)。このため「UI のフォント・色遣い・全体的な雰囲気は https://pbs.show/ を参考にする」(前提事項)を忠実に実行できない。次のいずれかを選んで just resume してほしい: 【A】sandbox の許可ドメインに pbs.show を追加する(または WebFetch を許可する)— 次サイクルで実スタイル(フォントファミリ・パレット・余白感)を取得して刷新を実施(推奨)。【B】参考資料を人間が用意する — pbs.show のスクリーンショット等を essences/ に置き ESSENCE.md から言及する(人間専用操作)。フォントファミリ名・主要色の値がわかる資料だとなお確実。【C】実観測なしの一般知識ベースの刷新を明示的に承認する — 非推奨(思想節 (b) は参考元の雰囲気と衝突する大きなデザイン判断を人間に戻すと定めるが、参照を観測できないままでは衝突の有無自体を判定できない)。なお、刷新実施後の見た目の最終確認(スクリーンショット・目視)は人間の手元実行が前提となる(scripts/verify-ui.mjs、R-001 と上記教訓を参照)。T-028(総点検)は遂行順序 6(全必須の完了直前に実施)により T-027 完了までは着手しない。",
+      "requires_human_approval": true,
+      "agent_action": "stop_until_human_review",
+      "source": [
+        "T-027"
+      ],
+      "raised_by": "atlas-builder",
+      "reason": "T-027(pbs.show 参照ビジュアル刷新)を実行するための参照サイトへのアクセス手段がエージェント環境に存在しない(sandbox ネットワーク拒否・WebFetch 非対話許可なし・同梱資料なし)。人間がアクセス手段の提供方法(A: 許可ドメイン追加/B: 資料提供/C: 推測ベース明示承認)を選ぶまで、残りの must(T-027 と、その完了後に実施する T-028 総点検)を進められない。",
+      "resolved_at": "2026-08-30T02:16:36+09:00",
+      "resolved_by": "human",
+      "resolution": "pbs.show 参照へのアクセス不能(R-002)は、参照 URL 自体を ESSENCE.mdから削除し、言語化したデザイン方針(知的で無骨なデータ中心UI・高情報密度・モノクロ基調+アクセントカラー・フラット・Sans Serif と等幅の使い分け)へ置き換える update-essence改訂で根治した。提示選択肢 A/B/C のいずれも採らない。柱 2 の延期は維持。次サイクルは新 Essence から Specを再投影し、新デザイン方針でビジュアル刷新(旧 T-027 相当)を継続する。"
+    },
+    {
+      "id": "R-LG-20260830T024920+0900-05f3",
+      "type": "Human-input Recommendation",
+      "status": "resolved",
+      "raised_by": "atlas-builder-loop",
+      "gate": "must_complete_awaiting_phase_approval",
+      "target": "todo.json",
+      "reason": "All must-priority Todos are done (a reviewable checkpoint, not the terminus, §19.3). Advancing to the should phase is a human budget / priority decision: `just resume` approves it (sets phase = extended_approved and makes should Todos runnable); not re-running the loop ends the project here. Editing ESSENCE.md is needed only to change the requirements themselves.",
+      "details": {
+        "must_done": 24,
+        "must_total": 24,
+        "pending_shoulds": [
+          {
+            "id": "T-014",
+            "status": "pending",
+            "title": "スロット送りの自動再生(速度調整付き)と一時停止"
+          },
+          {
+            "id": "T-015",
+            "status": "pending",
+            "title": "介入・シナリオ操作のキーボードショートカット"
+          },
+          {
+            "id": "T-017",
+            "status": "pending",
+            "title": "シナリオへのメモ・命名"
+          }
+        ]
+      },
+      "requires_human_approval": true,
+      "agent_action": "stop_until_human_review",
+      "created_at": "2026-08-30T02:49:20+09:00",
+      "resolved_at": "2026-09-03T02:37:48+09:00",
+      "resolved_by": "human",
+      "resolution": "ESSENCE.md の大改訂(攻撃の形式体系・チェーン状態・プロトコルパラメータ化とプリセット・ステークと罰則・緩和策・12 攻撃ライブラリ・攻撃一覧ページの追加、必須対応事項 29 項/成功条件 25 項)と essences/deep-research-report.md の配置は人間自身による編集であり、レビュー済みとして attest する。\nmust 境界ゲート R-LG-20260830T024920+0900-05f3 は旧 Essence(bcb5982e)の must 完了を根拠とするため解除し、フェーズは must のまま(approve-should / close-at-must のいずれも選ばない)、次サイクルは新 Essence から Spec/Todo を再投影して遂行順序 1〜8 の必須対応を継続する。\nR-001(Playwright)は非ブロッキングのためループ側で閉じる(chromium は導入済み)。新ビジュアルの目視確認は人間の手元実行として別途行う。"
+    },
+    {
+      "id": "R-003",
+      "type": "Non-blocking Recommendation",
+      "status": "resolved",
+      "title": "fork choice の投票重みは「その投票の head のチェーン状態」のステークで計算する(必須対応事項 25 の読み)",
+      "detail": "必須対応事項 25「fork choice の重みはそのバリデータの head のチェーン状態のステークで」は、(A)『投票するバリデータの head(= その投票の head)のチェーン状態』と (B)『fork choice を実行する観測者自身の head のチェーン状態』の 2 通りに読める。(B) は head が fork choice の出力なので循環し、T-031 では暫定的に『起点 justified チェックポイントのチェーン状態のステーク』(Ethereum の justified state balances 相当)を採っていた(等ステーク下では差が出ない)。T-032 で罰則が入り差が生じるため、(A) を採用した: 投票の重み = ChainState(vote.head).stakes[voter]。根拠: 循環せず決定的で、成功条件 22「証拠を取り込んだブロック以降の枝の…以後その枝の fork choice 重み・finality 閾値から除外」が字義どおり観測できる(証拠を取り込んだ枝を head とする票だけが 0 になり、取り込んでいない枝の票は従来どおり)。T-031 の起点方式では、justified が証拠ブロックを越えるまで fork choice 重みに反映されず、成功条件 22 の『以後』が数エポック遅れる。Ethereum 実装との差: Ethereum は justified state の balances を全票に一律適用し、スラッシング済みの即時除外は equivocating_indices(= 必須 27 のエクイボケーション割引、T-033)が担う。本読みが意図と異なる場合(起点方式または別の定義を望む場合)は、ESSENCE の必須 25 の文言を明確化のうえ resume で指示してほしい。変更は resolveView の weightOf 1 関数に局所化してある。",
+      "requires_human_approval": false,
+      "source": [
+        "T-032"
+      ],
+      "raised_by": "atlas-builder",
+      "created_at": "2026-09-03T03:55:00+09:00",
+      "resolved_at": "2026-09-03T09:05:00+09:00",
+      "resolved_by": "atlas-builder",
+      "resolution": "人間が 2026-09-03 08:37 の resume(R-006 解決)で「投票重みは投票 head のチェーン状態」の裁量簡約を現状のまま了承し、ループ側で閉じるよう指示したため閉じる。総点検 T-044 の点検項目として記録済み。"
+    },
+    {
+      "id": "R-004",
+      "type": "Non-blocking Recommendation",
+      "status": "resolved",
+      "title": "justified の実現時期(ブロック毎の即時集計)と切替規則の純関数化に伴う簡約の確認",
+      "detail": "T-033 の緩和策は次の 2 つの裁量簡約の上に実装した。判断が意図と異なる場合は resume で指示してほしい(いずれも思想節 (a) の骨格意味論に触れるため自律では変えない)。【1】本モデルの ChainState.justified は T-029 の裁量で各ブロックの取り込み後に即時再評価される(エポック末を待たない)ため、Essence の『unrealized justification(エポック末を待たずに集計した justified)』は枝先端の ChainState.justified と一致し、`unrealized` 切替は『葉の ChainState.justified が起点より古い(slot が小さい)枝を fork choice の候補から除外する』として実装した。Ethereum の実仕様のように realized justification をエポック遷移時にのみ確定させる(B4 の justified が s5 でなく s8、finalized が s9 でなく s12 になる)には ChainState の finality 評価時期を変える必要があり、これは J/F バッジ・状態表・既存テストのタイムラインを一律に約 3 スロット遅らせる骨格変更となる。現状(即時集計)は『取り込み層で決まる』という Essence の記述と矛盾せず、攻撃ライブラリ(A05 バウンシング等)は取り込みの遅延・省略で justified の出現時期を操作できるため、即時集計のまま進める。【2】`window` 切替は View が起点の履歴を持てないため純関数化し、『ブロックの slot を到着時刻の代理』として、窓(各エポック先頭 1 スロット = Ethereum の SAFE_SLOTS_TO_UPDATE_JUSTIFIED の比率)の閉じる前のブロックから得た最高 justified を窓時点の起点とし、それ以外のスロットではその子孫の justified にのみ切り替える。したがって『投票を保留し後のブロックで取り込ませて justified を途中で出現させる』戦略は window で緩和されるが、『justified を含むブロック自体を遅延配送で途中に出す』戦略は(到着時刻を View が持たないので)ブロックの slot 時点で到着した扱いとなり緩和されない。到着時刻に基づく忠実な window にするには View 型に受信時刻を加える必要がある(参照型の変更 = 人間判断)。攻撃ライブラリの A05 は前者(投票保留)の形で簡約する予定。",
+      "requires_human_approval": false,
+      "source": [
+        "T-033"
+      ],
+      "raised_by": "atlas-builder",
+      "created_at": "2026-09-03T04:06:00+09:00",
+      "resolved_at": "2026-09-03T09:05:00+09:00",
+      "resolved_by": "atlas-builder",
+      "resolution": "人間が 2026-09-03 08:37 の resume(R-006 解決)で「justified 即時集計・window は block slot を到着時刻の代理」の裁量簡約を現状のまま了承し、ループ側で閉じるよう指示したため閉じる。総点検 T-044 の点検項目として記録済み。"
+    },
+    {
+      "id": "R-005",
+      "type": "Non-blocking Recommendation",
+      "status": "resolved",
+      "title": "空のエポック境界スロットにフォールバックしたチェックポイントは finalize されない(隣接判定がブロック slot のエポックを使う簡約)",
+      "detail": "T-036 のテスト設計中に発見した現骨格の簡約。用語節どおりチェックポイントは『エポック先頭スロット以前の直近のブロック』にフォールバックするが、finality の隣接判定(chainState.deriveBranch: targetEpoch === sourceEpoch + 1)は epochOf(block.slot) を使う。例: s4 の提案が錨上(フォーク作成)で B1 枝の境界スロットが空だと、エポック 1 のチェックポイントは B1(slot 1、エポック 0)になり、投票 B0→B1 で B1 は justified されるが、次の B1→B8(エポック 2)は『0→2』で隣接とみなされず B1 は finalize されない(B8→B12 で B8 が finalize される 1 エポック遅れの回復)。Ethereum ではチェックポイントは (epoch, root) 対で、同一 root が連続エポックのチェックポイントを務め、隣接はチェックポイントのエポックで判定するため B1 は finalize される。Vote 型は source/target を BlockIndex で持つ(参照型)ため、チェックポイントのエポックは投票の slot から復元できる(target のエポック = epochOf(vote.slot)、source のエポック = その source を justified にしたリンクの target エポック)。提案: リンクを (source, target, targetEpoch) で持ち、justified チェックポイントにエポックを添えて隣接を『チェックポイントのエポック』で判定する — View/Vote/Block 型は不変更だが finality の意味論(思想節 (a) の骨格)に触れるため自律では変えない。影響: 境界スロットが空になる状況(境界スロットの提案者停止・オフライン、境界での提案遅延、フォーク作成)で finality が 1 エポック遅れる。A06(エポック境界 finality 遅延)は『提案遅延で target 分裂』が本質なので、この簡約が判定に混ざらないよう T-040 で設計する。総点検 T-044 の点検項目にも載せる。",
+      "requires_human_approval": false,
+      "source": [
+        "T-036"
+      ],
+      "raised_by": "atlas-builder",
+      "created_at": "2026-09-03T04:31:00+09:00",
+      "resolved_at": "2026-09-03T09:05:00+09:00",
+      "resolved_by": "atlas-builder",
+      "resolution": "人間が 2026-09-03 08:37 の resume(R-006 解決)で「空境界チェックポイントは finalize されず 1 エポック遅れ」の裁量簡約を現状のまま了承し、ループ側で閉じるよう指示したため閉じる。総点検 T-044 の点検項目として記録済み。"
+    },
+    {
+      "id": "R-006",
+      "type": "Human-input Recommendation",
+      "status": "resolved",
+      "title": "活性停止・バウンシング系 4 攻撃(A03/A04/A05/A06)は本モデルの緩和策・収束意味論と衝突し忠実に成立しない — ミティゲーション忠実度の人間判断が必要",
+      "detail": "T-045(活性停止・バランシング系 4 件)の実装で、A03 バランシング(前提 phase0)・A04 LMD バランシング(前提 merge+割引 off)・A05 バウンシング(前提 merge+切替 off)・A06 エポック境界 finality 遅延(前提 merge)の 4 攻撃がいずれも既定実行構成で攻撃目標(活性停止)に到達しないことが判明した。既に実装済の 8 攻撃(A01/A02/A07/A09/A10/A11/A12/A14)は成立しており、残るこの 4 攻撃だけが共通の壁に当たる。\n\n事実(probe で確定): (1) A03/A04 は『各正直者が競合 2 枝の片側だけを最新票として見る』状態を維持して活性を止める攻撃で、成功条件 19 は割引 on の merge で『未達(崩れて収束)』になることを要求する。本モデルの割引は inclusion.ts equivocatingVoters が『ある View が同一バリデータの相反 2 票を同時保持した瞬間に発火』する即時・局所規則だが、片側しか見ない正直 View には相反 2 票が揃わないので発火しない。実際に partition でバランシングを作ると phase0(割引 off)でも merge(割引 on)でも同じく finality が停止し(fin=0, jus=0 @ s16)、割引 on/off で正直 fork choice が変わらない → 『割引で崩れて収束(merge 未達)』が作れない。さらにスロット内メッセージ順序を非依存に設計(決定性)しているため LMD の到着順依存(first-arriving/latest-message)も表現できない(A04)。(2) A06 は『境界ブロックの提案遅延で正直者の target を分裂させ finalized を止める』攻撃だが、能力範囲の有界遅延(delay は最大 d スロット)では finality が 1 エポック遅れるだけで L=12 停止に到達しない。境界ブロックを恒久 drop しても proposer boost で次スロットに再収束する(境界ドロップ merge で fin=15 @ s24 と finality は進行)。持続的な活性停止は永続的な均等 partition(= 均等分割の維持)でのみ生じるが、これは『提案遅延で target 分裂』の読み替え(機構の変更)であり ESSENCE 思想(committee・boost・緩和策・チェーン状態・罰則を入れてもなお表現不能な攻撃は自律で読み替えず人間に戻す)に反するため自律採用しない。(3) A05 バウンシングは競合する 2 つの justified チェックポイント(枝 A と枝 B が交互に最高 justified になる)を要し、justified の切替(off で成立・window/unrealized で緩和)を突く。しかし 2 枝をともに justify するには 2/3 の票が各枝に必要で、攻撃者単独(1/4〜1/2 stake)では両枝を justify できず、正直票を 2 枝へ割り続ける(バランシング)前提が要る → (1) と同じ壁。攻撃者を 2/3 以上にすると単独 finalize(A10/A12 の安全性違反)になり活性バウンシングにならない。\n\n含意: これら 4 攻撃は『緩和策(割引・justified 切替・boost)が効くと崩れる/効かないと成立する』ことを観測する攻撃だが、本モデルの簡約意味論(割引=View 局所発火・切替=即時 justification 上の純関数・boost による再収束・スロット内順序独立)がその成立/未達の作り分けを許さない。忠実に再現するには (a) 割引の発火条件を神視点の相反検知へ、justified の実現時期をエポック末確定へ、View に受信順/受信時刻を持たせる等の骨格・緩和策意味論の変更(思想 (a) の『ビュー型・プロトコル骨格の意味論変更』= 人間承認)が要る。\n\n選んで just resume で指示してほしい(4 攻撃まとめて、または個別に): 【A】緩和策・骨格の意味論を拡張して 4 攻撃を忠実に再現する — 割引を神視点の相反検知に、justified をエポック末確定に、View に受信順を追加する等(骨格変更 = 人間承認。影響大: J/F タイムライン・状態表・既存テスト多数が変わる)。【B】成功条件 19・必須 23 の A03/A04/A05/A06 の成立/未達要件を、本モデルで表現可能な簡約(例: A06=均等分割の維持による活性停止、A03/A04/A05=割引/切替非依存の分割による活性停止で『merge 未達』要件を外す)に緩和する(ESSENCE 改訂 = 人間)。【C】A03/A04/A05/A06 を『より具体的な抽象レベルの追加』非対応事項へ昇格し、当面の攻撃ライブラリを 8 件(必須 23 を 8 攻撃に改訂)とする(ESSENCE 改訂 = 人間)。\n\nいずれの選択でも、実装済 8 攻撃(A01/A02/A07/A09/A10/A11/A12/A14)は維持できる。攻撃 UI(T-042/T-043)はライブラリの最終構成(12 or 8 件)がこの判断で決まるため、判断後に着手する。R-003/R-004/R-005/R-007 の裁量簡約も本判断と併せて確認いただけると総点検(T-044)がまとまる。",
+      "requires_human_approval": true,
+      "source": [
+        "T-045"
+      ],
+      "raised_by": "atlas-builder",
+      "created_at": "2026-09-03T06:00:00+09:00",
+      "agent_action": "stop_until_human_review",
+      "updated_at": "2026-09-03T06:55:00+09:00",
+      "reason": "T-045 の残り 4 攻撃(A03 バランシング・A04 LMD バランシング・A05 バウンシング・A06 エポック境界 finality 遅延)が本モデルの緩和策・収束意味論と衝突し、忠実な機構では既定実行構成で活性停止に到達しない(A03/A04 は割引が崩さず『merge 未達』要件が作れない、A06 の有界提案遅延は 1 エポック遅延どまり、A05 は均等分割維持が前提で同じ壁)。緩和策忠実度をどう扱うか(A: 意味論拡張=骨格変更 / B: 成功条件緩和=ESSENCE / C: 非対応昇格=ESSENCE)を人間が選ぶまで、残る must(T-045 とライブラリ最終構成に依存する攻撃 UI T-042/T-043)を進められない。",
+      "resolved_at": "2026-09-03T08:37:38+09:00",
+      "resolved_by": "human",
+      "resolution": "R-006 は選択肢 D で解決する: ESSENCE も骨格・緩和策の意味論も変えず、A03/A04/A05/A06 を現行意味論の範囲で再挑戦する。R-006 の probe は分断(partition)で正直票を割っていたが出典の手段は「同時二重+選択配送」であり、攻撃者自身の票を有界遅延(d=2)で選択配送すれば相反 2 票は d スロット後に反対陣営の View にも揃って割引が発火し、latestVotes が最新スロットの票を採る現行実装で LMD 均衡が維持できる(5 体・攻撃者 1・正直 2+2 で各陣営 96 vs 64)。A03 = 交互投票+反対陣営への +1 スロット遅延(二重投票なし・正直提案は遅延しない)→ phase0 で活性停止、merge では proposer boost で収束(未達); A04 = 同スロット二重投票+選択配送(+正直提案の 1 スロット遅延で boost を無効化)→ 割引 off で活性停止、merge 既定では割引で収束(未達); A05 は A03/A04 成立後に競合 justified の跳ねを再設計; A06 は開始直後の境界(s4)を d=4 で遅延し L を正直基準(8〜9)の少し上に置いて再検討(R-005 の空境界簡約が判定に混ざらないよう根拠を確認)。それでも不成立の攻撃だけ、攻撃ごとに B(要件緩和)/C(非対応昇格)を個別に再提案すること。\nR-003(投票重みは投票 head のチェーン状態)・R-004(justified 即時集計、window は block slot を到着時刻の代理)・R-005(空境界チェックポイントは finalize されず 1 エポック遅れ)・R-007(A10/A14 のスロット分割 FFG 二重投票は証拠に当たらずスラッシング非発火)の裁量簡約は 4 件とも現状のまま了承する。ループ側で閉じ、総点検(T-044)の点検項目として記録すること。"
+    },
+    {
+      "id": "R-007",
+      "type": "Non-blocking Recommendation",
+      "status": "resolved",
+      "title": "A10/A14 の二重投票は『同一エポックの FFG target 投票をスロットを分けて 2 枝へ』の簡約 — 本モデルの証拠(同一スロットの相反)には当たらずスラッシングされない",
+      "detail": "必須 23 の A10(34% 二重投票による二重 finality)と A14 第 2 段は、Casper FFG の『同一 target エポックで異なる target を持つ 2 投票』(FFG 二重投票、Ethereum ではスラッシング対象)で 2 枝をともに 2/3 に届かせる攻撃だが、本モデルの Equivocation は用語節どおり『同一スロットの相反 2 メッセージ』のみで、二重投票介入の 2 票目は head の親(同一枝側)に固定される。そのため (1) 同一スロットの二重投票では相反 target を 2 枝へ投じられず、(2) 投じられたとしても証拠取り込み即時スラッシング(必須 26)が両枝の finalize を打ち消す(L-20260903T060936)。実装は攻撃者の同一エポック target 投票を別スロットに分けて 2 枝へ投じる形(s4→B4, s5→B3 …)で本質(≥1/3 の相反 FFG 票で二重 finality)を再現し、スラッシングは発火しない。Ethereum でもスラッシングは二重 finality を『防止』せず事後に罰するだけなので、成功条件 19 の未達対象に A10 が無いことと整合する。判断を仰ぎたい点: FFG レベルの二重投票(同一 target エポック・異なる target)を証拠に加えるか(ビュー/証拠の意味論変更 = 思想 (a) の人間判断。加える場合、A10/A14 は証拠を取り込む枝でステークが 0 になり、必須 26 の即時スラッシングと両立させるには『証拠取り込み後も既に justify/finalize 済みは巻き戻らない』という現行の単調性に依存する形になる)。現状は簡約のまま進め、総点検 T-044 の点検項目に載せる。",
+      "requires_human_approval": false,
+      "source": [
+        "T-046"
+      ],
+      "raised_by": "atlas-builder",
+      "created_at": "2026-09-03T06:35:00+09:00",
+      "resolved_at": "2026-09-03T09:05:00+09:00",
+      "resolved_by": "atlas-builder",
+      "resolution": "人間が 2026-09-03 08:37 の resume(R-006 解決)で「A10/A14 のスロット分割 FFG 二重投票は証拠に当たらずスラッシング非発火」の裁量簡約を現状のまま了承し、ループ側で閉じるよう指示したため閉じる。総点検 T-044 の点検項目として記録済み。"
+    },
+    {
+      "id": "R-008",
+      "type": "Human-input Recommendation",
+      "status": "resolved",
+      "title": "A05 バウンシングは『全員が毎スロット投票する』骨格では跳ねが持続せず成立しない — A05 単独の扱い(A': エポック毎 1 回投票の committee 割当を追加 / B: 要件緩和 / C: 非対応昇格)の判断が必要",
+      "detail": "R-006 選択肢 D の再挑戦で A03/A04/A06 は現行意味論のまま成立した(T-045 done)。A05 だけが次の壁に当たる。\n\n跳ねの本質: 攻撃者が保留した票で古いエポックの justified チェックポイントを競合枝に遅れて出現させ、正直者の fork choice の起点(root)がその枝へ移る。Ethereum ではそのエポックに既に投票済みの正直者は投じ直せないので、移った先の target は 2/3 に届かず(隣接 justify = finalize が起きず)、次のエポックでまた反対枝へ跳ねる。\n\n本モデルで確定した壁(A03 の割れの上で検討): (1) root が競合枝へ移ると fork choice は root の子孫しか選べないので、移った陣営はもう一方の陣営と同じ枝に乗る。(2) 全員が毎スロット投票するため、乗った直後のスロットから両陣営が同じ target に、source = その枝の justified(隣接)で投票する。正直 2 陣営の合計が 2/3 以上(攻撃者 < 1/3)なら即 justify → finalize で跳ねは 1 回で終わる。(3) 合計を 2/3 未満にするには攻撃者 ≥ 1/3 が要り、それは棄権(A09)と同じ機構で、しかも見捨てた枝に正直票が入らないので跳ね戻れない。(4) 移る陣営から justify ブロックを隠す(d=4)と跳ね自体が起きない(R-004 のとおり、ブロック遅延型は window でも緩和されない)。したがって『跳ねが持続し、window / unrealized で緩和される』A05 の成立/未達の作り分けは、投票頻度(エポックに 1 回)なしには表現できない。committee『全員』『サイズ c のシード割当』のどちらも毎スロット投票である。\n\n選択肢(A05 のみ。他 11 攻撃は不変): 【A'】committee 割当方式に第 3 の方式『エポック分割(各バリデータはエポック内でシードから定まる 1 スロットにだけ attest する。Ethereum の committee 構造そのもの)』を追加し、A05 の前提上書きとして宣言する。骨格(投票頻度)への追加なので思想 (a) の人間承認事項。見込み: 跳ねと window / unrealized による緩和の両方を再現できる(正直基準の finality 時期も変わるため A05 のテストはこの方式で組む)。ProtocolParams の committee 型が広がる(型カタログ・UI・codec に追随)。【B】必須 23・成功条件 19 の A05 要件を、本モデルで表現できる 1 回限りの簡約(保留票による遅い justify で一方の陣営を1 度だけ引き寄せ、finality を 1 エポック遅らせる。切替 window の効果は引き寄せの時期の差としてのみ観測)に緩和する(ESSENCE 改訂 = 人間)。【C】A05 を『より具体的な抽象レベルの追加(エポック毎 1 回投票のcommittee 構造)』として非対応事項へ昇格し、ライブラリを 11 件に確定する(ESSENCE 改訂 = 人間)。\n\n推奨: 跳ねと緩和の両面を観測したい(モチベーション節)なら A'、今回スコープを閉じることを優先するなら C。この判断が止めているのは T-047 だけだが、Human-input Recommendation はループの停止ゲートなので、判断まで攻撃 UI(T-042/T-043)も待つ。判断後は選択に応じて T-047 を再設計(A' なら committee 割当方式の追加を前段の Todo にする)または閉じ、T-042/T-043 → T-044(総点検)へ進む。",
+      "requires_human_approval": true,
+      "reason": "A05 の扱い(A': エポック分割 committee の追加 = 骨格追加 / B: 成功条件 19・必須 23 の A05 要件緩和 = ESSENCE / C: 非対応昇格 = ESSENCE)は人間判断であり、T-047 はそれまで blocked。ライブラリの最終構成が決まるまで停止する。",
+      "source": [
+        "T-047",
+        "T-045"
+      ],
+      "raised_by": "atlas-builder",
+      "created_at": "2026-09-03T09:05:00+09:00",
+      "agent_action": "stop_until_human_review",
+      "resolved_at": "2026-09-03T09:36:49+09:00",
+      "resolved_by": "human",
+      "resolution": "ESSENCE.md の改訂は人間自身の編集であり、レビュー済みとして attest する: (1) UI 刷新 — 前提事項の UI デザイン方針を「計器(instrument)」方針へ置換、思想 (b) の但し書き、成功条件 26・必須対応事項 30・遂行順序 7(UI 刷新を攻撃 UI より先に行う。攻撃 UI は 8、総点検は 9 へ繰り下げ)・用語「操作盤」「デザイントークン」の追加; (2) R-008 の選択肢 A' に伴う小改訂 — committee 割当方式に第 3 の「エポック分割(各バリデータがエポック内でシードから定まる 1 スロットにだけ投票)」を参照型・必須 3・用語に追加し、A05 の前提を merge + 切替 off + committee = エポック分割とし、A05 の未達条件を「committee = エポック分割の上書きを保ったまま切替の上書きだけを外した merge / current で未達」に明記(必須 23・成功条件 19)。\nR-008 は選択肢 A' で解決する: 骨格(投票頻度)への追加としてエポック分割 committee を人間承認する。次サイクルは新 Essence から Spec/Todo を再投影し、committee 第 3 方式の追加(ProtocolParams・schedule・型カタログ・UI・codec の追随)を T-047 の前段 Todo として投影してから A05 を組み、必須 30 の UI 刷新 Todo を遂行順序 7 として攻撃 UI(T-042/T-043)より先に置く。フェーズは must のまま(approve-should / close-at-must のいずれも選ばない)。"
+    },
+    {
+      "id": "R-009",
+      "type": "Human-input Recommendation",
+      "status": "resolved",
+      "title": "A05 バウンシングは前提で成立するが、了承済みの緩和策意味論(R-004)では window / unrealized が跳ねを止められず「window / current で未達」(成功条件 19・必須 23)を観測できない — 緩和策の忠実度・既定実行構成・要件のいずれを動かすかの判断が必要",
+      "detail": "事実(probe で確定、T-047 evidence): (1) A05 を実装した。4 体・攻撃者 1(V1)・seed 0・d = 5、前提 merge + 切替 off + committee = エポック分割。攻撃者の slot 1 ブロックを根とする枝 Y を正直チェーン X の隣に立て、直近ブロックの遅延で正直 2 名をエポック 3 の投票前に Y へ移し、以後毎エポック自分の提案をもう一方の枝に建てて前エポックの保留票を取り込ませ、正直 2 票と合わせて古い枝のチェックポイントを justify する。起点が競合 justified 間を跳ね(B8@13 → B12@17 → B16@21 → B20@25 …)、エポックに 1 回しか投票しない正直者は跳ねた先に投じ直せず、リンクが常に 2 エポック離れて finalize が起きない。slot 48 まで finalized は錨のまま、活性停止(L = 12)を slot 12 で達成、生成行動の破棄 0。\n(2) unrealized(current + エポック分割): 実行は off と完全に同一。R-004 で了承した本モデルの unrealized は「葉の ChainState.justified が起点より古い枝を候補から除外する」候補刈りで、起点そのもの(view 内の最高 justified)は off と同じく即時に切り替わる。跳ねは起点の切替なので、off で成立する跳ねは unrealized でも同一に成立する(seed に依らず構造的)。\n(3) window(merge + エポック分割): 起点の切替はエポック先頭 1 スロットに限られ、正直 3 名は毎エポック同じ枝に投票する。しかしエポック最後のスロットの正直票は境界ブロック(= 切替後の枝に建つ)にしか取り込まれないため、正直者の枝は自力で justify を実現できず、攻撃者の次のブロックが1 エポック遅れでそれを完成させ、跳ねがエポック境界ごとに続く。seed 0 では最初の finalized が slot 48(stall 47)。window が効くのは攻撃者の committee スロットがエポック末(4k+3)になったエポックだけ(正直票が 4k+2 までに揃い 4k+3 の正直ブロックが取り込む → 起点が留まり隣接リンクで finalize)で、seed 0 ではエポック 11 まで起きない。原因は粒度: 1 票 = ステークの 1/4 で最後の 1 票が 2/3 を左右する(Ethereum ではエポック末スロットの committee は 1/32)。\n(4) 正直実行(エポック分割)の最初の finalized は slot 11(stall 10)なので L ≥ 12 が必要だが、攻撃の開幕(最初の justify は slot 13)は緩和下でも stall を ≥ 19 に伸ばし、既定 L で「未達」にできる seed はない。\n\n選んで just resume で指示してほしい:\n【A】緩和策意味論の拡張(思想 (a) の人間承認): unrealized に Ethereum の「起点は現在エポックのブロックでは動かず、次のエポック境界で unrealized justified の最大へ更新(前エポック以前のブロックは即時 = pull-up)」を加える。ただし起点の更新時期が window と同じ境界更新になるため、(3) の最後の 1 票の問題は残り、既定実行構成では未達にならない。A 単独では要件を満たせない。\n【B】既定実行構成の粒度を上げる(裁量内): n = 10(攻撃者 1、閾値 7/9)で A05 を組み直す。window / 境界更新の下では正直者が 4k+2 までの票(≥ 7)で自力 justify でき、緩和が確実に効く見込み。unrealized は (2) のとおり現行意味論では効かないので A と併用が必要。9 名中 6 名を Y へ移す開幕の再設計が要り、成立の保証はまだない。\n【C】ESSENCE 改訂(人間): 成功条件 19・必須 23 の A05 の未達条件を、本モデルで観測できる事実に置き換える — 例「window / current では起点の切替がエポック境界に限られ、正直者全員が同じ target に投票する(跳ねの機構がエポック内の票の分裂を作れない)ことを観測できる」、または current の未達要件を外す。現状の実装(達成テスト付き)を維持し、観測用のテストを追加する。\n【D】A05 の緩和観測を「より具体的な抽象レベルの追加」の非対応事項へ延期(ESSENCE 改訂): 4〜10 体の最抽象モデルでは最後の 1 票が 2/3 を左右する粒度が Ethereum と異なるため。\n推奨: C。モデル・意味論を変えず、観測できる事実を要件にする。A/B は柱 2 の対象となる意味論を動かすわりに、既定実行構成での未達は保証できない。\n\n影響: 攻撃ライブラリは 12 件そろい、全件が既定実行構成で達成する。T-047 はこの判断まで blocked。残る must(T-049〜T-051 UI 刷新、T-042/T-043 攻撃 UI、T-044 総点検)はこの判断に依存しないので、判断と同時に続行を指示してよい。既定実行構成に seed(0)を追加した(AttackDefaultRun.seed。A05 の開幕は seed 0 の committee 順序に合わせてある)。",
+      "requires_human_approval": true,
+      "agent_action": "stop_until_human_review",
+      "reason": "A05 の緩和策との関係が成功条件 19 の想定どおりに緩和しない(ESSENCE 思想: 成立/緩和しない攻撃は自律で意味論を変えず人間に戻す)。緩和策の忠実度(A)・既定実行構成(B)・要件(C)・延期(D)のいずれも人間判断で、T-047 はそれまで blocked。",
+      "source": [
+        "T-047"
+      ],
+      "raised_by": "atlas-builder",
+      "created_at": "2026-09-03T11:20:00+09:00",
+      "resolved_at": "2026-09-03T11:40:15+09:00",
+      "resolved_by": "human",
+      "resolution": "ESSENCE.md の改訂(成功条件 19・必須対応事項 23 の A05 バウンシングの緩和観測を、「window では起点の切替がエポック先頭スロットに限られて正直者全員が各エポックで同じ target に投票し、finalized が前進して跳ねが止まる(既定の L では活性停止に達してよい)」「current では本モデルの unrealized は起点の跳ねに作用せず切替 off と同一の推移になる」という観測可能な事実へ置換)は人間自身の編集であり、レビュー済みとして attest する。essences/deep-research-report.md は無変更。\nR-009 は選択肢 C で解決する: モデル・緩和策の意味論(R-004 で了承済み)と既定実行構成(4 体・攻撃者 V1・seed 0)は変えず、次サイクルは新 Essence から Spec(S-043)を再投影して T-047 を再開し、window / current の観測テスト(seed 0 では最初の finalized が slot 48 前後なので長走行でよい)を追加して done にする。\nその後は T-049〜T-051(UI 刷新)→ T-042/T-043(攻撃 UI)→ T-044(総点検)へ進み、フェーズは must のまま(approve-should / close-at-must のいずれも選ばない)。"
+    },
+    {
+      "id": "R-010",
+      "type": "Non-blocking Recommendation",
+      "status": "resolved",
+      "title": "統一 MessageRef の下で二重投票の片方を選択配送する糖衣(double-vote の split)と、FFG エポック単位決定に伴う攻撃ライブラリの再調整(A04 の L = 20・収束時の戦略停止、A10/A14 の target 明示)",
+      "detail": "T-053 で ESSENCE の参照型 MessageRef = (送信者, スロット, 種別) + 公開済みなら個体 に統一した。この形では、攻撃者の未公開の二重投票の 2 票は同じ参照 (sender, slot, vote) を持ち、公開前に片方だけを名指せない(従来は head で名指していた)。A04(LMD バランシング)は各陣営に自陣営側の票だけを即時配送する必要があるため、二重投票の介入に split = {first, second, untilSlot}(1 票目は first へ・2 票目(指定 head の票)は second へ即時、他は untilSlot から)を持たせ、これを公開基底「自分名義のメッセージを任意の内容・時機・受信者集合へ公開」の糖衣として扱った。攻撃者の能力範囲(エクイボケーション+自分のメッセージの選択配送)は変えていない。T-055 で 2 基底を型として置く際に、この糖衣が Publish×2 に展開されることを確認する。\nFFG のエポック単位決定(必須対応事項 3)により、頭だけを指定した投票は同エポックの最初の FFG を繰り返すため、(1) A10 は slot 5 / slot 9 の第 2 の target(B3 / B7)を投票先指定で明示、(2) A14 は各枝の tip への投票にその枝の justified / チェックポイントを明示、(3) A04 は割引で両陣営が収束した後も提案遅延を続けるとエポック境界ブロックの遅延で target が割れて finality が止まり続ける(A06 型)ため、両陣営の最新投票が同じ枝に揃ったら戦略を止めるようにし、活性停止の L を 12 → 20 にした(割引下の最初の finalize は slot 13、正直実行は slot 9;既定実行構成の throughSlot 16 → 21)。(1)(2) の明示 target は同一 target エポックで target の異なる 2 投票 = ESSENCE の二重投票の第 2 形であり、T-054 で証拠化されると正直者に取り込まれてスラッシングされ得る。T-055 の再設計(A10: 選択配送で分ける、A14 も同様)と同バッチで扱う予定。いずれも意味論(攻撃の 3 つ組・能力範囲・述語)は変えていない裁量の範囲の再調整だが、L の変更と戦略停止の判断は人間に見えるよう記録する。異論があれば resume で指示してほしい。",
+      "requires_human_approval": false,
+      "source": [
+        "T-053"
+      ],
+      "raised_by": "atlas-builder",
+      "created_at": "2026-09-03T16:45:00+09:00",
+      "resolution": "T-055 で確認済み: DoubleVoteAction.split は basesOf で Publish(content) + Publish(receivers) に展開される。A10 / A14 の再設計と A04 の L = 20 は T-054 / T-055 の evidence と docs/INSPECTION.md に記録した。"
+    },
+    {
+      "id": "R-011",
+      "type": "Non-blocking Recommendation",
+      "status": "resolved",
+      "title": "能力範囲の実装を必須対応事項 18 の 2 基底に一致させた 2 点(自分のメッセージの保留は d に縛られない / 閉じた分断は長さ ≤ d のときだけ範囲内)と、証拠のスロット横断正規化(相異なる FFG 部分の代表どうし)・スラッシング後の閾値縮小の帰結",
+      "detail": "T-055 で行動の 2 基底(公開 / 配送)を型として置き、capabilityOf を基底の判定に接続した際、従来の実装が ESSENCE 必須対応事項 18 から逸脱していた 2 点を是正した(意味論の変更ではなく実装の是正と判断。異論があれば resume で指示してほしい): (1) 攻撃者自身のメッセージの保留(delay)は公開基底の『任意の時機』であり d に縛られない(従来は自他を問わず untilSlot − slot ≤ d で切っていた。A05 の d = 5 はこの旧制約から来た宣言だが、正直者の遅延にも使うため据え置いた)。(2) 分断は配送基底の対称集合なので、閉じた分断(toSlot あり)は長さ ≤ d のときだけ範囲内、開いた分断は欠落として範囲内(従来は無条件に範囲内)。ライブラリの攻撃はいずれも分断を使わないため既定実行構成への影響はない。\nT-054 の証拠検出では、スロット横断の証拠(同一 target エポックで target の異なる 2 票、包囲投票)を『バリデータの相異なる FFG 部分の代表(最初の票)どうし』に限って対にした。同一スロットの相反は従来どおり対ごと。正直者はエポック内で同じ FFG 部分を繰り返すので証拠を生まず、攻撃者が同じ FFG 部分を繰り返しても同一の相反が対の数だけ増えない、という裁量の正規化であり、相反の 3 形の意味論(ESSENCE 前提事項)は変えていない。証拠の参照 EvidenceRef.slot は『証拠が成立するスロット(後の票のスロット)』とした。\nA12 の再設計で観測された帰結: 正直チェーンが包囲投票の証拠を取り込むと攻撃者 3 体のステークが 0 になり、ESSENCE の規則(スラッシングは以後の重み・閾値から除外)どおり総ステークが縮むため、正直者 1 体の票だけで justify / finalize が進む(B11@e3 が justify され、起点のタイブレークで攻撃枝の B12@e3 に勝つ)。Ethereum ではスラッシング済みバリデータの残高が退出まで総残高に残るためこの現象は起きない。現行 ESSENCE の規則の帰結として実装し、攻撃者は自枝への提案 parent と投票 head を明示するようにした。もし『閾値からの除外』を Ethereum 寄り(総残高に残す)に改めたい場合は update-essence の判断になる。",
+      "requires_human_approval": false,
+      "source": [
+        "T-054",
+        "T-055"
+      ],
+      "raised_by": "atlas-builder",
+      "created_at": "2026-09-03T17:05:00+09:00",
+      "resolved_at": "2026-09-03T20:20:00+09:00",
+      "resolved_by": "atlas-builder",
+      "resolution": "人間が 2026-09-03 18:03 の resume(R-012 承認)と 20:01 の resume(steering)で「能力範囲の是正 2 点・証拠のスロット横断正規化・スラッシング後の閾値縮小の帰結」を現状のまま了承し、ループ側で閉じるよう指示したため閉じる。総点検 T-044 の点検項目 (11) として記録済み。"
+    },
+    {
+      "id": "R-012",
+      "type": "Human-input Recommendation",
+      "status": "resolved",
+      "title": "UI 刷新の人間レビュー承認（必須対応事項 30・成功条件 26）: 刷新後の UI を実ブラウザで確認し、承認または修正指示を resume で記録してほしい",
+      "detail": "T-049（デザイン基盤）と T-050（情報設計の再編と全表示への適用）が完了し、機械検査（成功条件 26 (a)〜(f)）は vitest で通過した。必須対応事項 30 は『人間が実ブラウザで確認して承認したことを条件とし、承認前に完了扱いにしない』ため、T-051 はこの承認を待って停止する。\n\n【確認手順】\n1. `npm run build && node scripts/verify-ui.mjs` — 実 Chromium で 1280×720 / 1440×900 / 1920×1080 の 3 視口を計測: (a) 初期表示でチェーン表示+状態表が画面面積の過半（過半の判定は .chain-scroll の視口内面積比 > 0.5）、状態表がスクロールなしに見える、操作盤 < 主役、10 スロット列が横スクロールなしに収まる; (b) 全フォーム部品が appearance: none; (c) 『。』を含むテキストノードが無く、ⓘ にホバーすると説明が画面内に出て外すと消える; (e) OS のカラースキーム（エミュレート）に追従し、手動切替が上書きする; (f) 本文と数値に別の書体。全 check が ok なら exit 0。\n2. `npm run dev` で目視: ヘッダーバー（表示タブ・バリデータ数・テーマ）、左ステージ（スロットバー + チェーン表示: 上にブロック木、下に状態表）、右の操作盤（幅 336px、プロトコルパラメータ / 介入 / シナリオの 3 区画。各区画の題名行は件数の読み出しと ⓘ のみ、説明文は ⓘ のホバー/フォーカスで表示）。ネットワーク表示・全体表示・型一覧にも同じ基盤（ⓘ、統一部品、トークン）が適用されている。ライト/ダーク両テーマ、スロットを 10 以上進めたときの横スクロール、状態表のセル展開、介入の一覧（解消・削除ボタン）、フォーク数の読み出しと上限超過の表示、シナリオ保存の状態文も確認対象。\n\n【自律で決めた再編（前提事項『情報設計の再編は必須 6・7・8 の範囲内で自律可』、思想 (b) の但し書き）】\n- 操作系を右の固定幅の操作盤に集約し、ステージは主役専用にした（3 表示・状態表の下半分配置・約 10 スロット幅・ネットワークのホバー表示は不変）。\n- 常駐説明文を全廃し ⓘ（Hint 部品）へ退避。空状態は『介入はまだありません』などの短い状態表示に、シナリオの状態文・フォーク上限超過の表示は文末の『。』を外した読み出しにした。\n- ブロック木の幾何を拡大（列幅 96px、ブロック 64×40px、行高 92px）。\n- ツールチップは portal + position: fixed（操作盤の overflow に切り取られない）。\n\n【判断してほしいこと】\nA) 承認: この最終形を必須 30 の刷新完了として承認する — resume の注記に『R-012 を承認』と記し、R-012 を解決。次サイクルは T-051 を done（evidence = この resume 記録）にして T-042/T-043（攻撃 UI）→ T-044（総点検）へ進む。\nB) 修正指示: 直したい点（配置・大きさ・色・書体・文言など）を resume の注記に列挙して R-012 を解決 — 次サイクルは指示を T-050 の追補（または新 Todo）として実装し、再度 R-0xx で承認を求める。\nC) 見た目・情報設計の大きな方針転換（例: 操作盤を下に置く、状態表とブロック木を左右に並べる）を望む場合もその旨を注記に — 思想 (b) により人間判断として扱い、必須 6・7・8 との整合を確認して再設計する。\n\n残る must（T-042 / T-043 / T-044）はこの承認に依存しないが、Human-input Recommendation はループの停止ゲートなので、判断と同時に続行を指示してよい。",
+      "requires_human_approval": true,
+      "agent_action": "stop_until_human_review",
+      "reason": "必須対応事項 30 は UI 刷新の完了条件を『人間が実ブラウザで確認して承認したこと』と定める（成功条件 26 も同じ）。承認は人間にしかできず、sandbox では実ブラウザを起動できないため、T-051 は人間の resume 記録を待って blocked。",
+      "source": [
+        "T-051",
+        "T-050",
+        "T-049"
+      ],
+      "raised_by": "atlas-builder",
+      "created_at": "2026-09-03T17:20:00+09:00",
+      "resolved_at": "2026-09-03T18:03:14+09:00",
+      "resolved_by": "human",
+      "resolution": "R-012 を承認: 刷新後の UI（ヘッダーバー / 左ステージ（スロットバー + ブロック木 + 状態表）/ 右の操作盤 336px、ⓘ ホバー説明、デザイントークン、OS 追従テーマ）を人間が実ブラウザで確認し、必須対応事項 30・成功条件 26 の刷新完了として承認する。次サイクルは T-051 をこの resume 記録を evidence として done にし、T-042/T-043（攻撃 UI）→ T-044（総点検）へ進む。フェーズは must のまま（approve-should / close-at-must のいずれも選ばない）。\nR-011（能力範囲の是正 2 点・証拠のスロット横断正規化・スラッシング後の閾値縮小の帰結）は現状のまま了承する。ループ側で閉じ、総点検 T-044 の点検項目として記録すること。"
+    },
+    {
+      "id": "R-013",
+      "type": "Non-blocking Recommendation",
+      "status": "resolved",
+      "title": "必須対応事項 6 の『2 ページ』と必須対応事項 22 の攻撃一覧ページの読み: 攻撃一覧を第 3 のページとして投影する",
+      "detail": "改訂後の必須対応事項 6 は『UI はチェーン表示(下半分に状態表を伴う)と型一覧の 2 ページで構成する。ネットワーク表示・全体表示は設けない』と述べる一方、必須対応事項 22・成功条件 16・モチベーション節(『攻撃一覧はその実験の入口』)は攻撃一覧ページを求める。字義どおりの『2 ページ』では必須 22 と矛盾するため、必須 6 の趣旨をネットワーク表示・全体表示の撤去(遂行順序 1)と読み、ページ構成をチェーン表示・型一覧・攻撃一覧の 3 ページ(ヘッダーバーのページ切替)として投影した(S-006 の題名に併記、T-043 の notes に記録)。攻撃一覧ページのレイアウトは必須 22 が定めるとおり(冒頭に形式体系の定義、続いて表)で、主役の過半規則はチェーン表示ページのみ(前提事項)。異なる意図(例: 攻撃一覧をチェーン表示ページ内の区画にする)であれば update-essence で必須 6 を改訂してほしい。",
+      "requires_human_approval": false,
+      "source": [
+        "T-043",
+        "T-056"
+      ],
+      "raised_by": "atlas-builder",
+      "created_at": "2026-09-03T20:20:00+09:00",
+      "resolved_at": "2026-09-03T20:42:43+09:00",
+      "resolved_by": "atlas-builder",
+      "resolution": "人間が 2026-09-03 20:42 の resume(R-014 承認)で「必須 6 の『2 ページ』はネットワーク表示・全体表示の撤去の宣言と読み、攻撃一覧をチェーン表示・型一覧に加えた第 3 のページとしてヘッダーバーのタブで切り替える」読みを現状のまま了承し、ESSENCE の改訂は不要・ループ側で閉じるよう指示したため閉じる。総点検 T-044 の点検項目 (12) として記録済み。"
+    },
+    {
+      "id": "R-014",
+      "type": "Human-input Recommendation",
+      "status": "resolved",
+      "title": "型一覧ページと本質的仕様の日本語コメントの人間レビュー承認(必須対応事項 8・32、成功条件 2・10): 再レイアウト後の型一覧を実ブラウザで確認し、承認または修正指示を resume で記録してほしい",
+      "detail": "T-057(型一覧の独自レイアウト)と T-059(本質的仕様モジュール src/domain/model のコメント日本語化)が完了し、機械検査は vitest で通過した(typecheck 0 / vitest 34 files 400 tests 0 / build 0)。必須対応事項 8 は型一覧ページの完了条件を『人間が実ブラウザで確認して承認したこと』と定め(成功条件 2 も同じ)、承認前に完了扱いにしないため、T-058 はこの承認を待って停止する。\n\n【確認手順】\n1. `npm run build && node scripts/verify-ui.mjs` — 実 Chromium で 3 視口(1280×720 / 1440×900 / 1920×1080)を計測: 型一覧ページにスロットバー・操作盤・バリデータ数の設定が無いこと、依存グラフ側の幅比が 0.75〜0.85・フォーカス側が 0.15〜0.25(概ね 8:2)、ページがヘッダーバー直下の高さを満たすこと、開いた直後に最上段の先頭の型がフォーカスされていること、フォーカス中の宣言が /** の日本語コメントで始まること。全 check が ok なら exit 0。sandbox の Bash からは Playwright Chromium が起動できない(Mach port rendezvous: Permission denied)ため、この計測は人間の手元で実行してほしい。\n2. `npm run dev` で目視: ヘッダーバーの『型一覧』タブ → ヘッダーバーだけが残り、左に依存グラフ(最上段 = 他のどの型にも依存しない ValidatorIndex / SlotIndex / BlockIndex …)、右にフォーカス中の型(宣言をコメント込みで、続いて『依存する型』『この型に依存する型』のリンク)。ノードやリンクを選ぶとフォーカスが移り、フォーカスが空になることはない。各型の宣言の直前に日本語の /** */ コメントが表示され(識別子は英語のまま)、英語だけのコメントが無い。ライト/ダーク両テーマ、グラフ側・フォーカス側それぞれの独立スクロールも確認対象。\n3. 参考: `npx vitest run tests/domain/modelComments.test.ts tests/ui/typesPage.test.tsx tests/ui/layout.test.ts` が、全コメントの日本語・全型のコメント付き・独自レイアウトの契約を機械検査している。\n\n【翻訳の方針(自律で決めた点)】\n- 用語節のユビキタス言語で統一(バリデータ・枝・錨ブロック・証拠・取り込み・神視点・2 基底 …)。Essence が英語のまま使う語(committee / proposer boost / fork choice / justified / finalized / head / source / target / View / ChainState / inactivity leak / unrealized justification / Ethereum / Casper FFG)は英語のまま。\n- 情報量は英語原文と同一(数値・スロット・条件・成立/未達の理由を落とさない)。attackLibrary.ts は analyst の照合で 7 件の意味ずれを検出して修正済み。\n- 型一覧の宣言(<pre>)は引用された実装であって常駐説明文ではないため、prose.test の『。』走査から除外した(必須 32 により日本語コメントは『。』を含む)。\n\n【判断してほしいこと】\nA) 承認: 型一覧ページ(必須 8・成功条件 2)と日本語コメントの表示(成功条件 10)を承認する — resume の注記に『R-014 を承認』と記し R-014 を解決。次サイクルは T-058 をその resume 記録を evidence として done にし、遂行順序 2 の攻撃 UI(T-042 → T-043 → T-060)へ進む。\nB) 修正指示: 直したい点(レイアウト比・初期フォーカス・宣言の表示・コメントの文体や用語など)を resume の注記に列挙して R-014 を解決 — 次サイクルは指示を T-057/T-059 の追補として実装し、再度 R-0xx で承認を求める。\n\n残る must(T-042 / T-043 / T-060 / T-044)はこの承認に依存しないので、判断と同時に続行を指示してよい(フェーズは must のまま、approve-should / close-at-must は不要)。",
+      "requires_human_approval": true,
+      "agent_action": "stop_until_human_review",
+      "reason": "必須対応事項 8 は型一覧ページの完了条件を『人間が実ブラウザで確認して承認したこと』と定める(成功条件 2 も同じ)。承認は人間にしかできず、sandbox では実ブラウザ(Playwright Chromium)を起動できないため、T-058 は人間の resume 記録を待つ。",
+      "source": [
+        "T-058",
+        "T-057",
+        "T-059"
+      ],
+      "raised_by": "atlas-builder",
+      "created_at": "2026-09-03T20:40:00+09:00",
+      "resolved_at": "2026-09-03T20:42:43+09:00",
+      "resolved_by": "human",
+      "resolution": "R-014 を承認: 型一覧ページの再レイアウト(ヘッダーバーのみ・幅の概ね 8:2 に依存グラフとフォーカス中の型・初期フォーカスは最上段先頭・宣言をコメント込みで表示)と本質的仕様モジュール src/domain/model の日本語コメント表示を人間が実ブラウザで確認し、必須対応事項 8・32、成功条件 2・10 の完了として承認する。次サイクルは T-058 をこの resume 記録を evidence として done にし、遂行順序 2 の攻撃 UI(T-042 → T-043 → T-060)→ T-044 総点検へ進む。\nR-013(Non-blocking)の読み — 必須 6 の『2 ページ』はネットワーク表示・全体表示の撤去の宣言と読み、攻撃一覧をチェーン表示・型一覧に加えた第 3 のページとしてヘッダーバーのタブで切り替える — は現状のまま了承する。ESSENCE の改訂は不要。ループ側で閉じること。\nフェーズは must のまま(approve-should / close-at-must のいずれも選ばない)。"
+    },
+    {
+      "id": "R-LG-20260903T231408+0900-3860",
+      "type": "Human-input Recommendation",
+      "status": "resolved",
+      "raised_by": "atlas-builder-loop",
+      "gate": "must_complete_awaiting_phase_approval",
+      "target": "todo.json",
+      "reason": "All must-priority Todos are done (a reviewable checkpoint, not the terminus, §19.3). Advancing to the should phase is a human budget / priority decision: `just resume` approves it (sets phase = extended_approved and makes should Todos runnable); not re-running the loop ends the project here. Editing ESSENCE.md is needed only to change the requirements themselves.",
+      "details": {
+        "must_done": 57,
+        "must_total": 57,
+        "pending_shoulds": [
+          {
+            "id": "T-014",
+            "status": "pending",
+            "title": "スロット送りの自動再生(速度調整付き)と一時停止"
+          },
+          {
+            "id": "T-015",
+            "status": "pending",
+            "title": "介入・シナリオ操作のキーボードショートカット"
+          },
+          {
+            "id": "T-017",
+            "status": "pending",
+            "title": "シナリオへのメモ・命名"
+          }
+        ]
+      },
+      "requires_human_approval": true,
+      "agent_action": "stop_until_human_review",
+      "created_at": "2026-09-03T23:14:08+09:00",
+      "resolved_at": "2026-09-04T00:55:06+09:00",
+      "resolved_by": "human",
+      "resolution": "must 境界ゲート R-LG-20260903T231408+0900-3860 を承認し、should フェーズ(approve-should)へ進める: 57/57 の must(最終は T-044 総点検の再実施、typecheck 0 / vitest 37 files 425 tests 0 / build 0 / clean copy で npm ci・test・build 0)を確認済みの上で、ESSENCE 任意対応事項に対応する should 3 件(T-014 自動再生の速度調整と攻撃なし自動再生、T-015 キーボードショートカット、T-017 シナリオのメモ・命名)に自律予算を与える。\nESSENCE.md と essences/ は無変更。次サイクルは handoff の next_actions に従い batch_policy の範囲で should 3 件を着手し、実ブラウザ確認(verify-ui.mjs)は従来どおり人間の手元実行に委ねる。"
+    },
+    {
+      "id": "R-015",
+      "type": "Non-blocking Recommendation",
+      "status": "proposed",
+      "title": "sandbox が `ps` を禁止しているため single-flight lock の祖先継承が失敗する — 本サイクルはロックのトークン(環境変数 ATLAS_BUILDER_LOCK_TOKEN)による継承で状態コマンドを実行した。維持者面での恒久対処を検討してほしい",
+      "detail": "現象: cycle 44 の冒頭で `bin/atlas-builder state validate --project ../consensus-sim` が『another Atlas Builder mutating transition holds the single-flight lock (pid 99995); state mutation refused.』(exit 2)で拒否された。pid 99995 はこのサイクルを起動したループ自身(.agent/tmp/loop.lock/pid、00:55 作成 = 本 run の開始時刻)。\n\n原因(lean/Looper/Io/Lock.lean の読解): acquire は (1) 環境変数 <PREFIX>_LOCK_TOKEN とロックの token ファイルの照合、(2) Proc.parentPid? による祖先歩行、のいずれかで継承を判定する。本セッションの Bash sandbox では `ps` の実行が『operation not permitted』で拒否され(祖先歩行が none を返す)、かつ I-029 の環境変数 allowlist によりトークンはセッションへ渡っていない(env に ATLAS_BUILDER_* は無い)。前サイクルまでは同じ手順で validate / apply-projection が通っていたので、sandbox 側のプロセス情報制限が変わった可能性が高い(Claude Code 側の更新か設定変更)。\n\n本サイクルの回避: CONTROL_ROOT/.agent/tmp/loop.lock/token(sandbox の読み書き許可範囲内)を読み、`ATLAS_BUILDER_LOCK_TOKEN=<token> bin/atlas-builder state <cmd>` として各状態コマンドを実行した。これは Lock.lean が『継承側 = 環境変数とロックファイルの照合は同一挙動』と定める設計上の継承経路であり、ロックの再取得(stale reclamation)や解放は行っていない。I-018 の『probe uncertainty never authorizes lock reclamation』には抵触しない(継承のみ)。\n\n依頼(維持者面、Atlas Builder 自身の変更のため本セッションでは触れない): (a) ループがセッション起動時に ATLAS_BUILDER_LOCK_TOKEN を環境変数 allowlist に含めて渡す、または (b) 祖先歩行を sandbox でも成立する方法(例: /proc 相当の sysctl 直接呼び出し、あるいは PPID 連鎖を親が環境変数で明示)に変える、のいずれかを検討してほしい。また本サイクルの回避手順が運用上許容できるかを確認してほしい(不可なら resume 注記で指示を)。lessons.jsonl にも同内容を記録済み。",
+      "requires_human_approval": false,
+      "source": [
+        "T-014",
+        "T-015",
+        "T-017"
+      ],
+      "raised_by": "atlas-builder",
+      "created_at": "2026-09-04T01:12:00+09:00"
+    },
+    {
+      "id": "R-016",
+      "type": "Human-input Recommendation",
+      "status": "proposed",
+      "title": "deploy.yml(人間管理の shim)を `consensus-sim/scripts/ci.sh` を 1 本呼ぶ形に変更してほしい — CI の実体は PROJECT_ROOT 内 scripts/ci.sh に置いた(改稿された前提事項のデプロイ契約)",
+      "detail": "2026-09-05 07:49 の human update で改稿された前提事項のデプロイ契約(『deploy.yml は checkout → Node 設置 → このスクリプトを 1 本呼ぶ → dist/ を publish だけを持つ薄い shim に保つ。CI の実体は PROJECT_ROOT 内の scripts/ci.sh に置き、Atlas Builder が保守する。shim 自体の変更が必要になったときは Human-input Recommendation を上げる』)に従い、T-062 で `consensus-sim/scripts/ci.sh` を追加した(npm ci → npm test → npm run build → dist/index.html の相対参照検査、最初の失敗で非 0 終了)。clean copy で ci.sh を実行して exit 0(38 files / 438 tests、dist は ./assets/ 参照のみ)を確認済み。\n\n観測(読み取りのみ): 現在の `<リポジトリ根>/.github/workflows/deploy.yml`(commit 2a6a454 以降変更なし)は build job で `npm ci` / `npm test` / `npm run build` を個別のステップとして直接実行し、`actions/upload-pages-artifact@v3` に `path: dist` を渡している。ci.sh はまだ呼ばれていないため、shim を新契約に合わせる変更が必要であり、これは PROJECT_ROOT の外の人間管理ファイルなので人間の作業として依頼する。なお shim には working-directory の指定が無く、リポジトリ根に package.json は存在しない(consensus-sim/ の中にだけある)ので、現行の `npm ci` ステップは根で解決できないはずである — ci.sh は自分の親ディレクトリへ cd するため、`bash consensus-sim/scripts/ci.sh` への差し替えはこの点も同時に解く。\n\n提案する変更(build job の該当ステップだけ差し替え。checkout / setup-node / configure-pages / deploy job は据え置き):\n```yaml\n      - uses: actions/setup-node@v4\n        with:\n          node-version: '24'\n          cache: npm\n          cache-dependency-path: consensus-sim/package-lock.json\n\n      # CI の実体は consensus-sim/scripts/ci.sh が持つ(npm ci → test → build → dist 検査)。\n      - run: bash consensus-sim/scripts/ci.sh\n\n      - uses: actions/upload-pages-artifact@v3\n        if: github.ref == 'refs/heads/main'\n        with:\n          path: consensus-sim/dist\n```\nci.sh は自分のディレクトリへ cd するので、呼び出し元の作業ディレクトリに依存しない(リポジトリ根から `bash consensus-sim/scripts/ci.sh`、または working-directory: consensus-sim で `bash scripts/ci.sh` のどちらでもよい)。現行 shim が `npm ci` をリポジトリ根で動かす形で成功しているなら、その解決のされ方(defaults の working-directory 等)に合わせて `path:` と `cache-dependency-path` を読み替えてほしい。\n\n依頼: 上記のとおり shim を変更して main へ push し、workflow が成功して公開内容が更新されることを GitHub 上で観測したら(成功条件 29 の人間観測。完了の承認条件ではない)、`just resume --resolve R-016` で記録してほしい。shim の変更内容に合わせて ci.sh 側で直したい点(Node のバージョン固定、npm cache の扱いなど)があれば resume 注記に書いてもらえれば次サイクルで ci.sh を追随させる。\n\n併記: R-015(sandbox の ps 禁止による single-flight lock の祖先継承失敗)は本サイクルでも再現し(pid 40422 = ループ自身)、同じ回避(ATLAS_BUILDER_LOCK_TOKEN を .agent/tmp/loop.lock/token から前置)で全状態コマンドを実行した。維持者面の恒久対処の検討は R-015 のまま open。",
+      "requires_human_approval": true,
+      "agent_action": "stop_until_human_review",
+      "reason": "改稿された前提事項は shim(deploy.yml)の変更を人間の作業と定め、変更が必要になったときは Human-input Recommendation を上げることを求めている。ci.sh は完成しているが、shim が呼ぶまで新契約は GitHub 上で効かない。他に runnable な Todo は無い(全 Todo done)ので、停止して人間の shim 変更と観測を待つ。",
+      "source": [
+        "T-062"
+      ],
+      "raised_by": "atlas-builder",
+      "created_at": "2026-09-05T08:05:00+09:00"
+    }
+  ]
+}

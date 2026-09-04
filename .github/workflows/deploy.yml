@@ -23,16 +23,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # The app is a workspace member, so the lock file is not at the root.
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
           cache: npm
+          cache-dependency-path: consensus-sim/package-lock.json
 
-      - run: npm ci
-
-      # `npm run build` runs tsc --noEmit first, so a type error fails here too.
-      - run: npm test
-      - run: npm run build
+      # What CI does — install, test, build, dist check — is decided by the
+      # script, not here. This job is only a shim around it.
+      - run: bash consensus-sim/scripts/ci.sh
 
       - uses: actions/configure-pages@v5
         if: github.ref == 'refs/heads/main'
@@ -40,7 +40,7 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         if: github.ref == 'refs/heads/main'
         with:
-          path: dist
+          path: consensus-sim/dist
 
   deploy:
     # Pull requests run the build for its signal but must not publish.

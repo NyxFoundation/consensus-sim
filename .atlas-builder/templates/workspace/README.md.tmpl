@@ -1,4 +1,4 @@
-# Atlas Builder Workspace — consensus-sim
+# Atlas Builder Workspace — __ATLAS_BUILDER_PROJECT_TITLE__
 
 Atlas Builder v1.0(Human-Essence-Driven Agentic Coding Framework)のワークスペースです。設計の正本は [.atlas-builder/META.md](.atlas-builder/META.md) を参照してください。
 
@@ -7,7 +7,7 @@ Atlas Builder v1.0(Human-Essence-Driven Agentic Coding Framework)のワークス
 ```text
 <workspace>/
 ├── .atlas-builder/                    # CONTROL_ROOT — Over-Project Agent の実行ルート(META.md はここ)
-└── consensus-sim/   # PROJECT_ROOT — 対象プロジェクト(In-Project Agent を含み得るが Atlas Builder は live 起動しない)
+└── __ATLAS_BUILDER_PROJECT_TITLE__/   # PROJECT_ROOT — 対象プロジェクト(In-Project Agent を含み得るが Atlas Builder は live 起動しない)
 ```
 
 ## 絶対規則
@@ -29,7 +29,7 @@ cd ./.atlas-builder && just loop
 
 ```bash
 # 1. 人間が Essence を書く/確認する(エージェントは絶対に編集しません)
-$EDITOR consensus-sim/ESSENCE.md
+$EDITOR __ATLAS_BUILDER_PROJECT_TITLE__/ESSENCE.md
 # (または対話起草: cd ./.atlas-builder && just trust && just new-essence — セッションの境界強制に
 #  trust が先に必要。クリティカルな要件から順に質問し、全文を確認(y)した場合のみ設置される。
 #  既存 Essence の途中改稿は just update-essence — 変更意図を最初に聞き、その範囲だけを改稿する。
@@ -73,8 +73,8 @@ just resume --resolve R-... --note "承認済み High-Risk 変更をレビュー
 just loop
 ```
 
-このワークスペースは `just init ../consensus-sim` で束縛・初期化済みです。別プロジェクトへ束縛し直すには `.atlas-builder/` 内で `just init ../<other> --force` を実行します。
+このワークスペースは `just init ../__ATLAS_BUILDER_PROJECT_TITLE__` で束縛・初期化済みです。別プロジェクトへ束縛し直すには `.atlas-builder/` 内で `just init ../<other> --force` を実行します。
 
-`just` が入っていない場合、人間は `.atlas-builder/` 内で対応する `bash scripts/*.sh --project ../consensus-sim` を直接実行できます。ただし loop / once / stop / watch / init / resume / triage / supervise / essence / trust / trust-check / doctor は入口の綴りによらず人間専用で、Agent session からの直接実行も hook が拒否します。Agent が実行できるのは settings と hook が明示許可する status/validation/state 操作だけです(META.md §18.2)。
+`just` が入っていない場合、人間は `.atlas-builder/` 内で対応する `bash scripts/*.sh --project ../__ATLAS_BUILDER_PROJECT_TITLE__` を直接実行できます。ただし loop / once / stop / watch / init / resume / triage / supervise / essence / trust / trust-check / doctor は入口の綴りによらず人間専用で、Agent session からの直接実行も hook が拒否します。Agent が実行できるのは settings と hook が明示許可する status/validation/state 操作だけです(META.md §18.2)。
 
 詳細な運用手順は [.atlas-builder/README.md](.atlas-builder/README.md) を参照してください。

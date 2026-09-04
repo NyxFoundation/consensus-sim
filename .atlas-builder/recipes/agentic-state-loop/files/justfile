@@ -1,0 +1,39 @@
+# agentic-state-loop — human-facing shortcuts. Merge these recipes into the
+# product's existing justfile if it already has one.
+#
+# NOTE: this file is a convenience layer for the human operator. The product's
+# agent keeps invoking `bash __ASL_LOOP_DIR__/scripts/*.sh` /
+# `__ASL_LOOP_DIR__/bin/asl-loop state` directly: permissions and the
+# guard hook match those exact command strings.
+
+set positional-arguments
+
+loop_dir := "__ASL_LOOP_DIR__"
+
+# List available recipes
+default:
+    @just --list
+
+# Run the continuous loop (default 25-cycle cap; set with `-n N` / `--max-cycles N`, e.g. `just loop -n 5`); each executed cycle creates one checkpoint commit
+loop *args:
+    bash {{loop_dir}}/scripts/loop.sh "$@"
+
+# Run exactly one cycle and create its checkpoint commit
+once:
+    bash {{loop_dir}}/scripts/once.sh
+
+# Human-only: release the latched gates with an intent note (--force also closes crashed runs)
+resume *args:
+    bash {{loop_dir}}/scripts/resume.sh "$@"
+
+# Human-readable state summary (computed from canonical state on demand)
+status:
+    bash {{loop_dir}}/scripts/status.sh
+
+# Build the asl-loop engine binary from the vendored Lean sources (elan/lake required; network only for the pinned toolchain download)
+engine-build:
+    cd {{loop_dir}}/lean && lake build && mkdir -p ../bin && install -m 755 .lake/build/bin/asl-loop ../bin/asl-loop && ../bin/asl-loop version
+
+# Run a state-engine command, e.g. `just state validate`
+state +args:
+    {{loop_dir}}/bin/asl-loop state "$@"

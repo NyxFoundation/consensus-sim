@@ -1,0 +1,28 @@
+# CONTROL_ROOT ignores — everything a BOUND control plane produces at runtime.
+#
+# Dev-tooling artifacts are NOT here: their subject is
+# Atlas Builder's own source, so they live with the rest of the dev tooling in the
+# framework repository's root .gitignore, outside this shipped directory
+# (META.md §18.4, §25, I-028).
+
+# Local Claude Code settings
+CLAUDE.local.md
+.claude/settings.local.json
+
+# Runtime logs
+.agent/runs/*
+!.agent/runs/.gitkeep
+.agent/tmp/*
+!.agent/tmp/.gitkeep
+.agent/state/tool_audit.jsonl
+.agent/state/control_runs.jsonl
+# Loop runtime signals: graceful-drain flag (§19.1-7) and display-only
+# heartbeat (§19.1-9) — never canonical, so a lingering file must not dirty
+# the I-014 clean-worktree check. The heartbeat glob also covers its
+# atomic-write remnant (loop.status.json.<pid>.tmp).
+.agent/state/loop.drain
+.agent/state/loop.status.json*
+
+# Lean ビルド成果物(just build が lean/.lake/build から生成し bin/ へ配置する)
+/bin/atlas-builder
+/lean/.lake/
