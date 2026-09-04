@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
-  "projected_from_essence_sha256": "e4c7a9938314dfb41d202a68865cceec544b386d501f585b255d52caa89cfcbe",
-  "projected_at": "2026-09-03T22:21:00+09:00",
+  "projected_from_essence_sha256": "85f13c1cc11ea6daa89b3ff2911041ec54010cda84c068de84f3c46c7377213d",
+  "projected_at": "2026-09-05T07:58:00+09:00",
   "items": [
     {
       "id": "S-001",
@@ -876,23 +876,28 @@
     },
     {
       "id": "S-049",
-      "title": "GitHub Pages デプロイ契約: 公開は人間が管理する <リポジトリ根>/.github/workflows/deploy.yml(PROJECT_ROOT の外、Atlas Builder は編集しない)による GitHub Actions 経由で、main への push ごとに consensus-sim/ で npm ci → npm test → npm run build を実行し、すべて成功したときだけ dist/ を公開する。Atlas Builder はこの契約(clean install で test・build が exit 0、dist/ が相対パス参照で自己完結)を壊さない。成功条件 29 の GitHub 上の観測は人間が行い完了の承認条件とはせず、Atlas Builder 側の裏づけは clean install での npm ci && npm test && npm run build の exit 0 と dist/ の相対参照の機械検査",
+      "title": "GitHub Pages デプロイ契約: 公開は <リポジトリ根>/.github/workflows/deploy.yml(PROJECT_ROOT の外の薄い shim — checkout → Node 設置 → consensus-sim/scripts/ci.sh を 1 本呼ぶ → dist/ を publish — で、Atlas Builder は読み書きできず人間が管理)による GitHub Actions 経由で、main への push ごとに consensus-sim/scripts/ci.sh を実行し、成功したときだけ consensus-sim/dist/ を公開する。CI の実体(依存導入・検査の種類と順序)は PROJECT_ROOT 内の scripts/ci.sh に置き、Atlas Builder がこれを保守して契約(clean install で test・build が exit 0、dist/ が相対パス参照で自己完結)を守る。shim 自体の変更が必要になったときは Human-input Recommendation を上げる。成功条件 29 の GitHub 上の観測は人間が行い完了の承認条件とはせず、Atlas Builder 側の裏づけは scripts/ci.sh を clean install 状態で実行して exit 0 で終わること、および生成された dist/ が相対パス参照で自己完結することの機械検査",
       "status": "active",
       "priority": "must",
       "essence_refs": [
-        "公開は `<リポジトリ根>/.github/workflows/deploy.yml`(人間が管理する。PROJECT_ROOT",
-        "の外にあり、Atlas Builder は編集しない)による GitHub Actions 経由の GitHub Pages",
-        "デプロイで、main への push ごとに `consensus-sim/` で `npm ci` → `npm test` →",
-        "`npm run build` を実行し、すべて成功したときだけ `dist/` を公開する。Atlas Builder は",
-        "この契約 — clean install で test・build が exit 0 で終わり、`dist/` が相対パス参照で",
-        "自己完結する — を壊さない。",
+        "公開は `<リポジトリ根>/.github/workflows/deploy.yml` による GitHub Actions 経由の",
+        "GitHub Pages デプロイで、main への push ごとに `consensus-sim/scripts/ci.sh` を実行し、",
+        "成功したときだけ `consensus-sim/dist/` を公開する。deploy.yml は「checkout → Node 設置",
+        "→ このスクリプトを 1 本呼ぶ → dist/ を publish」だけを持つ薄い shim に保つ。PROJECT_ROOT",
+        "の外にあるため Atlas Builder は shim を読み書きできず(サンドボックス境界)、人間が管理",
+        "する。CI の実体 — 依存導入・検査の種類と順序 — は PROJECT_ROOT 内の `scripts/ci.sh` に",
+        "置き、Atlas Builder がこれを保守して契約 — clean install で test・build が exit 0 で",
+        "終わり、`dist/` が相対パス参照で自己完結する — を守る。shim 自体の変更が必要になった",
+        "ときは Human-input Recommendation を上げる。",
         "main に push すると deploy workflow が成功で終わり、",
         "`https://nyxfoundation.github.io/consensus-sim/` を開くとその push の内容が表示される。",
         "テストまたはビルドが失敗する commit では workflow が失敗で終わり、公開中の内容は",
         "直前の成功版のまま変わらない。この観測は人間が GitHub 上で行い、完了の承認条件とは",
-        "しない。Atlas Builder 側の裏づけは前提事項のデプロイ契約の機械検査(clean install での",
-        "`npm ci && npm test && npm run build` の exit 0 と `dist/` の相対参照)とする。"
-      ]
+        "しない。Atlas Builder 側の裏づけは `consensus-sim/scripts/ci.sh` を clean install 状態で",
+        "実行して exit 0 で終わること、および生成された `dist/` が相対パス参照で自己完結する",
+        "ことの機械検査とする。"
+      ],
+      "updated_at": "2026-09-05T07:58:00+09:00"
     }
   ]
 }

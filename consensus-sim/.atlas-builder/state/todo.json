@@ -2483,6 +2483,48 @@
         }
       ],
       "updated_at": "2026-09-03T22:34:00+09:00"
+    },
+    {
+      "id": "T-062",
+      "title": "CI の実体を PROJECT_ROOT 内 scripts/ci.sh に置く(改稿された前提事項のデプロイ契約・成功条件 29): 依存導入(npm ci)→ テスト → ビルド → dist/ の相対参照検査を 1 本のスクリプトにまとめ、clean install 状態の複製で実行して exit 0 を確認し、README の Deploying 節と総点検記録(項目 (14))を新契約に合わせる。shim(deploy.yml)が ci.sh を呼ぶ形への変更は人間管理のため Human-input Recommendation で依頼する",
+      "status": "done",
+      "priority": "must",
+      "spec": [
+        "S-049",
+        "S-014"
+      ],
+      "executor": {
+        "mode": "atlas-builder"
+      },
+      "batch_group": "e7-deploy",
+      "context_cost": 2,
+      "risk_level": "normal",
+      "notes": "2026-09-05 07:49 の human update(steering)で改稿された前提事項のデプロイ契約と成功条件 29 の投影。scripts/ci.sh は高リスク領域のパターン(scripts/*agent* / *claude* / *loop* / *autonomous*、.github/workflows/**)に該当しない通常の実装ファイル。live の node_modules を消さないよう、契約の検査は $TMPDIR の clean copy で ci.sh 自体を実行して行う。 → cycle 45: 完了。scripts/ci.sh を追加し clean copy で ci.sh 自体を実行して exit 0。README Deploying 節・INSPECTION 項目 (14) を新契約へ。shim の変更は R-016 で人間に依頼。",
+      "evidence": [
+        {
+          "type": "diff",
+          "summary": "New scripts/ci.sh (executable, bash, set -euo pipefail, cd to its own project dir): npm ci → npm test → npm run build → dist/index.html self-containment check (fails on any src=/href= starting with '/' or a URL scheme, and on a bundle without ./assets/ references); header comment states the shim/ci.sh split and how to reproduce locally. README 'Deploying to GitHub Pages' rewritten to the new contract (thin shim calls bash scripts/ci.sh; the script is the whole of CI; the directory's obligation is that ci.sh exits 0 from a clean install). docs/INSPECTION.md item (14) carries a dated addendum recording the contract change and the shim request. No high-risk path touched (scripts/ci.sh matches none of the agent-runtime patterns; deploy.yml is outside PROJECT_ROOT and untouched)."
+        },
+        {
+          "type": "command",
+          "command": "cd $CLEAN && npm_config_cache=$TMPDIR/npm-cache bash scripts/ci.sh  (CLEAN = mktemp -d copy of package.json / package-lock.json / tsconfig.json / vite.config.ts / index.html / README.md / src / tests / scripts / docs — no node_modules, no dist)",
+          "exit_code": 0,
+          "summary": "The deploy contract as the Essence now states it: scripts/ci.sh itself, run from a clean install, exits 0 — npm ci added 95 packages from the lockfile; vitest 38 files / 438 tests passed; tsc + vite build succeeded (built in 423ms); the script's own dist check printed 'ok: dist/index.html references assets by relative path only' (the two references are src=\"./assets/index-*.js\" and href=\"./assets/index-*.css\")."
+        },
+        {
+          "type": "command",
+          "command": "grep -Eq '(src|href)=\"(/|[a-zA-Z][a-zA-Z0-9+.-]*:)' <synthetic index with src=\"/assets/a.js\">; same with src=\"https://cdn.example/a.js\"",
+          "exit_code": 0,
+          "summary": "Negative check of the self-containment rule: an absolute path and a scheme URL are both detected (the pattern that makes ci.sh exit 1), so the check is not vacuous."
+        },
+        {
+          "type": "command",
+          "command": "npm run typecheck; npx vitest run  (live tree, after the README / INSPECTION edits)",
+          "exit_code": 0,
+          "summary": "tsc --noEmit exit 0; vitest 38 files / 438 tests exit 0 — unchanged from cycle 44 (no source change this cycle)."
+        }
+      ],
+      "updated_at": "2026-09-05T08:05:00+09:00"
     }
   ]
 }

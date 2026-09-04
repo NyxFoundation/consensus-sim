@@ -332,6 +332,13 @@
     `npm ci` → `npm test` → `npm run build` がすべて exit 0、`dist/index.html` の
     参照は `./assets/` のみ(`vite.config.ts` の `base: './'`)。README の
     Deploying 節は人間管理の `deploy.yml` の契約を記述している。
+    追記(2026-09-05、契約の改稿): CI の実体を `scripts/ci.sh`(npm ci →
+    npm test → npm run build → `dist/index.html` の相対参照検査、最初の失敗で
+    非 0 終了)に置き、`deploy.yml` は「checkout → Node 設置 → このスクリプトを
+    1 本呼ぶ → dist/ を publish」の薄い shim とする。検査は clean copy で
+    `scripts/ci.sh` 自体を実行して exit 0 を確認する形に改め、README の
+    Deploying 節も同じ契約に書き直した。shim を `scripts/ci.sh` 呼び出しに
+    変える作業は人間管理のため、依頼を記録した(shim は PROJECT_ROOT の外)。
 
 発見した問題と対処(上記以外):
 

@@ -394,21 +394,23 @@ interactions headlessly and runs in `npm test`.
 
 The site is published at `https://nyxfoundation.github.io/consensus-sim/`
 by a GitHub Actions workflow kept at the repository root
-(`.github/workflows/deploy.yml`, outside this directory). On every push to
-`main` it runs, inside `consensus-sim/`:
+(`.github/workflows/deploy.yml`, outside this directory). That workflow is a
+thin shim — check the repository out, install Node, run one script,
+publish `dist/` — and the script is this directory's own:
 
 ```bash
-npm ci
-npm test
-npm run build
+bash scripts/ci.sh
 ```
 
-and publishes `dist/` only when all three succeed — a commit whose tests or
+`scripts/ci.sh` is the whole of CI: a clean install from the lockfile
+(`npm ci`), `npm test`, `npm run build`, and a check that the emitted
+`dist/index.html` references its assets only by relative path (`base: './'`
+in `vite.config.ts`), so the bundle works from the project subpath (or any
+other). It stops at the first failure with a non-zero exit, and the
+workflow publishes `dist/` only when it exits 0 — a commit whose tests or
 build fail leaves the previously published version in place. The contract
-this directory keeps is therefore: a clean install passes `npm test` and
-`npm run build` with exit 0, and `npm run build` emits a fully static
-`dist/` whose asset references are relative (`base: './'` in
-`vite.config.ts`), so the bundle works from the project subpath (or any
-other). To check the contract locally, run the three commands above in a
-fresh clone. No server-side configuration is involved; the app is a plain
-static SPA with browser-local persistence only.
+this directory keeps is therefore that `scripts/ci.sh` exits 0 from a clean
+install; to check it locally, run the script in a fresh clone (or a copy
+without `node_modules/`, which `npm ci` replaces wholesale). No server-side
+configuration is involved; the app is a plain static SPA with browser-local
+persistence only.

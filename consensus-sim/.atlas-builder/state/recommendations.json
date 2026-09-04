@@ -368,6 +368,21 @@
       ],
       "raised_by": "atlas-builder",
       "created_at": "2026-09-04T01:12:00+09:00"
+    },
+    {
+      "id": "R-016",
+      "type": "Human-input Recommendation",
+      "status": "proposed",
+      "title": "deploy.yml(人間管理の shim)を `consensus-sim/scripts/ci.sh` を 1 本呼ぶ形に変更してほしい — CI の実体は PROJECT_ROOT 内 scripts/ci.sh に置いた(改稿された前提事項のデプロイ契約)",
+      "detail": "2026-09-05 07:49 の human update で改稿された前提事項のデプロイ契約(『deploy.yml は checkout → Node 設置 → このスクリプトを 1 本呼ぶ → dist/ を publish だけを持つ薄い shim に保つ。CI の実体は PROJECT_ROOT 内の scripts/ci.sh に置き、Atlas Builder が保守する。shim 自体の変更が必要になったときは Human-input Recommendation を上げる』)に従い、T-062 で `consensus-sim/scripts/ci.sh` を追加した(npm ci → npm test → npm run build → dist/index.html の相対参照検査、最初の失敗で非 0 終了)。clean copy で ci.sh を実行して exit 0(38 files / 438 tests、dist は ./assets/ 参照のみ)を確認済み。\n\n観測(読み取りのみ): 現在の `<リポジトリ根>/.github/workflows/deploy.yml`(commit 2a6a454 以降変更なし)は build job で `npm ci` / `npm test` / `npm run build` を個別のステップとして直接実行し、`actions/upload-pages-artifact@v3` に `path: dist` を渡している。ci.sh はまだ呼ばれていないため、shim を新契約に合わせる変更が必要であり、これは PROJECT_ROOT の外の人間管理ファイルなので人間の作業として依頼する。なお shim には working-directory の指定が無く、リポジトリ根に package.json は存在しない(consensus-sim/ の中にだけある)ので、現行の `npm ci` ステップは根で解決できないはずである — ci.sh は自分の親ディレクトリへ cd するため、`bash consensus-sim/scripts/ci.sh` への差し替えはこの点も同時に解く。\n\n提案する変更(build job の該当ステップだけ差し替え。checkout / setup-node / configure-pages / deploy job は据え置き):\n```yaml\n      - uses: actions/setup-node@v4\n        with:\n          node-version: '24'\n          cache: npm\n          cache-dependency-path: consensus-sim/package-lock.json\n\n      # CI の実体は consensus-sim/scripts/ci.sh が持つ(npm ci → test → build → dist 検査)。\n      - run: bash consensus-sim/scripts/ci.sh\n\n      - uses: actions/upload-pages-artifact@v3\n        if: github.ref == 'refs/heads/main'\n        with:\n          path: consensus-sim/dist\n```\nci.sh は自分のディレクトリへ cd するので、呼び出し元の作業ディレクトリに依存しない(リポジトリ根から `bash consensus-sim/scripts/ci.sh`、または working-directory: consensus-sim で `bash scripts/ci.sh` のどちらでもよい)。現行 shim が `npm ci` をリポジトリ根で動かす形で成功しているなら、その解決のされ方(defaults の working-directory 等)に合わせて `path:` と `cache-dependency-path` を読み替えてほしい。\n\n依頼: 上記のとおり shim を変更して main へ push し、workflow が成功して公開内容が更新されることを GitHub 上で観測したら(成功条件 29 の人間観測。完了の承認条件ではない)、`just resume --resolve R-016` で記録してほしい。shim の変更内容に合わせて ci.sh 側で直したい点(Node のバージョン固定、npm cache の扱いなど)があれば resume 注記に書いてもらえれば次サイクルで ci.sh を追随させる。\n\n併記: R-015(sandbox の ps 禁止による single-flight lock の祖先継承失敗)は本サイクルでも再現し(pid 40422 = ループ自身)、同じ回避(ATLAS_BUILDER_LOCK_TOKEN を .agent/tmp/loop.lock/token から前置)で全状態コマンドを実行した。維持者面の恒久対処の検討は R-015 のまま open。",
+      "requires_human_approval": true,
+      "agent_action": "stop_until_human_review",
+      "reason": "改稿された前提事項は shim(deploy.yml)の変更を人間の作業と定め、変更が必要になったときは Human-input Recommendation を上げることを求めている。ci.sh は完成しているが、shim が呼ぶまで新契約は GitHub 上で効かない。他に runnable な Todo は無い(全 Todo done)ので、停止して人間の shim 変更と観測を待つ。",
+      "source": [
+        "T-062"
+      ],
+      "raised_by": "atlas-builder",
+      "created_at": "2026-09-05T08:05:00+09:00"
     }
   ]
 }

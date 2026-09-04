@@ -6,11 +6,11 @@
     "stop_after_infra_fails": 2
   },
   "progress": {
-    "last_signature": "9ff6e57db299ab02fdeedfdeec61c295282b168aaff0a6fa3f07bfb2f474ed81",
+    "last_signature": "5519c7fb31e85aba69696e25ff7dfc809ec699223a53d752df8937b520615abd",
     "idle_cycles_since_progress": 0,
     "infra_fails_since_ok": 0,
-    "last_progress_at": "2026-09-04T01:16:32+09:00",
-    "last_checked_at": "2026-09-04T01:16:32+09:00",
+    "last_progress_at": "2026-09-05T07:56:16+09:00",
+    "last_checked_at": "2026-09-05T07:56:16+09:00",
     "usage_limited_since_ok": 0
   },
   "reset_policy": {
@@ -21,21 +21,22 @@
     "reset_after_decisions": 5
   },
   "counters": {
-    "context_usage_estimate": 0.3,
+    "context_usage_estimate": 0.35,
     "failed_attempts_since_reset": 0,
-    "changed_files_since_reset": 17,
-    "completed_todos_since_reset": 3,
-    "important_decisions_since_reset": 3,
+    "changed_files_since_reset": 20,
+    "completed_todos_since_reset": 4,
+    "important_decisions_since_reset": 4,
     "major_spec_rewrite_since_reset": false,
     "high_risk_change_completed": false
   },
   "handoff": {
-    "written_at": "2026-09-04T01:14:00+09:00",
-    "summary": "cycle 44(should フェーズ初回): 残っていた should 3 件 T-014 / T-015 / T-017 を 1 バッチ(phase6-optional、context_cost 6 ≤ 8)で done。これで must 57 + should 3 = 全 60 Todo と全 Spec が done。(1) T-014 自動再生: 速度 ×0.5 / ×1 / ×2(1200 / 600 / 300 ms、セッション状態)を PlayControl の Segmented で、攻撃なしのシナリオでも『自動再生』で開始位置から FREE_PLAY_SPAN = 16 スロット進んで停止(再度押すと続き)、停止判定は playEnd に一本化。(2) T-015 ショートカット: src/ui/shortcuts.ts の useShortcuts(← → Home End Space N、ScenarioPanel の S)、入力欄・修飾キー・ボタン上の Space では無効、チェーン表示ページのみ、aria-keyshortcuts とスロットバーの ⓘ で発見性を確保。(3) T-017 命名・メモ: UI 層の scenarioStore に name / note(任意、空白は欠落、文字列以外は無視、codec の version 据え置き)、保存フォーム(新部品 TextField / TextArea)と一覧の名前 / 要約 / メモ(data-quoted)、保存後の『編集』。ゲート: typecheck 0 / vitest 38 files 438 tests 0(+13)/ build 0 / clean copy で npm ci・test・build 0、dist は ./assets/ 参照のみ。README と verify-ui.mjs(実機検査 8 件追記、sandbox では実行不可)を更新。\n運用上の発見: sandbox が `ps` を禁止しており single-flight lock の祖先継承が失敗した(validate が pid 99995 = ループ自身の保持で拒否)。.agent/tmp/loop.lock/token を ATLAS_BUILDER_LOCK_TOKEN として渡す設計上の継承経路で全状態コマンドを実行し、R-015(Non-blocking)と lessons に記録した。",
+    "written_at": "2026-09-05T08:05:00+09:00",
+    "summary": "cycle 45: 人間の steering update(2026-09-05 07:49、attest 済み)でデプロイ契約が『deploy.yml は薄い shim、CI の実体は PROJECT_ROOT 内 scripts/ci.sh』に改稿されたので、S-049 を再投影(essence_refs 16 行を新文面に、projected_from_essence_sha256 = 85f13c1c…)し、新 Todo T-062 を単独バッチで done にした: scripts/ci.sh 新設(npm ci → npm test → npm run build → dist/index.html の相対参照検査)、$TMPDIR の clean copy で ci.sh 自体が exit 0(38 files / 438 tests、dist は ./assets/ のみ)、README Deploying 節と docs/INSPECTION.md 項目 (14) を新契約へ。全 Todo(must 58 + should 3)と全 Spec が done。\n現行の deploy.yml(リポジトリ根、人間管理、読み取りのみ)は npm ci / test / build を直接実行し ci.sh を呼んでいない(しかも working-directory 指定が無く根に package.json が無い)ため、前提事項の定めどおり R-016(Human-input、stop_until_human_review)で『bash consensus-sim/scripts/ci.sh を 1 本呼ぶ shim』への変更を提案 YAML 付きで依頼して停止した。\n運用: R-015 のロック祖先継承失敗が再現(pid = ループ自身)。ATLAS_BUILDER_LOCK_TOKEN 前置で全状態コマンドを実行した。守衛フックは rsync --exclude や python ヒアドキュメント中の ESSENCE.md / essences / 状態ファイル名にも反応する — clean copy は cp で対象を列挙して作り、状態の読み取りは jq で行う。",
     "next_actions": [
-      "全 Todo(must 57 / should 3)が done なので自律作業は残っていない。ループの should-complete / 完了判定に従う。人間が ESSENCE を改訂して resume したら、ESSENCE を再読して Spec/Todo を再投影する(その際 projected_from_essence_sha256 を新しいハッシュで更新)。",
-      "人間の手元での実ブラウザ確認: `npm run build && node scripts/verify-ui.mjs`(攻撃なし自動再生 ×2 → 一時停止、N / ← キー、入力欄内の S は無効・外では名前とメモ付き保存、の 8 check を今回追記済み)。失敗する check があれば次サイクルで対処する。",
-      "R-015(sandbox の ps 禁止によるロック祖先継承の失敗)の人間判断を待つ。次サイクルでも validate / apply-projection が同じ理由で拒否されるなら、`ATLAS_BUILDER_LOCK_TOKEN=$(cat .agent/tmp/loop.lock/token)` を前置して実行する(ロックの再取得・解放はしない)。"
+      "R-016 の解決(人間が shim を ci.sh 呼び出しへ変更して push・観測)を待つ。resume 注記に ci.sh 側の修正指示(Node 版固定・npm cache など)があれば T-062 の追補として ci.sh を直し、clean copy で `bash scripts/ci.sh` を再実行して exit 0 を evidence にする。指示が無ければ自律作業は残っていない — ループの完了判定に従う。",
+      "ESSENCE がさらに改訂されて resume されたら、validate の drift 警告を起点に該当 Spec の essence_refs を stage-projection → jq フィルタ → apply-projection で再投影する(attest 済みハッシュは reflection.jsonl 末尾の human_resume エントリの essence_sha256 から読める — Bash で ESSENCE.md を直接 shasum すると守衛に拒否される)。",
+      "人間の手元での実ブラウザ確認: `npm run build && node scripts/verify-ui.mjs`(cycle 44 で追記した任意事項の 8 check を含む)。失敗する check があれば次サイクルで対処する。",
+      "R-015(sandbox の ps 禁止によるロック祖先継承の失敗)は open のまま。次サイクルでも validate / apply-projection が拒否されるなら `ATLAS_BUILDER_LOCK_TOKEN=$(cat .agent/tmp/loop.lock/token)` を前置して実行する(ロックの再取得・解放はしない)。"
     ],
     "open_questions": [],
     "pending_cycle": false
