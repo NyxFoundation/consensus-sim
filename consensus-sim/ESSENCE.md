@@ -81,12 +81,15 @@ unrealized justification)・スラッシング・inactivity leak)も含めて �
 - 技術スタックの選定は Atlas Builder の裁量に任せる(描画方式も含む。ただし
   ドメイン層を TypeScript で書くことは必須対応事項 20 の前提である)。
 - バックエンドなしの静的 SPA を維持し、GitHub Pages で公開する。UI テキストは日本語。
-- 公開は `<リポジトリ根>/.github/workflows/deploy.yml`(人間が管理する。PROJECT_ROOT
-  の外にあり、Atlas Builder は編集しない)による GitHub Actions 経由の GitHub Pages
-  デプロイで、main への push ごとに `consensus-sim/` で `npm ci` → `npm test` →
-  `npm run build` を実行し、すべて成功したときだけ `dist/` を公開する。Atlas Builder は
-  この契約 — clean install で test・build が exit 0 で終わり、`dist/` が相対パス参照で
-  自己完結する — を壊さない。
+- 公開は `<リポジトリ根>/.github/workflows/deploy.yml` による GitHub Actions 経由の
+  GitHub Pages デプロイで、main への push ごとに `consensus-sim/scripts/ci.sh` を実行し、
+  成功したときだけ `consensus-sim/dist/` を公開する。deploy.yml は「checkout → Node 設置
+  → このスクリプトを 1 本呼ぶ → dist/ を publish」だけを持つ薄い shim に保つ。PROJECT_ROOT
+  の外にあるため Atlas Builder は shim を読み書きできず(サンドボックス境界)、人間が管理
+  する。CI の実体 — 依存導入・検査の種類と順序 — は PROJECT_ROOT 内の `scripts/ci.sh` に
+  置き、Atlas Builder がこれを保守して契約 — clean install で test・build が exit 0 で
+  終わり、`dist/` が相対パス参照で自己完結する — を守る。shim 自体の変更が必要になった
+  ときは Human-input Recommendation を上げる。
 - UI のデザイン方針 — 「計器(instrument)」: 研究計器としての固有の顔を持ち、
   開いた瞬間に構造が読める分析画面とする。
   - 主役はチェーン表示と状態表である。標準的な PC の画面幅の初期表示で、スクロール
@@ -328,8 +331,9 @@ profile: auto-approve
     `https://nyxfoundation.github.io/consensus-sim/` を開くとその push の内容が表示される。
     テストまたはビルドが失敗する commit では workflow が失敗で終わり、公開中の内容は
     直前の成功版のまま変わらない。この観測は人間が GitHub 上で行い、完了の承認条件とは
-    しない。Atlas Builder 側の裏づけは前提事項のデプロイ契約の機械検査(clean install での
-    `npm ci && npm test && npm run build` の exit 0 と `dist/` の相対参照)とする。
+    しない。Atlas Builder 側の裏づけは `consensus-sim/scripts/ci.sh` を clean install 状態で
+    実行して exit 0 で終わること、および生成された `dist/` が相対パス参照で自己完結する
+    ことの機械検査とする。
 
 ## 必須対応事項
 
