@@ -2,8 +2,8 @@
 # Continuous-integration entry point for consensus-sim.
 #
 # The GitHub Pages workflow at the repository root is a thin shim: it checks
-# the repository out, installs Node and calls this script once from
-# consensus-sim/, then publishes dist/ only if the script exited 0. What CI
+# the repository out, installs Node and calls this script once from the
+# repository root, then publishes dist/ only if the script exited 0. What CI
 # actually does — the dependency install and the checks, in this order — is
 # decided here:
 #
@@ -19,7 +19,7 @@
 # is what keeps a broken commit from being published. It has no arguments and
 # no environment requirements beyond Node and npm; run it from anywhere:
 #
-#   bash consensus-sim/scripts/ci.sh
+#   bash scripts/ci.sh
 #
 # To reproduce the deploy contract locally, run it in a fresh clone (or a
 # copy without node_modules/) — `npm ci` replaces node_modules/ wholesale.

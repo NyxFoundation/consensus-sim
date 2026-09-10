@@ -13,7 +13,7 @@ consensus-sim は、コンセンサスアルゴリズムの本質を私自身が
 
 ## 実現する状態
 
-C1〜C32 の番号は旧正本 ESSENCE.md の必須対応事項 1〜32 と同じで、旧「成功条件」は対応する条件の検証に畳んである(対応表は「前提」の末尾)。C33 は旧デプロイ契約と成功条件 29、C34〜C36 は旧 任意対応事項。検証はこのディレクトリで実行する。
+C1〜C32 の番号は旧正本 ESSENCE.md の必須対応事項 1〜32 と同じで、旧「成功条件」は対応する条件の検証に畳んである(対応表は「前提」の末尾)。C33 は旧デプロイ契約と成功条件 29、C34〜C36 は旧 任意対応事項。検証はリポジトリの根で実行する。
 
 ### 必須
 
@@ -78,8 +78,8 @@ C1〜C32 の番号は旧正本 ESSENCE.md の必須対応事項 1〜32 と同じ
 - 技術スタック: TypeScript、React + Vite の静的 SPA(バックエンドなし)。テストは vitest(DOM は jsdom)。UI テキストは日本語。描画方式(現行は SVG + React)を含む技術選定は裁量だが、ドメイン層を TypeScript で書くことは C20 の前提。
 - 既存の M1 実装は捨ててゼロから書き直した(互換性の維持は不要)。C1〜C36 は Atlas Builder 時代にすべて実装・検証済みの状態から IDD の周回を始める。
 - コマンド: `npm test`(= `vitest run`)、`npm run build`(= `tsc --noEmit && vite build`)、`npm run typecheck`、`npm run dev`(人間の手元用)。`bash scripts/ci.sh` は `npm ci` で作業木の `node_modules/` を置き換えるので clean copy でだけ実行する。
-- 配置: このディレクトリ(`consensus-sim/`)が IDD の PROJECT_ROOT で、Git リポジトリのサブディレクトリ。周回の commit と巻き戻しはこの範囲に限られる。リポジトリ根の `.github/workflows/deploy.yml` と `README.md` は人間が管理する。
-- 公開: リポジトリ根の deploy.yml による GitHub Actions 経由の GitHub Pages(`https://nyxfoundation.github.io/consensus-sim/`)。main への push ごとに `consensus-sim/scripts/ci.sh` を実行し、成功したときだけ `consensus-sim/dist/` を公開する。deploy.yml は「checkout → Node 設置 → このスクリプトを 1 本呼ぶ → dist/ を publish」だけの薄い shim。CI の実体(依存導入・検査の種類と順序)は `scripts/ci.sh` に置き、周回が保守する。失敗する commit では workflow が失敗し公開内容は直前の成功版のまま。workflow と公開内容の観測は人間が GitHub 上で行い、完了の承認条件とはしない。
+- 配置: このリポジトリの根が IDD の PROJECT_ROOT(`IDEAL.md`・`.idd/`・`package.json` が同じ階層にある)。`.github/workflows/deploy.yml` は人間が管理し、周回は読み書きしない。
+- 公開: `.github/workflows/deploy.yml` による GitHub Actions 経由の GitHub Pages(`https://nyxfoundation.github.io/consensus-sim/`)。main への push ごとに `scripts/ci.sh` を実行し、成功したときだけ `dist/` を公開する。deploy.yml は「checkout → Node 設置 → このスクリプトを 1 本呼ぶ → dist/ を publish」だけの薄い shim。CI の実体(依存導入・検査の種類と順序)は `scripts/ci.sh` に置き、周回が保守する。失敗する commit では workflow が失敗し公開内容は直前の成功版のまま。workflow と公開内容の観測は人間が GitHub 上で行い、完了の承認条件とはしない。
 - 実ブラウザ: 周回の環境からはブラウザを起動できない前提で、UI の検証は vitest + jsdom で行う。`scripts/verify-ui.mjs`(`npx playwright install chromium` の後 `npm run build && node scripts/verify-ui.mjs`)は人間の手元で実行する実機検査で、代表視口での面積比・部品・常駐説明文・テーマ・書体を測る。
 - 人間の承認済み事項: 型一覧ページの再レイアウト(C8)と UI 刷新(C30)は Atlas Builder 時代に人間が実ブラウザで確認して承認した(旧 Todo T-051・T-058)。現行の見た目・情報設計を変えない限り再承認は不要。
 - UI のデザイン方針「計器(instrument)」: 研究計器としての固有の顔を持ち、開いた瞬間に構造が読める分析画面。主役はチェーン表示と状態表で、ブロック木は分岐・justified/finalized・head の移動が図として読める大きさで描き、操作系(プロトコルパラメータ・介入・シナリオ)は主役より小さい操作盤に集約する(型一覧ページは C8 の独自レイアウト)。フォーム部品はアプリ自身の統一部品(`src/ui/components/`)。説明文はホバー/ⓘ の要求時表示に退避し、操作の自明さは部品と配置で担保する。色・余白・文字サイズ・書体は単一のデザイントークン(`src/ui/tokens.css`)に集約し、余白と文字サイズは 4/8px の倍数と 3〜4 段の文字階層に従う。書体は意図して選定した 1 組を日本語・英語・等幅(数値・ID・時刻・コード的情報)の 3 用途に割り当て、外部フォントサービスに依存しない。色は無彩色の地に意味を持つ色(justified/finalized・攻撃者・バリデータ識別・差分強調)だけを置く。テーマは OS 設定に追従するライト/ダークを既定とし手動切替で上書きできる。情報設計の再編(パネル配置・操作盤の位置・折り畳み)は C6〜C8 の範囲内で周回が自律で行ってよいが、承認済みの見た目を変える再編は ask で再承認を得る。
