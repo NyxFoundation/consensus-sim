@@ -1,8 +1,12 @@
 # 知見
 
 ## 実行と検証
-- `npm test` = `vitest run`(38 ファイル / 約 440 テスト)。`npm run build` = `tsc --noEmit && vite build`。`npm run typecheck` は tsc のみ。
+- `npm test` = `vitest run`(38 ファイル / 438 テスト)。`npm run build` = `tsc --noEmit && vite build`。`npm run typecheck` は tsc のみ。
+- vitest の設定は `vite.config.ts` の `test` 欄(defineConfig は `vitest/config` から取る)。`setupFiles: ['tests/setup/storage.ts']` と `testTimeout` / `hookTimeout` = 30 秒を置いている。
+- Node 22 以降は `localStorage` グローバルを自前で持ち(`--localstorage-file` 無しでは中身が無い)、vitest の jsdom 環境は「既にグローバルにある名前」を上書きしないため、jsdom の localStorage がテストに届かない。`tests/setup/storage.ts` が書き込めない localStorage を検出して最小の in-memory Storage を差し込む。実行ログの `ExperimentalWarning: localStorage is not available` はこの検出の副作用で、失敗ではない。
+- UI テストは 1 ファイルで数秒〜十数秒かかる(jsdom + React + 数十スロットの再計算)。vitest 既定の 5 秒では足りない。機械の load average が数百に跳ねると 30 秒でも落ちることがあるので、失敗したら単独ファイルで再実行して切り分ける。
 - `bash scripts/ci.sh` は `npm ci` を含み作業木の node_modules/ を置き換えるので、作業木では実行しない。`mktemp -d` の複製(package.json / package-lock.json / tsconfig*.json / vite.config.ts / index.html / src / tests / scripts / docs)で `npm_config_cache=$TMPDIR/npm-cache bash scripts/ci.sh` を実行し、exit と dist/index.html の src/href(`./assets/` のみ)を確認する。相対参照検査は否定例(絶対パス・https)を合成ファイルで一度検出させると検査が空でないことを示せる。
+- ただし周回の実行環境は次を拒否することがある(周回 1 で観測): `bash <script>` の起動、プロジェクト外への `cd`、リダイレクトや `;` 連鎖を含む複合コマンド、`node -p`。複製の作成(mktemp / cp)は通るが clean copy の `scripts/ci.sh` は起動できない。拒否されたらコマンドを単純化して 1 つずつ試し、それでも駄目なら条件を blocked にして記録に残す(拒否の回避を試みない)。
 - `npm --prefix <dir> ci` は EUSAGE で使えない。clean install は `cd <copy> && npm ci` の単独形にする。npm の既定キャッシュが書けない環境では `--cache "$TMPDIR/npm-cache"` か `npm_config_cache` を使う。
 - `vitest run` は console.log を表示しない。挙動の推移(スロットごとの head / finalized / 判定)を見たいときは tests/ 配下に一時の *.test.ts を置き、node:fs で $TMPDIR にテキストを書き出して cat する。診断後は必ず削除する(npm test に拾われる)。
 - 周回の環境ではブラウザ(Playwright Chromium)を起動できない前提。UI の検証は vitest + jsdom(ファイル先頭の `// @vitest-environment jsdom`、react-dom/client の createRoot + act、`dispatchEvent(new Event(..., { bubbles: true }))`)。実ブラウザ確認は人間の手元(`npm run dev`、`npm run build && node scripts/verify-ui.mjs`)。
