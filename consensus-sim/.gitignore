@@ -8,9 +8,6 @@ config/credentials.json
 CLAUDE.local.md
 .claude/settings.local.json
 
-# Atlas Builder runtime
-.atlas-builder/tmp/
-
 # Common build outputs
 node_modules/
 dist/

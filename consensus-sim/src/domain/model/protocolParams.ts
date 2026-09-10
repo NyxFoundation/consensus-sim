@@ -1,5 +1,5 @@
 // プロトコルパラメータとプロトコルプリセット。
-// ESSENCE.md の参照型:
+// IDEAL.md の参照型:
 //   ProtocolParams = {committee, boost, forkChoice, equivocationDiscount,
 //                     checkpointSwitch: {window, unrealized}, slashing,
 //                     inactivityLeak: {delayEpochs, rate} | off}

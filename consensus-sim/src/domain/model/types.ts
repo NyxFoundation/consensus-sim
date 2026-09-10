@@ -1,6 +1,6 @@
 // ドメイン層 — 最抽象モデル。
 // このモジュールは純粋である: UI もインフラも React も持たない。
-// 命名は ESSENCE.md の「用語」節に従うユビキタス言語に沿う。
+// 命名は IDEAL.md の「用語」節に従うユビキタス言語に沿う。
 //
 // 識別子はソートごとに区別される(識別子のソート): 生の number はどの
 // ソートにも代入できるが、あるソートの値が別のソートとして通ることはない
@@ -140,7 +140,7 @@ export interface ProposedBlock {
   readonly body: BlockBody;
 }
 
-/** ESSENCE.md の参照型: Block = 錨 {index, slot} | 提案 {…}。 */
+/** IDEAL.md の参照型: Block = 錨 {index, slot} | 提案 {…}。 */
 export type Block = AnchorBlock | ProposedBlock;
 
 export const EMPTY_BODY: BlockBody = { votes: [], evidence: [] };

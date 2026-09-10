@@ -11,7 +11,7 @@ import { SLOTS_PER_EPOCH, epochOf, slotsSinceEpochStart } from "./finality";
 import { validatorIndices, type InitialConditions } from "./initialConditions";
 import type { SlotIndex, ValidatorIndex } from "./types";
 
-/** ESSENCE.md の参照型: Schedule = {proposerOf, committeeOf}。 */
+/** IDEAL.md の参照型: Schedule = {proposerOf, committeeOf}。 */
 export interface Schedule {
   proposerOf(slot: SlotIndex): ValidatorIndex;
   committeeOf(slot: SlotIndex): ReadonlySet<ValidatorIndex>;

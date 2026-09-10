@@ -1,6 +1,6 @@
 // Validator set (バリデータ) — the simulator's constraints on the participants:
 // the count is configurable between 4 and 10, defaulting to 4, and each
-// validator carries a katakana display name (ESSENCE.md). The identity of a
+// validator carries a katakana display name (IDEAL.md). The identity of a
 // validator (its index) belongs to the model.
 
 import type { ValidatorIndex } from "../model/types";
@@ -29,7 +29,7 @@ export function assertValidatorCount(count: number): void {
 
 /**
  * Katakana display names (カタカナ人名), one per validator index. The
- * standard cryptography cast keeps them recognizable (ESSENCE.md), and every
+ * standard cryptography cast keeps them recognizable (IDEAL.md), and every
  * name starts with a distinct kana so the initial alone still identifies a
  * validator where space is tight.
  */

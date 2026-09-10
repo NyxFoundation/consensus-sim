@@ -1,80 +1,52 @@
-# Atlas Builder Workspace — consensus-sim
+# consensus-sim ワークスペース
 
-Atlas Builder v1.0(Human-Essence-Driven Agentic Coding Framework)のワークスペースです。設計の正本は [.atlas-builder/META.md](.atlas-builder/META.md) を参照してください。
+[Ideal-Driven Development(IDD)](https://github.com/banr1/ideal-driven-development) で開発するワークスペースです。人間は `consensus-sim/IDEAL.md` に「実現したい状態」を書き、エージェントがそれを正として周回を回します。IDD 自体の説明はフレームワーク側の README を参照してください。
 
 ## 構造
 
 ```text
-<workspace>/
-├── .atlas-builder/                    # CONTROL_ROOT — Over-Project Agent の実行ルート(META.md はここ)
-└── consensus-sim/   # PROJECT_ROOT — 対象プロジェクト(In-Project Agent を含み得るが Atlas Builder は live 起動しない)
+<workspace>/                          1 つの Git リポジトリ
+├── .github/workflows/deploy.yml      GitHub Pages への薄い shim(人間が管理。consensus-sim/scripts/ci.sh を 1 本呼ぶ)
+├── README.md                         この文書
+└── consensus-sim/                    IDD のプロジェクト(PROJECT_ROOT)。idd はここで実行する
+    ├── IDEAL.md                      人間の正本(人間だけが書く。周回は書き換えない)
+    ├── .idd/                         progress.md(条件台帳)/ knowledge.md(知見)/ cycles/(周回記録)/ journal.jsonl(台帳)
+    ├── essences/deep-research-report.md   人間が配置した攻撃の出典(人間所有。IDEAL.md から参照)
+    ├── scripts/ci.sh                 CI の実体(npm ci → test → build → dist 検査)
+    └── src/ tests/ docs/ …           アプリ本体
 ```
 
-## 絶対規則
+フレームワーク(`idd` コマンド)はプロジェクトの外にあります(`~/.local/bin/idd`)。このリポジトリには `CLAUDE.md` も `.claude/` も置きません。文脈は周回プロンプトが注入し、境界は起動時の設定注入・環境注入と git hook が担います。
 
-**このディレクトリ(ワークスペースルート)から `claude` を起動しないでください**(invariant I-001)。
+## 使い方
 
-制御セッションは必ず次の場所から起動します。
+すべて `consensus-sim/` で実行します。
 
 ```bash
-# Over-Project Agent(制御・投影・直接実装・検証)は wrapper 経由
-cd ./.atlas-builder && just loop
-# 承認済み High-Risk 変更だけ: just supervise --todo T-... --recommendation R-...
-
-# 対象がエージェントを内包していても、Atlas Builder は live PROJECT_ROOT で
-# それを直接起動しません。対象固有の隔離 runner が無ければ人間にゲートします(META.md §10)。
+cd consensus-sim
+idd doctor                    # エージェント CLI・ガードレールの配線・IDEAL.md の構造・clean 判定
+idd once                      # 1 周回だけ(様子を見る)
+idd loop                      # 既定 25 周回まで。止まったら STOP: と次の一手を表示して exit 0 する
+idd status                    # 状態・停止理由・次の一手
+idd show [N]                  # 周回記録を読む(既定: 最新)
+idd watch                     # 別の端末から観る読取専用 TUI(q で終了)
+idd stop [--cancel]           # 走行中のループを次の周回境界で止める
 ```
 
-## はじめかた
+止まったときの人間の手番:
 
 ```bash
-# 1. 人間が Essence を書く/確認する(エージェントは絶対に編集しません)
-$EDITOR consensus-sim/ESSENCE.md
-# (または対話起草: cd ./.atlas-builder && just trust && just new-essence — セッションの境界強制に
-#  trust が先に必要。クリティカルな要件から順に質問し、全文を確認(y)した場合のみ設置される。
-#  既存 Essence の途中改稿は just update-essence — 変更意図を最初に聞き、その範囲だけを改稿する。
-#  META.md §2.1.4)
-
-# 2. 制御プレーンで健全性検査 → ループ(束縛済みなら --project 不要)
-cd ./.atlas-builder
-just trust
-just doctor
-just status
-cd ..
-git add . && git commit -m "chore: initialize Atlas Builder workspace"
-cd ./.atlas-builder
-# init 後に ESSENCE.md を書き換えた場合(placeholder の置換を含む)は、
-# 人間確認の記録(attestation)を先に済ませる — 記録が無いと初回ループは
-# essence_unreviewed_change で停止する(META.md §13.1-10)。
-# init 前に書いた Essence のままなら、この resume は無害な no-op である。
-just resume --note "initial essence"
-just loop
-# (別ターミナルからの併走: just watch — 読み取り専用の監視 TUI、META.md §15.3。
-#  キリのよい停止は just stop — 実行中 cycle は完走して checkpoint を作る、§19.1-7)
-
-# 3. ループが停止したら(STOP: 行を表示して正常終了する。エラーではない):
-#    停止理由と再開手順は `just status` とループの終了メッセージに表示される。
-#    人間がレビュー/修正してから、人間専用の resume で再開する(META.md §13.3)
-just resume --resolve R-... --note "確認/修正内容" # 指定した gate だけを解除
-just loop
-
-# Must 完了境界は通常 gate と別の明示判断:
-# just resume --approve-should --note "Should scope を承認"
-# just resume --close-at-must --note "Must scope で完了とする"
-
-# 3'. 停止対応を対話的に代行させる場合(META.md §13.6): ゲートを仕分けし、
-#     調査で決着する項目は代行、人間必須の項目は手順に分解、note と exact
-#     decision list を起草して y 確認後に targeted resume まで引き継ぐ(実装は行わない)
-just triage
-
-# 3''. 承認済み High-Risk 変更を人間同席で適用する場合
-just supervise --todo T-... --recommendation R-...
-just resume --resolve R-... --note "承認済み High-Risk 変更をレビュー"
-just loop
+idd show                      # ask なら「人間への問い」を読む
+idd refine                    # 変更意図から始める尋問で IDEAL.md を書き直す(問いへの答えもここに書く)
+idd resume --note "…"         # 介入を台帳に刻み、停止状態を解除してから idd loop
 ```
 
-このワークスペースは `just init ../consensus-sim` で束縛・初期化済みです。別プロジェクトへ束縛し直すには `.atlas-builder/` 内で `just init ../<other> --force` を実行します。
+`IDEAL.md` を手で直した場合も、未 commit のままなら次の `idd loop` が人間の編集として取り込みます。必須条件がすべて met になると `realized` で止まり、「望ましい」へ進むかは `idd resume` で人間が決めます。
 
-`just` が入っていない場合、人間は `.atlas-builder/` 内で対応する `bash scripts/*.sh --project ../consensus-sim` を直接実行できます。ただし loop / once / stop / watch / init / resume / triage / supervise / essence / trust / trust-check / doctor は入口の綴りによらず人間専用で、Agent session からの直接実行も hook が拒否します。Agent が実行できるのは settings と hook が明示許可する status/validation/state 操作だけです(META.md §18.2)。
+## 公開
 
-詳細な運用手順は [.atlas-builder/README.md](.atlas-builder/README.md) を参照してください。
+main への push ごとに `.github/workflows/deploy.yml` が `bash consensus-sim/scripts/ci.sh` を実行し、成功したときだけ `consensus-sim/dist/` を GitHub Pages(`https://nyxfoundation.github.io/consensus-sim/`)に公開します。shim の変更は人間の作業です(周回は PROJECT_ROOT の外を読み書きしません)。
+
+## 来歴
+
+このワークスペースは Atlas Builder(`.atlas-builder/` + `ESSENCE.md`)で開発されていましたが、IDD に置き換えました。旧正本は `git show 41169f7:consensus-sim/ESSENCE.md` で読めます。`IDEAL.md` の条件 C1〜C32 は旧 必須対応事項 1〜32 と同じ番号で、コードのコメントが引く旧番号はそのまま `IDEAL.md` で引けます。

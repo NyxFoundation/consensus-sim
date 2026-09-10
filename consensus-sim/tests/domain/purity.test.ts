@@ -1,5 +1,5 @@
 // Architectural boundaries: the domain layer is pure — it must not import
-// UI, infrastructure, React, or anything outside src/domain (ESSENCE.md,
+// UI, infrastructure, React, or anything outside src/domain (IDEAL.md,
 // DDD) — and it is two modules with a one-way dependency: sim/ (the
 // simulator's constraints) may import model/ (the essential specification),
 // model/ never imports sim/. The type catalog (型一覧) bundles model/ only.
