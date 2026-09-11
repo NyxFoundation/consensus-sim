@@ -45,7 +45,7 @@ ideal_sha: 91605e6398bfbddf392a585b2fe893cd39f7db35487fe4f16b2a571a25ddea68
 | C30 | 必須 | UI の視覚・情報設計がデザイン方針「計器」に従う((a)〜(f) の機械検査) | met | cycle 1: npx vitest run tests/ui/designTokens.test.ts tests/ui/layout.test.ts tests/ui/prose.test.tsx tests/ui/theme.test.tsx exit 0(人間承認済みの見た目・情報設計を本周回は変更していない) |
 | C31 | 必須 | 攻撃の自動再生(一定間隔の送り・一時停止/再開・達成または終了スロットで停止) | met | cycle 1: npx vitest run tests/ui/autoplay.test.tsx exit 0 |
 | C32 | 必須 | 本質的仕様モジュールのコメントは日本語で、型一覧の全型が宣言とコメントを持つ | met | cycle 1: npx vitest run tests/domain/modelComments.test.ts tests/ui/typesPage.test.tsx exit 0 |
-| C33 | 必須 | デプロイ契約(clean copy の scripts/ci.sh が exit 0、dist が相対参照で自己完結) | blocked | 作業木の npm test / npm run build は本周回で exit 0。clean copy での scripts/ci.sh は、周回環境が bash の起動とプロジェクト外への cd を拒否するため実行できない(周回 1) |
+| C33 | 必須 | デプロイ契約(clean copy の scripts/ci.sh が exit 0、dist が相対参照で自己完結) | blocked | 周回 2 で再確認。作業木では ci.sh の手順 2〜4 に当たる検査がすべて通る(`npm test` exit 0 / `npm run build` exit 0 / `dist/index.html` の参照は `./assets/` 2 件、絶対・スキーム参照 0 件)。残るのは手順 1 の clean install で、複製先の `bash …/scripts/ci.sh` も一時ディレクトリへの `cd` も権限モード(don't ask)が拒否するため起動できない。人間の判断待ち(周回 2 の記録の問い) |
 | C34 | 望ましい | 自動再生の速度調整と、攻撃を伴わないシナリオの自動再生・一時停止 | met | cycle 1: npx vitest run tests/ui/autoplay.test.tsx exit 0(「auto-play without an attack」「auto-play speed」の suite を含む) |
 | C35 | 望ましい | 介入・シナリオ操作のキーボードショートカット | met | cycle 1: npx vitest run tests/ui/shortcuts.test.tsx exit 0 |
 | C36 | 望ましい | シナリオに名前とメモを付けて保存でき、一覧に表示される | met | cycle 1: npx vitest run tests/ui/scenario.test.tsx exit 0(「scenario name and note」の suite を含む) |
